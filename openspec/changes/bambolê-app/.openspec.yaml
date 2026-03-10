@@ -1,0 +1,36 @@
+name: bambolê-app
+schema: spec-driven
+status: ready
+created: "2026-03-10"
+updated: "2026-03-10"
+
+artifacts:
+  proposal:
+    status: done
+    path: proposal.md
+  design:
+    status: done
+    path: design.md
+  design-telas:
+    status: done
+    path: design-telas.md
+  tasks:
+    status: done
+    path: tasks.md
+
+apply:
+  requires:
+    - proposal
+    - design
+    - tasks
+
+changelog:
+  - date: "2026-03-10"
+    description: >
+      Proposta inicial criada com Clean Architecture + DDD (5 bounded contexts),
+      19 telas, 37 tasks distribuídas em 11 semanas.
+  - date: "2026-03-10"
+    description: >
+      Refinamentos: categorias de atividade fixas, recorrência semanal, raio de geoloc 200m,
+      push triggers documentados, TASK-34 movida para Core, design-telas.md adicionado com
+      spec completa das 19 telas incluindo Admin (Telas 15–19).
