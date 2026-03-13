@@ -25,6 +25,10 @@
 |------|-----------|
 | `parent` | Pai/Responsável — auto-cadastro pelo app |
 | `monitor` | Monitor do centro — cadastrado pelo admin |
+
+### Recuperação de Senha
+- **Pai**: fluxo padrão via Tela 3 (magic link por e-mail do Supabase)
+- **Monitor**: duas vias — (1) magic link por e-mail, se o monitor tiver acesso ao e-mail cadastrado; (2) **Admin redefine manualmente** pela Tela 16 caso o monitor não consiga acessar o e-mail
 | `admin` | Administração — gerencia todo o sistema |
 
 ---
@@ -42,13 +46,32 @@
 
 - Cada monitor é atribuído a **uma turma por padrão** (relação 1:1 no fluxo normal)
 - Modelagem no banco como **N:M com flag `is_primary`** para suportar cobertura de ausências sem migração futura
-- No app, o monitor entra e vai **direto para a sua turma principal**
-- O monitor tem **autonomia total** para criar e editar atividades da sua turma na agenda
+- O monitor pode **acumular múltiplas turmas** (principal + coberturas temporárias)
+- No app, a Home do monitor é uma **lista das turmas atribuídas**; ele toca em uma para entrar na visão daquela turma
+- O monitor tem **autonomia total** para criar e editar atividades das suas turmas na agenda
+
+### Monitor sem Turma
+- Se o admin ainda não atribuiu nenhuma turma, o monitor entra em **Modo Visualização**: telas de Chamada e Agenda ficam desabilitadas com aviso "Nenhuma turma vinculada"
+
+### Solicitação de Turma (Substituição)
+- O monitor pode **solicitar acesso** a uma turma adicional (ex: cobrir ausência de outro monitor)
+- O Admin recebe a solicitação e **aprova ou rejeita** pela Tela 16
+- Ao aprovar, a nova turma é **adicionada** à lista do monitor (acumula, não substitui)
+- O Admin pode **desvincular** turmas a qualquer momento
 
 ```sql
-monitor_activities
-  monitor_id, activity_id, is_primary (bool)
+monitor_classes
+  monitor_id, class_id, is_primary (bool)
 ```
+
+
+### Regras de Turmas e Grade Horária
+- **Grade Fixa**: Cada turma possui dias da semana e horários de início/fim definidos (ex: Seg/Qua/Sex, 14h-17h).
+- **Bloqueio de Chamada**: O monitor só pode iniciar a chamada nos dias e horários previstos na grade da turma.
+- **Sessões Extras**: Para aulas de reposição ou eventos fora da grade, o admin deve editar temporariamente a grade da turma.
+- **Campos Adicionais**: Além do nome, turmas possuem Descrição/Modalidade e Faixa Etária sugerida.
+- **Capacidade**: A capacidade de alunos é controlada administrativamente pelo admin, sem bloqueio automático pelo sistema.
+
 
 ---
 
@@ -115,15 +138,15 @@ A chamada de presença tem **três estados possíveis**:
 
 ## 🔔 Gatilhos de Push Notification
 
-| Evento | Destinatário |
-|--------|-------------|
-| Chamada marcada (presente/ausente) | Pai do filho |
-| Foto publicada pelo monitor | Pais da turma |
-| Aviso do monitor publicado | Pais da turma |
-| Comunicado geral do admin | Todos os pais |
-| Pré-justificativa registrada pelo pai | Monitor da turma |
+| Evento | Gatilho (Tabela) | Destinatário | Notificação |
+|--------|------------------|--------------|-------------|
+| Chamada marcada | `attendances` (INSERT) | Pai do filho | Push: Presença/Falta registrada |
+| Foto publicada | `activity_media` (INSERT) | Pais da turma | Push: Nova foto da atividade |
+| Aviso de monitor | `announcements` (INSERT) | Pais da turma | Push: Novo aviso da turma |
+| Comunicado geral | `announcements` (INSERT) | Todos os pais | Push: Comunicado do centro |
+| Pré-justificativa | `attendances` (UPDATE) | Monitor da turma | Push: Falta comunicada pelo pai |
 
-> ⚠️ O gerenciamento de notificações (ativar/desativar) é feito **somente pelo sistema operacional** — o app não oferece toggle interno.
+> ⚙️ **Estratégia Técnica**: A integração entre contextos é feita via **Supabase Database Webhooks**. Quando um registro é inserido ou alterado no banco, o Supabase dispara uma **Edge Function** que resolve os destinatários e envia o Push via Expo Notifications.
 
 ---
 
@@ -132,6 +155,19 @@ A chamada de presença tem **três estados possíveis**:
 - Campo **opcional** — o admin pode ou não cadastrar foto da criança
 - Quando não há foto: exibir **avatar com iniciais** do nome
 - Util para o monitor identificar crianças na tela de chamada
+
+---
+
+## 🔒 Privacidade e LGPD — Fotos de Atividades
+
+| Regra | Descrição |
+|-------|-----------|
+| **Acesso** | Fotos visíveis **somente para pais da turma** (policy baseada em `class_id` no Supabase Storage) |
+| **Retenção** | Fotos são mantidas **enquanto a criança estiver matriculada**. Ao sair do centro, as fotos associadas são removidas |
+| **Consentimento** | No primeiro acesso ao app, o pai visualiza um **Termo de Consentimento de Imagem** que precisa aceitar para acessar o feed de fotos |
+| **Sem consentimento** | Feed de fotos **bloqueado** para o pai. O monitor recebe um **aviso visual** na tela de chamada sinalizando crianças sem consentimento de imagem, para evitá-las nas fotos quando possível |
+
+> ⚠️ O campo `image_consent` é armazenado no perfil do `Guardian` (pai) e consultado tanto pelo feed de fotos quanto pela tela de chamada do monitor.
 
 ---
 
@@ -151,23 +187,32 @@ A chamada de presença tem **três estados possíveis**:
 
 **Ações de escrita offline (pai):** ficam pendentes e sincronizam quando a conexão retornar (ex: justificativa de falta registrada sem conexão).
 
+### Regras de Sincronização Offline
+- **Resolução de conflito**: Servidor sempre ganha. Se o estado no Supabase já mudou (ex: monitor marcou `present`), a ação offline do pai é descartada com alerta: “A presença já foi registrada pelo monitor.”
+- **Expiração**: Ações pendentes expiram em **7 dias**. Após esse período, são descartadas automaticamente.
+- **Feedback**: Sincronização silenciosa em background. O pai só recebe alerta se alguma ação foi **descartada** (por conflito ou expiração).
+
 ---
 
 ## 🗄️ Modelo de Dados Principal
 
 ```
-users ──────────── parent_children ──── children
-  │ (pai/monitor)        (N:M)            │  ├── photo_url (opcional)
-  │                                       ├── attendances
-  │                                       │     (status: present|pre_justified|absent|justified,
-  │                                       │      lat, lng, monitor_id, date, justification_note)
-  │                                       └── observations
-  │                                             (individual | geral | aviso_para_pais)
-  └── monitor_activities ──── activities
-                                  └── activity_media
-                                        (fotos → Supabase Storage)
+users ──────────── monitor_activities ─── classes
+  │ (pai/monitor)        (N:M/is_primary)   │  ├── name, description, age_range
+  │                                         │  └── schedule (JSONB/WeeklySchedule)
+  │                                         │
+  └─────────────── parent_children ───── children
+                    (N:M)           │  ├── photo_url (opcional)
+                                    │  ├── class_id (FK classes)
+                                    ├── attendances
+                                    │     (status: present|pre_justified|absent|justified,
+                                    │      lat, lng, monitor_id, date, justification_note)
+                                    └── observations
+                                          (individual | geral | aviso_para_pais)
 
-notifications → enviadas ao pai (presença, foto, aviso de turma, comunicado geral)
+classes ───────── activity_media (fotos → Supabase Storage)
+
+notifications → enviadas via Supabase Edge Functions (gatilhos de banco)
 announcements → comunicados do admin (geral) e do monitor (turma)
 ```
 
@@ -438,7 +483,7 @@ src/
 │   ├── sqlite/              SQLiteParentCache.ts (leitura offline — pais)
 │   ├── camera/              ExpoCameraService.ts
 │   ├── location/            ExpoLocationService.ts
-│   └── events/              EventBus.ts (integração entre contextos)
+│   └── events/              EventBus (Supabase Database Webhooks + Edge Functions)
 │
 └── presentation/
     ├── navigation/          ParentNavigator.ts, MonitorNavigator.ts, AdminNavigator.ts
@@ -471,10 +516,11 @@ src/
 | 8 | Avisos / Notificações | Comunicados do centro e da turma |
 | 9 | Perfil | Alterar nome, senha; foto de perfil opcional; push gerenciado pelo SO |
 
-### 🧑‍🏫 Visão do Monitor — 5 telas
+### 🧑‍🏫 Visão do Monitor — 6 telas
 | # | Tela | O que faz |
 |---|------|-----------| 
-| 10 | Home da Turma | Visão geral da turma do dia |
+| 10 | Minhas Turmas (Home) | Lista as turmas atribuídas ao monitor; toca para entrar na visão da turma. Sem turmas: Modo Visualização com aviso + botão "Solicitar Turma" |
+| 10b | Visão da Turma | Visão geral da turma selecionada do dia |
 | 11 | Chamada / Presença | Lista alunos com avatares, marcar status (vê pré-justificativas do pai) |
 | 12 | Captura de Foto | Câmera + upload da atividade |
 | 13 | Observações | Notas gerais/individuais + avisos enviados aos pais (histórico + novo aviso) |
@@ -484,7 +530,7 @@ src/
 | # | Tela | O que faz |
 |---|------|-----------| 
 | 15 | Gestão de Crianças | Cadastrar (foto via câmera, opcional), listar com filtro por turma, editar |
-| 16 | Gestão de Monitores | Cadastrar monitor (admin define senha), atribuir turma |
+| 16 | Gestão de Monitores | Cadastrar monitor (admin define senha), atribuir turma, **redefinir senha**, aprovar solicitações de turma |
 | 17 | Vinculação Pai ↔ Filho | Buscar pai pelo e-mail, vincular / desvincular |
 | 18 | Gestão de Turmas | Criar e editar turmas + visão simples de dados (% presença por turma) |
 | 19 | Comunicados Gerais | Publicar comunicados para todos os pais via push notification |
@@ -546,8 +592,23 @@ src/
 | 10/03 | Raio de geolocalização: 200m | 100m / 500m | Padrão recomendado — cobre imprecisão urbana e indoor |
 | 10/03 | Coordenadas do centro hardcoded em config.ts | Configurável pelo admin | Endereço fixo; configuração pelo admin adicionaria risco sem benefício |
 | 10/03 | Admin define senha do monitor no cadastro | Convite por e-mail | Mais simples; admin tem controle direto do acesso |
-| 10/03 | Tela 15: foto da criança via câmera + filtro por turma | Somente galeria / sem filtro | Câmera mais prático no ato do cadastro; filtro essencial com múltiplas turmas |
-| 10/03 | TASK-34 (Gestão de Turmas) movida para Core semana 3–4 | Bônus semana 11 | Turma é pré-requisito para cadastro de crianças e monitores |
+| 13/03 | Turmas com grade horária fixa | Horários apenas informativos | Permite automação e segurança no controle de presença |
+| 13/03 | Bloqueio de chamada fora da grade | Acesso livre ao monitor | Garante conformidade com o horário de funcionamento |
+| 13/03 | Turmas com Modalidade e Faixa Etária | Apenas nome da turma | Melhora organização administrativa e clareza para o pai |
+| 13/03 | EventBus via Database Webhooks | Realtime WebSockets / Fila Interna | Simplicidade e robustez usando infraestrutura Supabase |
+| 13/03 | Notificação de presença p/ todos status | Notificar apenas faltas | Mantém o pai informado de forma proativa sobre o check-in |
+| 13/03 | Monitor sem turma: Modo Visualização | Bloqueio total / auto-atribuição | Monitor vê o app mas não opera sem turma; evita frustração |
+| 13/03 | Solicitação de turma com aprovação do Admin | Somente via Admin / Livre | Equilíbrio entre agilidade e controle; Admin mantém autoridade |
+| 13/03 | Monitor acumula múltiplas turmas | Troca (1 por vez) | Cobertura de ausências sem perder turma principal |
+| 13/03 | Home do monitor: lista de turmas | Direto para turma principal | Suporta múltiplas turmas naturalmente; monitor escolhe qual operar |
+| 13/03 | Sync offline: servidor sempre ganha | Pai ganha / decisão inteligente | Evita sobrescrever dados reais do monitor; segurança e consistência |
+| 13/03 | Ações offline expiram em 7 dias | Sem expiração / 48h | Margem confortável sem acumular dados obsoletos |
+| 13/03 | Feedback de sync silencioso | Toast / Tela de resumo | Menos intrusivo; alerta só quando algo foi descartado |
+| 13/03 | Fotos visíveis somente p/ pais da turma | Todos os pais / Pais + Admin | Mais restritivo; alinhado com LGPD e segurança |
+| 13/03 | Retenção de fotos vinculada à matrícula | 1 ano / Indefinida | Limpeza automática ao sair; minimização de dados LGPD |
+| 13/03 | Consentimento de imagem via app (pai) | No cadastro / Implícito | Transparência e controle ao responsável; exigido pela LGPD+ECA |
+| 13/03 | Sem consentimento: feed bloqueado + monitor sinalizado | Só bloquear feed / Continuar normal | Monitor evita incluir criança sem consentimento nas fotos |
+| 13/03 | Recuperação de senha monitor: duas vias | Somente admin / Somente e-mail | Cobre ambos os cenários: monitor com e sem acesso ao e-mail |
 
 ---
 
