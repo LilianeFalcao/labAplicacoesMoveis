@@ -1,20 +1,99 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+context: |
+  # App Bambolê — Centro de Recreação Infanto-Juvenil
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+  ## Produto
+  Aplicativo móvel oficial do Centro Bambolê. Substitui comunicação informal
+  (WhatsApp, papel) por canal digital centralizado entre o centro e as famílias.
+
+  ## Stack
+  - Framework: Expo + React Native (TypeScript)
+  - Backend / BD remoto: Supabase (Postgres + Auth + Storage)
+  - BD local: SQLite — cache de leitura offline exclusivo para o perfil `parent`
+  - Câmera: expo-camera
+  - Geolocalização: expo-location
+  - Notificações push: Expo Notifications + FCM/APNs via Expo Push API
+  - Ícones: @expo/vector-icons (padrão para TODOS os ícones do app)
+  - Testes: Jest (unit/integration) + React Native Testing Library (componentes) + Maestro (E2E)
+
+  ## Arquitetura
+  Clean Architecture + Domain-Driven Design (DDD).
+  Regra de dependência absoluta: camadas externas dependem de internas.
+  O `domain/` é puro TypeScript — sem dependências de Supabase, React Native ou SQLite.
+
+  Camadas:
+    presentation/   → telas, componentes, navegação (React Native)
+    application/    → use cases / application services
+    domain/         → bounded contexts, entidades, VOs, domain events (núcleo puro)
+    infrastructure/ → Supabase, SQLite, câmera, geoloc, push
+
+  ## Bounded Contexts (5)
+  1. Identity & Access → User, Email, Role (parent | monitor | admin)
+  2. Enrollment → Child, Guardian, GuardianLink (N:M)
+  3. Attendance → AttendanceRecord (4 status: present | absent | pre_justified | justified)
+  4. Activity → Class (com WeeklySchedule e isCallAllowedNow()), Schedule, ActivityPhoto
+  5. Communication → Announcement (audience: class | all)
+
+  ## Perfis de usuário (roles)
+  - parent: auto-cadastro, visualiza presença/fotos/avisos, justifica faltas, aceita LGPD
+  - monitor: cadastrado pelo admin, faz chamada (geoloc + grade horária), publica fotos/avisos
+  - admin: gerencia crianças, turmas, monitores, vínculos, comunicados gerais
+
+  ## Regras de negócio críticas
+  - Chamada de presença bloqueada fora do horário da grade da turma (WeeklySchedule)
+  - Chamada requer validação geográfica (raio 200m, hardcoded em config.ts)
+  - Monitor pode acumular múltiplas turmas; sem turma → Modo Visualização
+  - Solicitação de turma por monitor requer aprovação do admin
+  - Offline (parent): SQLite read cache; ações pendentes expiram em 7 dias; servidor sempre ganha em conflitos
+  - LGPD: consentimento de imagem obrigatório para pai acessar feed; fotos visíveis
+    somente para pais da turma (RLS por class_id); retenção vinculada à matrícula
+  - Notificações push via Expo Push API chamada diretamente nos use cases (sem webhooks)
+  - Token push armazenado na tabela `users.push_token`, registrado no login
+
+  ## Estratégia de testes (TDD obrigatório)
+  - Workflow: Red → Green → Refactor
+  - domain/: Jest, cobertura 100%
+  - application/: Jest com repositórios mockados, cobertura 90%
+  - infrastructure/: Jest integração, cobertura 70%
+  - presentation/: React Native Testing Library, cobertura 80%
+  - Fluxos E2E: Maestro (7 flows obrigatórios — login, chamada, justificativa,
+    solicitação de turma, foto, consentimento LGPD, cadastro de criança)
+
+  ## Escopo (o que NÃO está incluído)
+  - Registro de saída de crianças
+  - Pagamentos ou mensalidades
+  - Chat entre pais e monitores
+  - Múltiplos centros / multi-tenant
+  - Toggle de notificações dentro do app
+  - Edge Functions ou Database Webhooks do Supabase
+
+# Regras por artefato — guiam a IA ao gerar cada tipo de documento
+rules:
+  proposal:
+    - Manter foco no problema do centro de recreação — sem generalizar para outros contextos
+    - Seção de escopo deve listar explicitamente o que NÃO está incluído no MVP
+    - Tom direto e objetivo, sem jargão técnico excessivo
+    - Incluir sempre a tabela de perfis (parent / monitor / admin) com necessidade principal
+    - Decisões de LGPD (consentimento de imagem) devem aparecer em seção própria
+
+  design:
+    - Seguir Clean Architecture rigorosamente — domain/ nunca importa de infrastructure/
+    - Todo novo aggregate deve ter: Aggregate Root, VOs, Domain Events e Interface de repositório
+    - Use cases sempre recebem dependências por injeção (interface, não implementação concreta)
+    - Notificações push sempre via ExpoPushService (Expo Push API direta) — nunca via webhooks
+    - Ícones sempre via @expo/vector-icons
+    - Novos campos de banco devem incluir o SQL de migração completo
+    - Comportamento offline deve ser especificado para os 3 perfis (parent / monitor / admin)
+    - Regras de segurança (RLS) devem ser documentadas para qualquer tabela/storage novo
+
+  tasks:
+    - Cada task deve ter: título descritivo, detalhes de implementação e estimativa de horas
+    - Estimativas máximas de 2h por task — quebrar se necessário
+    - Tasks de domínio (entities, VOs, events) sempre antes das tasks de repositório
+    - Tasks de repositório sempre antes das tasks de use case
+    - Tasks de use case sempre antes das tasks de tela (presentation)
+    - Cada bounded context novo deve gerar tasks de domínio + repositório + use case + tela
+    - Incluir task de teste (Jest/RNTL/Maestro) para cada fluxo crítico novo
+    - Tasks de banco (schema/migração) sempre marcadas como pré-requisito explícito
+    - Manter seção de Priorização ao final: 🔴 Core / 🟡 Importante / 🟠 Bônus

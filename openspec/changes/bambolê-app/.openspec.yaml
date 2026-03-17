@@ -2,7 +2,7 @@ name: bambolê-app
 schema: spec-driven
 status: ready
 created: "2026-03-10"
-updated: "2026-03-10"
+updated: "2026-03-17"
 
 artifacts:
   proposal:
@@ -34,3 +34,11 @@ changelog:
       Refinamentos: categorias de atividade fixas, recorrência semanal, raio de geoloc 200m,
       push triggers documentados, TASK-34 movida para Core, design-telas.md adicionado com
       spec completa das 19 telas incluindo Admin (Telas 15–19).
+  - date: "2026-03-17"
+    description: >
+      Refinamentos de 13/03 mesclados na proposta base: grade horária das turmas com bloqueio
+      de chamada por horário, WeeklySchedule VO, monitor sem turma (Modo Visualização +
+      solicitação de turma com aprovação do admin), EventBus substituído por Supabase Database
+      Webhooks + Edge Functions, sync offline robusto (conflito server-first + expiração 7 dias),
+      LGPD (consentimento de imagem, RLS Storage por turma, retenção vinculada à matrícula),
+      recuperação de senha do monitor em duas vias. Tasks expandidas de 37 para 44 (~74h total).
