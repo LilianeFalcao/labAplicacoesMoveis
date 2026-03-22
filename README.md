@@ -2,16 +2,15 @@
   <img src="https://img.shields.io/badge/Expo-React%20Native-blue?style=for-the-badge&logo=expo" />
   <img src="https://img.shields.io/badge/Backend-Supabase-3ECF8E?style=for-the-badge&logo=supabase" />
   <img src="https://img.shields.io/badge/Arquitetura-Clean%20%2B%20DDD-purple?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/Testes-Jest%20%2B%20RNTL%20%2B%20Maestro-orange?style=for-the-badge" />
 </p>
 
-# 🎯 Bambolê — Centro de Recreação Infanto-Juvenil
+# Bambolê — Centro de Recreação Infanto-Juvenil
 
 Aplicativo móvel oficial do **Centro de Recreação Bambolê**. Substitui a comunicação informal (WhatsApp, papel) por um canal digital centralizado entre o centro e as famílias, com controle de presença validado por geolocalização, feed de fotos de atividades e conformidade com LGPD.
 
 ---
 
-## 📋 Problema
+## Problema
 
 | # | Problema | Solução no App |
 |---|----------|----------------|
@@ -21,7 +20,7 @@ Aplicativo móvel oficial do **Centro de Recreação Bambolê**. Substitui a com
 
 ---
 
-## 👥 Perfis de Usuário
+## Perfis de Usuário
 
 | Perfil | Descrição | Funcionalidades Principais |
 |--------|-----------|---------------------------|
@@ -31,7 +30,7 @@ Aplicativo móvel oficial do **Centro de Recreação Bambolê**. Substitui a com
 
 ---
 
-## 🛠️ Stack Técnico
+## Stack Técnico
 
 | Camada | Tecnologia |
 |--------|-----------|
@@ -48,7 +47,7 @@ Aplicativo móvel oficial do **Centro de Recreação Bambolê**. Substitui a com
 
 ---
 
-## 🏛️ Arquitetura
+## Arquitetura
 
 **Clean Architecture + Domain-Driven Design (DDD)**
 
@@ -91,7 +90,7 @@ Attendance         ──(Published Language)──▶  Communication  (Attendan
 
 ---
 
-## 📁 Estrutura de Pastas
+## Estrutura de Pastas
 
 ```
 src/
@@ -121,7 +120,7 @@ src/
 
 ---
 
-## ⚙️ Regras de Negócio Críticas
+## Regras de Negócio Críticas
 
 ### Chamada de Presença — Dupla Barreira
 - **Grade horária**: chamada bloqueada fora dos dias/horários da turma (`WeeklySchedule.includesNow()`)
@@ -156,16 +155,16 @@ src/
 
 ---
 
-## 📱 Telas (19 + 1 modal LGPD)
+## Telas (19 + 1 modal LGPD)
 
-### 🔐 Auth (3)
+### Auth (3)
 | # | Tela |
 |---|------|
 | 1 | Login |
 | 2 | Cadastro (pai) |
 | 3 | Recuperação de senha |
 
-### 👨 Visão do Pai (6)
+### Visão do Pai (6)
 | # | Tela | Destaque |
 |---|------|---------|
 | 4 | Home / Meus Filhos | Lista filhos + preview de avisos |
@@ -175,7 +174,7 @@ src/
 | 8 | Avisos / Notificações | Comunicados da turma + gerais |
 | 9 | Perfil | Nome, senha, foto, revogar consentimento |
 
-### 🧑‍🏫 Visão do Monitor (6)
+### Visão do Monitor (6)
 | # | Tela | Destaque |
 |---|------|---------|
 | 10 | Minhas Turmas (Home) | Lista turmas; Modo Visualização se sem turma |
@@ -185,7 +184,7 @@ src/
 | 13 | Observações | Notas internas + avisos para pais |
 | 14 | Agenda da Turma | CRUD com recorrência semanal |
 
-### 🏢 Visão Admin (5)
+### Visão Admin (5)
 | # | Tela | Destaque |
 |---|------|---------|
 | 15 | Gestão de Crianças | Cadastro com foto opcional |
@@ -196,7 +195,7 @@ src/
 
 ---
 
-## 🔔 Push Notifications
+## Push Notifications
 
 | Evento | Destinatário |
 |--------|-------------|
@@ -210,7 +209,7 @@ src/
 
 ---
 
-## 🧪 Estratégia de Testes — TDD
+## Estratégia de Testes — TDD
 
 O projeto segue **Test-Driven Development** com a pirâmide:
 
@@ -243,7 +242,7 @@ O projeto segue **Test-Driven Development** com a pirâmide:
 
 ---
 
-## 📂 Documentação do Projeto
+## Documentação do Projeto
 
 | Documento | Descrição |
 |-----------|-----------|
@@ -256,7 +255,7 @@ O projeto segue **Test-Driven Development** com a pirâmide:
 
 ---
 
-## 🎨 Design Visual
+## Design Visual
 
 | Elemento | Valor |
 |----------|-------|
@@ -286,7 +285,7 @@ O projeto segue **Test-Driven Development** com a pirâmide:
 
 ---
 
-## 🚫 Fora do Escopo (MVP)
+## Fora do Escopo (MVP)
 
 - Registro de saída das crianças
 - Pagamentos ou mensalidades
@@ -296,6 +295,6 @@ O projeto segue **Test-Driven Development** com a pirâmide:
 
 ---
 
-## 📄 Licença
+## Licença
 
-Projeto acadêmico — Laboratório de Aplicações Móveis.
+Linn Falcão - Projeto acadêmico — Laboratório de Aplicações Móveis.
