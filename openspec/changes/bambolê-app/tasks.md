@@ -225,11 +225,33 @@
 
 - [ ] **TASK-40** `SQLiteParentCache` com sync robusto  
   Cache de leitura: presenças, fotos, avisos  
-  `PendingAction` com `expiresAt` (createdAt + 7 dias)  
-  Conflito: servidor ganha — descartar ação offline se estado já mudou; exibir alerta  
-  Expiração: varrer fila na abertura do app; descartar e notificar pai  
-  Sync silencioso; alerta apenas se houver descartes  
-  _Est: 3h_
+  _Est: 5h_
+
+  - [ ] **TASK-40a** Schema SQLite: tabelas de cache + `pending_actions`  
+    Criar `cached_attendances`, `cached_photos`, `cached_announcements`, `cached_children`  
+    Criar `pending_actions` com campos: `id, type, payload, created_at, expires_at, status`  
+    _Est: 1h_
+
+  - [ ] **TASK-40b** `OfflineActionQueue` — enfileiramento de ações offline  
+    Método `enqueue(type, payload)` calcula `expiresAt = createdAt + 7 dias`  
+    Método `getPendingCount()` para badge visual ao pai  
+    _Est: 0.5h_
+
+  - [ ] **TASK-40c** `OfflineSyncService` — pipeline de 4 etapas  
+    Etapa 1 (PURGE): marcar como `discarded` ações com `expires_at < now()`  
+    Etapa 2 (FETCH): atualizar cache local com dados do Supabase  
+    Etapa 3 (REPLAY): reprocessar pendentes em FIFO; servidor sempre ganha  
+    Etapa 4 (NOTIFY): exibir alerta ao pai se houve descartes (conflito ou expiração)  
+    _Est: 2h_
+
+  - [ ] **TASK-40d** Integração com `NetInfo` + abertura do app  
+    Trigger automático de `OfflineSyncService.sync()` em reconexão e no `AppState` `active`  
+    Limpeza periódica: remover ações `synced`/`discarded` com mais de 30 dias  
+    _Est: 1h_
+
+  - [ ] **TASK-40e** Testes unitários do `OfflineSyncService`  
+    Cenários: expiração, conflito (monitor já marcou `present`), aplicação bem-sucedida, FIFO  
+    _Est: 0.5h_
 
 ---
 

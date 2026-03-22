@@ -393,15 +393,49 @@ class ApproveClassRequestUseCase {
 | **Monitor** | Requer conexão (geolocalização obrigatória na chamada) |
 | **Admin** | Requer conexão |
 
-### Regras de Sincronização Offline
+### Cache de Leitura (Pai)
+
+Dados cacheados no SQLite local para acesso offline:
+
+| Dado | Tabela SQLite | Atualização |
+|------|---------------|-------------|
+| Presenças dos filhos | `cached_attendances` | A cada abertura do app + pull-to-refresh |
+| Feed de fotos | `cached_photos` (metadados) + arquivos em disco | Lazy — somente fotos já visualizadas |
+| Avisos e comunicados | `cached_announcements` | A cada abertura do app |
+| Dados dos filhos | `cached_children` | A cada abertura do app |
+
+### Fila de Ações Pendentes (Escrita Offline)
+
+Quando o pai executa uma ação de escrita sem conexão, ela é enfileirada no SQLite:
+
+```sql
+-- infrastructure/sqlite/schema.sql
+CREATE TABLE pending_actions (
+  id          TEXT PRIMARY KEY,
+  type        TEXT NOT NULL,  -- 'pre_justify' | 'justify_retroactive'
+  payload     TEXT NOT NULL,  -- JSON serializado
+  created_at  TEXT NOT NULL,  -- ISO 8601
+  expires_at  TEXT NOT NULL,  -- created_at + 7 dias (ISO 8601)
+  status      TEXT NOT NULL DEFAULT 'pending'  -- 'pending' | 'synced' | 'discarded'
+);
+```
+
+### Interfaces TypeScript
 
 ```typescript
+// infrastructure/sqlite/types/PendingAction.ts
 interface PendingAction {
   id: string
   type: 'pre_justify' | 'justify_retroactive'
-  payload: Record<string, unknown>
+  payload: {
+    childId: string
+    classId: string
+    date: string           // YYYY-MM-DD
+    justificationNote?: string
+  }
   createdAt: Date
-  expiresAt: Date   // createdAt + 7 dias
+  expiresAt: Date          // createdAt + 7 dias
+  status: 'pending' | 'synced' | 'discarded'
 }
 
 interface SyncResult {
@@ -412,13 +446,308 @@ interface SyncResult {
 interface DiscardedAction {
   action: PendingAction
   reason: 'conflict' | 'expired'
-  message: string   // exibido ao pai como alerta
+  message: string          // exibido ao pai como alerta
 }
 ```
 
-- **Conflito**: servidor sempre ganha — se monitor já marcou `present`, ação offline do pai é descartada com alerta
-- **Expiração**: ações com `expiresAt < now()` descartadas na abertura do app
-- **Feedback**: sync silencioso; alerta apenas se houver descartes
+### Pipeline de Sincronização — 4 Etapas
+
+O sync executa automaticamente na **abertura do app** e quando a **conexão é restaurada** (`NetInfo`). O pipeline segue esta ordem:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    PIPELINE DE SYNC                             │
+│                                                                 │
+│  1. PURGE ──▶ 2. FETCH REMOTE ──▶ 3. REPLAY ──▶ 4. NOTIFY     │
+│                                                                 │
+│  Remover        Baixar estado      Tentar          Exibir       │
+│  expiradas      atual do           aplicar         alerta se    │
+│  (>7 dias)      servidor           pendentes       houve        │
+│                                                    descartes    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### OfflineSyncService — Implementação Detalhada
+
+```typescript
+// infrastructure/sqlite/OfflineSyncService.ts
+
+const EXPIRATION_DAYS = 7
+
+class OfflineSyncService {
+  constructor(
+    private readonly db: SQLiteDatabase,
+    private readonly attendanceRepo: IAttendanceRepository,
+    private readonly alertService: IAlertService
+  ) {}
+
+  /**
+   * Ponto de entrada principal — chamado na abertura do app
+   * e quando NetInfo detecta reconexão.
+   */
+  async sync(): Promise<SyncResult> {
+    // Etapa 1: PURGE — remover ações expiradas
+    const expired = await this.purgeExpiredActions()
+
+    // Etapa 2: FETCH — obter estado remoto atualizado
+    await this.refreshLocalCache()
+
+    // Etapa 3: REPLAY — tentar aplicar ações pendentes
+    const { applied, conflicted } = await this.replayPendingActions()
+
+    // Etapa 4: NOTIFY — alertar pai sobre descartes
+    const allDiscarded: DiscardedAction[] = [
+      ...expired.map(a => ({
+        action: a,
+        reason: 'expired' as const,
+        message: `Justificativa para ${a.payload.date} expirou (mais de 7 dias sem conexão).`
+      })),
+      ...conflicted
+    ]
+
+    if (allDiscarded.length > 0) {
+      await this.alertService.showSyncAlert(allDiscarded)
+    }
+
+    return { applied, discarded: allDiscarded }
+  }
+
+  /**
+   * ETAPA 1: PURGE
+   * Remove ações cuja data de expiração já passou.
+   * Critério: expires_at < NOW()
+   * onde expires_at = created_at + 7 dias.
+   */
+  private async purgeExpiredActions(): Promise<PendingAction[]> {
+    const now = new Date().toISOString()
+
+    // Buscar expiradas antes de deletar (para reportar ao pai)
+    const expired = await this.db.getAllAsync<PendingAction>(
+      `SELECT * FROM pending_actions
+       WHERE status = 'pending' AND expires_at < ?`,
+      [now]
+    )
+
+    // Marcar como descartadas (soft delete para auditoria)
+    await this.db.runAsync(
+      `UPDATE pending_actions
+       SET status = 'discarded'
+       WHERE status = 'pending' AND expires_at < ?`,
+      [now]
+    )
+
+    return expired
+  }
+
+  /**
+   * ETAPA 3: REPLAY
+   * Para cada ação pendente não expirada, verifica o estado
+   * atual no servidor antes de tentar aplicar.
+   * Regra: SERVIDOR SEMPRE GANHA.
+   */
+  private async replayPendingActions(): Promise<{
+    applied: PendingAction[]
+    conflicted: DiscardedAction[]
+  }> {
+    const pending = await this.db.getAllAsync<PendingAction>(
+      `SELECT * FROM pending_actions
+       WHERE status = 'pending'
+       ORDER BY created_at ASC`
+    )
+
+    const applied: PendingAction[] = []
+    const conflicted: DiscardedAction[] = []
+
+    for (const action of pending) {
+      const serverRecord = await this.attendanceRepo.findByChildAndDate(
+        action.payload.childId,
+        action.payload.date
+      )
+
+      // Verificar conflito: se servidor já tem estado diferente
+      const hasConflict = this.detectConflict(action, serverRecord)
+
+      if (hasConflict) {
+        conflicted.push({
+          action,
+          reason: 'conflict',
+          message: this.buildConflictMessage(action, serverRecord)
+        })
+        await this.markAs(action.id, 'discarded')
+      } else {
+        // Aplicar ação no servidor
+        await this.applyAction(action)
+        await this.markAs(action.id, 'synced')
+        applied.push(action)
+      }
+    }
+
+    return { applied, conflicted }
+  }
+
+  /**
+   * Detecta conflito entre ação offline e estado atual do servidor.
+   * Conflito ocorre quando:
+   * - Ação é pre_justify mas servidor já tem status 'present'
+   *   (monitor já fez a chamada)
+   * - Ação é justify_retroactive mas servidor já tem status
+   *   'present' ou 'justified'
+   */
+  private detectConflict(
+    action: PendingAction,
+    serverRecord: AttendanceRecord | null
+  ): boolean {
+    if (!serverRecord) return false  // sem registro = sem conflito
+
+    if (action.type === 'pre_justify') {
+      return serverRecord.status === 'present'
+    }
+
+    if (action.type === 'justify_retroactive') {
+      return ['present', 'justified'].includes(serverRecord.status)
+    }
+
+    return false
+  }
+
+  private buildConflictMessage(
+    action: PendingAction,
+    serverRecord: AttendanceRecord | null
+  ): string {
+    if (action.type === 'pre_justify' && serverRecord?.status === 'present') {
+      return `A presença de ${action.payload.date} já foi registrada pelo monitor. Sua pré-justificativa foi descartada.`
+    }
+    if (action.type === 'justify_retroactive') {
+      return `A presença de ${action.payload.date} já foi atualizada (${serverRecord?.status}). Sua justificativa foi descartada.`
+    }
+    return `Ação para ${action.payload.date} descartada por conflito com dados do servidor.`
+  }
+
+  private async markAs(id: string, status: 'synced' | 'discarded'): Promise<void> {
+    await this.db.runAsync(
+      `UPDATE pending_actions SET status = ? WHERE id = ?`,
+      [status, id]
+    )
+  }
+}
+```
+
+### Enfileiramento de Ações Offline
+
+```typescript
+// infrastructure/sqlite/OfflineActionQueue.ts
+
+class OfflineActionQueue {
+  constructor(private readonly db: SQLiteDatabase) {}
+
+  /**
+   * Enfileira uma ação quando não há conexão.
+   * O expiresAt é calculado automaticamente: createdAt + 7 dias.
+   */
+  async enqueue(type: PendingAction['type'], payload: PendingAction['payload']): Promise<void> {
+    const now = new Date()
+    const expiresAt = new Date(now.getTime() + EXPIRATION_DAYS * 24 * 60 * 60 * 1000)
+
+    await this.db.runAsync(
+      `INSERT INTO pending_actions (id, type, payload, created_at, expires_at, status)
+       VALUES (?, ?, ?, ?, ?, 'pending')`,
+      [
+        uuid(),
+        type,
+        JSON.stringify(payload),
+        now.toISOString(),
+        expiresAt.toISOString()
+      ]
+    )
+  }
+
+  async getPendingCount(): Promise<number> {
+    const result = await this.db.getFirstAsync<{ count: number }>(
+      `SELECT COUNT(*) as count FROM pending_actions WHERE status = 'pending'`
+    )
+    return result?.count ?? 0
+  }
+}
+```
+
+### Ciclo de Vida Completo — Fluxograma
+
+```
+Pai executa ação (ex: justificar falta)
+  │
+  ├── [Online] ──▶ Use Case executa direto no Supabase ──▶ OK
+  │
+  └── [Offline] ──▶ OfflineActionQueue.enqueue()
+                      │
+                  ┌───▼──────────────────────────┐
+                  │  SQLite: pending_actions      │
+                  │  status = 'pending'           │
+                  │  expires_at = now + 7 dias    │
+                  └───┬──────────────────────────-┘
+                      │
+              ┌───────▼────────┐
+              │ App reabre ou  │
+              │ conexão volta  │
+              │ (NetInfo)      │
+              └───────┬────────┘
+                      │
+              ┌───────▼──────────────────┐
+              │ OfflineSyncService.sync() │
+              └───────┬──────────────────┘
+                      │
+         ┌────────────▼────────────────┐
+         │  1. PURGE: expires_at < now │
+         │     → marcar 'discarded'    │
+         │     → gerar alerta          │
+         └────────────┬────────────────┘
+                      │
+         ┌────────────▼────────────────┐
+         │  2. FETCH: atualizar cache  │
+         │     com dados do servidor   │
+         └────────────┬────────────────┘
+                      │
+         ┌────────────▼──────────────────────┐
+         │  3. REPLAY: para cada pendente:   │
+         │     → checar estado no servidor   │
+         │     → conflito? → 'discarded'     │
+         │     → sem conflito? → aplicar     │
+         │       e marcar 'synced'           │
+         └────────────┬──────────────────────┘
+                      │
+         ┌────────────▼────────────────────────────┐
+         │  4. NOTIFY: se houve descartes          │
+         │     → exibir alerta ao pai com motivo:  │
+         │       • "expirou (>7 dias sem conexão)" │
+         │       • "conflito (monitor já registrou)"│
+         └─────────────────────────────────────────┘
+```
+
+### Limpeza Periódica
+
+Ações com `status = 'synced'` ou `status = 'discarded'` são mantidas por **30 dias** para auditoria local, depois removidas automaticamente:
+
+```typescript
+// Executado junto com o sync, após as 4 etapas
+async cleanupOldActions(): Promise<void> {
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+  await this.db.runAsync(
+    `DELETE FROM pending_actions
+     WHERE status IN ('synced', 'discarded') AND created_at < ?`,
+    [thirtyDaysAgo]
+  )
+}
+```
+
+### Regras Resumidas
+
+| Regra | Detalhamento |
+|-------|-------------|
+| **Expiração** | `expiresAt = createdAt + 7 dias`. Ações pendentes com `expiresAt < now()` são marcadas como `discarded` na etapa PURGE |
+| **Conflito** | Servidor sempre ganha. Se o estado no Supabase já foi alterado (ex: monitor marcou `present`), a ação offline é descartada |
+| **Ordem de replay** | FIFO — ações são reprocessadas na ordem de `createdAt ASC` |
+| **Feedback** | Sync é silencioso. O pai só recebe alerta (modal ou banner) se alguma ação foi descartada, com motivo claro |
+| **Triggers** | Sync dispara em: (1) abertura do app, (2) restauração de conexão via `NetInfo`, (3) pull-to-refresh manual |
+| **Limpeza** | Ações finalizadas (`synced`/`discarded`) são removidas após 30 dias |
 
 ---
 
