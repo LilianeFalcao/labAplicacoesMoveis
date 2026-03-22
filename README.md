@@ -271,7 +271,7 @@ O projeto segue **Test-Driven Development** com a pirâmide:
 
 ---
 
-## ⏱️ Cronograma — ~80 horas | 11 semanas
+## Cronograma — ~80 horas | 11 semanas
 
 | Semanas | Foco | Horas |
 |---------|------|-------|
