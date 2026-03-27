@@ -9,6 +9,7 @@
 
 - [ ] **TASK-01** Inicializar projeto Expo + TypeScript  
   Criar projeto com `expo init`, configurar paths absolutos (`@/`), ESLint, Prettier  
+  **Configurar `tsconfig.json` com `strict: true` e `noImplicitAny: true`**  
   _Est: 2h_
 
 - [ ] **TASK-01b** Setup de testes: Jest + RNTL + Maestro  
@@ -52,6 +53,11 @@
   `class_access_requests`, `schedules`, `activity_photos`, `announcements`  
   RLS policies por role  
   _Est: 3h_
+
+- [ ] **TASK-08b** Gerar tipos TypeScript do Supabase  
+  Executar `npx supabase gen types typescript --local > src/infrastructure/supabase/types.ts`  
+  Configurar auto-geração no workflow de desenvolvimento  
+  _Est: 0.5h_
 
 - [ ] **TASK-09** Domínio Enrollment  
   `Child`, `Guardian` (+ campo `imageConsent`), `GuardianLink` entities  

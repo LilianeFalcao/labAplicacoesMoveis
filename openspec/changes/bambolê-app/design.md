@@ -6,17 +6,28 @@
 
 | Camada | Tecnologia |
 |--------|-----------|
-| Framework | Expo + React Native |
-| Banco local | SQLite (cache offline de leitura — pais) |
-| Backend / BD | Supabase (Postgres + Auth + Storage + Realtime) |
+| Framework | Expo + React Native + **TypeScript** |
+| Banco local | SQLite (via **TypeScript**) |
+| Backend / BD | Supabase (Postgres + Auth + Storage + Realtime) + **Edge Functions (TypeScript/Deno)** |
 | Câmera | expo-camera |
 | Geolocalização | expo-location |
 | Notificações push | Expo Notifications + FCM/APNs |
 | Autenticação | Supabase Auth (e-mail/senha) |
 | **Ícones** | **@expo/vector-icons** |
-| **Testes unitários / integração** | **Jest** |
+| **Testes unitários / integração** | **Jest (+ ts-jest)** |
 | **Testes de componentes** | **React Native Testing Library** |
 | **Testes E2E** | **Maestro** |
+
+---
+
+## Padrões Técnicos — TypeScript & Qualidade
+
+Para garantir a manutenibilidade e a segurança do código, o sistema segue estes padrões:
+
+1.  **TypeScript Strict Mode**: Todos os arquivos `.ts` e `.tsx` devem ser compilados com `strict: true`. O uso de `any` é proibido — prefira `unknown` ou interfaces genéricas.
+2.  **End-to-End Type Safety**: Tipos para o banco de dados Supabase devem ser gerados via CLI (`supabase gen types typescript`) e consumidos tanto no App quanto nas Edge Functions.
+3.  **Edge Functions**: Implementadas em **TypeScript (Deno)**. Compartilhamento de tipos com o frontend via pastas compartilhadas (`shared-types/` se necessário) sempre que possível.
+4.  **Absolute paths**: Uso de `@/` mapeado para `src/` em todos os ambientes (App e Functions).
 
 ---
 
