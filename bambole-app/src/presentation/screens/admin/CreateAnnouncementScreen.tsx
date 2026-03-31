@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Switch, Alert, ScrollView } from 'react-native';
-import { PrimaryButton } from '../../components/common/UI';
+import { View, Text, StyleSheet, TextInput, Switch, Alert, ScrollView, SafeAreaView } from 'react-native';
+import { AppHeader } from '../../components/base/AppHeader';
+import { AppButton } from '../../components/base/AppButton';
+import { Theme } from '../../styles/Theme';
 import { useAuth } from '../../contexts/AuthContext';
 import { SendAnnouncementUseCase } from '@/application/communication/use-cases/SendAnnouncementUseCase';
 import { SupabaseAnnouncementRepository } from '@/infrastructure/communication/repositories/SupabaseAnnouncementRepository';
@@ -33,8 +35,9 @@ export const CreateAnnouncementScreen = ({ navigation }: any) => {
                 isGeneral ? undefined : classId
             );
 
-            Alert.alert('Sucesso', 'Aviso enviado e pais notificados!');
-            navigation.goBack();
+            Alert.alert('Sucesso', 'Aviso enviado e pais notificados!', [
+                { text: 'OK', onPress: () => navigation.goBack() }
+            ]);
         } catch (err: any) {
             Alert.alert('Erro', err.message || 'Falha ao enviar aviso.');
         } finally {
@@ -43,56 +46,126 @@ export const CreateAnnouncementScreen = ({ navigation }: any) => {
     };
 
     return (
-        <ScrollView style={styles.container}>
-            <Text style={styles.label}>Conteúdo do Aviso</Text>
-            <TextInput
-                style={styles.input}
-                multiline
-                numberOfLines={6}
-                placeholder="Digite a mensagem para os pais..."
-                value={content}
-                onChangeText={setContent}
+        <SafeAreaView style={styles.safeArea}>
+            <AppHeader
+                title="Novo Aviso"
+                showBack
+                onBack={() => navigation.goBack()}
             />
-
-            <View style={styles.row}>
-                <Text style={styles.label}>Enviar para todos os pais?</Text>
-                <Switch value={isGeneral} onValueChange={setIsGeneral} />
-            </View>
-
-            {!isGeneral && (
-                <>
-                    <Text style={styles.label}>ID da Turma</Text>
+            <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+                <View style={styles.form}>
+                    <Text style={styles.label}>Conteúdo do Aviso</Text>
                     <TextInput
-                        style={styles.inputSmall}
-                        placeholder="Ex: TURMA_A"
-                        value={classId}
-                        onChangeText={setClassId}
+                        style={styles.contentInput}
+                        multiline
+                        numberOfLines={6}
+                        placeholder="Digite a mensagem para os pais..."
+                        value={content}
+                        onChangeText={setContent}
                     />
-                </>
-            )}
 
-            <View style={styles.footer}>
-                <PrimaryButton
-                    title={sending ? "Enviando..." : "Disparar Aviso"}
-                    onPress={handleSend}
-                    disabled={sending}
-                />
-            </View>
-        </ScrollView>
+                    <View style={styles.switchRow}>
+                        <View style={styles.switchText}>
+                            <Text style={styles.switchLabel}>Enviar para todos os pais?</Text>
+                            <Text style={styles.switchSublabel}>Se desativado, selecione uma turma abaixo.</Text>
+                        </View>
+                        <Switch
+                            value={isGeneral}
+                            onValueChange={setIsGeneral}
+                            trackColor={{ false: Theme.colors.gray[300], true: Theme.colors.primary + '88' }}
+                            thumbColor={isGeneral ? Theme.colors.primary : Theme.colors.gray[400]}
+                        />
+                    </View>
+
+                    {!isGeneral && (
+                        <View style={styles.turmaSection}>
+                            <Text style={styles.label}>ID da Turma</Text>
+                            <TextInput
+                                style={styles.titleInput}
+                                placeholder="Ex: TURMA_A"
+                                value={classId}
+                                onChangeText={setClassId}
+                            />
+                        </View>
+                    )}
+
+                    <AppButton
+                        title="Disparar Aviso"
+                        onPress={handleSend}
+                        loading={sending}
+                        style={styles.button}
+                    />
+                </View>
+            </ScrollView>
+        </SafeAreaView>
     );
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#FAFAFA', padding: 20 },
-    label: { fontSize: 16, fontWeight: '600', color: '#2D3436', marginBottom: 10, marginTop: 15 },
-    input: {
-        backgroundColor: '#FFF', borderRadius: 12, padding: 15, fontSize: 16,
-        color: '#2D3436', textAlignVertical: 'top', borderWidth: 1, borderColor: '#E0E0E0'
+    safeArea: {
+        flex: 1,
+        backgroundColor: Theme.colors.background,
     },
-    inputSmall: {
-        backgroundColor: '#FFF', borderRadius: 10, padding: 12, fontSize: 16,
-        color: '#2D3436', borderWidth: 1, borderColor: '#E0E0E0'
+    container: {
+        flex: 1,
     },
-    row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20 },
-    footer: { marginTop: 30 }
+    scrollContent: {
+        padding: Theme.spacing.md,
+    },
+    form: {
+        flex: 1,
+    },
+    label: {
+        ...Theme.typography.body1,
+        fontWeight: '700',
+        color: Theme.colors.onBackground,
+        marginBottom: Theme.spacing.xs,
+        marginTop: Theme.spacing.md,
+    },
+    contentInput: {
+        borderWidth: 1,
+        borderColor: Theme.colors.gray[300],
+        borderRadius: Theme.roundness,
+        padding: Theme.spacing.md,
+        backgroundColor: '#FFF',
+        minHeight: 180,
+        textAlignVertical: 'top',
+        ...Theme.typography.body2,
+    },
+    switchRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: Theme.spacing.xl,
+        paddingVertical: Theme.spacing.md,
+        borderTopWidth: 1,
+        borderTopColor: Theme.colors.gray[200],
+    },
+    switchText: {
+        flex: 1,
+        paddingRight: Theme.spacing.md,
+    },
+    switchLabel: {
+        ...Theme.typography.body1,
+        fontWeight: '600',
+        color: Theme.colors.onBackground,
+    },
+    switchSublabel: {
+        ...Theme.typography.caption,
+        color: Theme.colors.gray[500],
+    },
+    turmaSection: {
+        marginTop: Theme.spacing.md,
+    },
+    titleInput: {
+        borderWidth: 1,
+        borderColor: Theme.colors.gray[300],
+        borderRadius: Theme.roundness,
+        padding: Theme.spacing.md,
+        backgroundColor: '#FFF',
+        ...Theme.typography.body1,
+    },
+    button: {
+        marginTop: Theme.spacing.xxl,
+    },
 });

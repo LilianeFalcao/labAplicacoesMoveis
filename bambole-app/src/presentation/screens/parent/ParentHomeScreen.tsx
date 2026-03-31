@@ -1,10 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, Image, ScrollView, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ScrollView, RefreshControl, ActivityIndicator, SafeAreaView, TouchableOpacity } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { OfflineSyncService } from '@/infrastructure/offline/OfflineSyncService';
+import { AppCard } from '../../components/base/AppCard';
+import { AppHeader } from '../../components/base/AppHeader';
+import { Theme } from '../../styles/Theme';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+
+import { useNavigation } from '@react-navigation/native';
 
 export const ParentHomeScreen = () => {
-    const { user } = useAuth();
+    const { user, signOut } = useAuth();
+    const navigation = useNavigation<any>();
     const [children, setChildren] = useState<any[]>([]);
     const [announcements, setAnnouncements] = useState<any[]>([]);
     const [refreshing, setRefreshing] = useState(false);
@@ -14,10 +21,7 @@ export const ParentHomeScreen = () => {
 
     const loadData = useCallback(async () => {
         try {
-            // 1. Try sync down if online (Simplified)
             await syncService.syncDown(user!.id).catch(err => console.log('Offline mode or sync failed', err));
-
-            // 2. Load from cache
             setChildren(syncService.getCachedChildren());
             setAnnouncements(syncService.getCachedAnnouncements());
         } catch (err) {
@@ -37,81 +41,225 @@ export const ParentHomeScreen = () => {
         loadData();
     };
 
-    if (loading) return <ActivityIndicator style={styles.center} size="large" color="#6C5CE7" />;
+    if (loading) {
+        return (
+            <View style={styles.center}>
+                <ActivityIndicator size="large" color={Theme.colors.primary} />
+            </View>
+        );
+    }
 
     return (
-        <ScrollView
-            style={styles.container}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        >
-            <View style={styles.header}>
-                <Text style={styles.welcome}>Olá, </Text>
-                <Text style={styles.userName}>{user?.email.value.split('@')[0]}</Text>
-            </View>
-
-            <Text style={styles.sectionTitle}>Seus Filhos</Text>
-            <FlatList
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                data={children}
-                keyExtractor={item => item.id}
-                renderItem={({ item }) => (
-                    <View style={styles.childCard}>
-                        <View style={styles.avatarPlaceholder}>
-                            <Text style={styles.avatarText}>{item.name?.[0]}</Text>
-                        </View>
-                        <Text style={styles.childName}>{item.name}</Text>
-                        <Text style={styles.childClass}>Turma: {item.class_id}</Text>
-                    </View>
-                )}
-                ListEmptyComponent={<Text style={styles.empty}>Nenhum aluno vinculado.</Text>}
-                style={styles.childrenList}
+        <SafeAreaView style={styles.safeArea}>
+            <AppHeader
+                title="Bambolê"
+                rightAction={{
+                    icon: 'logout',
+                    onPress: signOut
+                }}
             />
-
-            <Text style={styles.sectionTitle}>Mural de Avisos</Text>
-            {announcements.map(ann => (
-                <View key={ann.id} style={styles.annCard}>
-                    <View style={[styles.annType, ann.audience_type === 'all' ? styles.allType : styles.classType]}>
-                        <Text style={styles.typeText}>{ann.audience_type === 'all' ? 'Escola' : 'Turma'}</Text>
-                    </View>
-                    <Text style={styles.annContent}>{ann.content}</Text>
-                    <Text style={styles.annDate}>{new Date(ann.published_at).toLocaleDateString('pt-BR')}</Text>
+            <ScrollView
+                style={styles.container}
+                contentContainerStyle={styles.scrollContent}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />}
+            >
+                <View style={styles.welcomeSection}>
+                    <Text style={styles.welcome}>Bem-vindo,</Text>
+                    <Text style={styles.userName}>{user?.email.value.split('@')[0]}</Text>
                 </View>
-            ))}
-            {announcements.length === 0 && <Text style={styles.empty}>Nenhum aviso no momento.</Text>}
-        </ScrollView>
+
+                <View style={styles.section}>
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Seus Filhos</Text>
+                        <TouchableOpacity>
+                            <Text style={styles.seeAll}>Ver todos</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    <FlatList
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        data={children}
+                        keyExtractor={item => item.id}
+                        renderItem={({ item }) => (
+                            <TouchableOpacity onPress={() => navigation.navigate('ChildDetails' as never, { childName: item.name, class_id: item.class_id } as never)}>
+                                <AppCard style={styles.childCard}>
+                                    <View style={styles.childAvatar}>
+                                        <MaterialCommunityIcons name="account" size={32} color={Theme.colors.onPrimary} />
+                                    </View>
+                                    <Text style={styles.childName} numberOfLines={1}>{item.name}</Text>
+                                    <View style={styles.statusBadge}>
+                                        <View style={[styles.statusDot, { backgroundColor: '#4CAF50' }]} />
+                                        <Text style={styles.childStatus}>Presente</Text>
+                                    </View>
+                                    <Text style={styles.childClass}>Turma {item.class_id}</Text>
+                                </AppCard>
+                            </TouchableOpacity>
+                        )}
+                        ListEmptyComponent={
+                            <AppCard style={styles.emptyCard}>
+                                <Text style={styles.emptyText}>Nenhum filho vinculado ainda.</Text>
+                            </AppCard>
+                        }
+                    />
+                </View>
+
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Últimos Avisos</Text>
+                    {announcements.map(ann => (
+                        <AppCard key={ann.id} style={styles.annCard}>
+                            <View style={styles.annHeader}>
+                                <View style={[styles.annBadge, { backgroundColor: ann.audience_type === 'all' ? Theme.colors.secondary : '#4CAF50' }]}>
+                                    <Text style={styles.annBadgeText}>{ann.audience_type === 'all' ? 'Escola' : 'Turma'}</Text>
+                                </View>
+                                <Text style={styles.annDate}>{new Date(ann.published_at).toLocaleDateString('pt-BR')}</Text>
+                            </View>
+                            <Text style={styles.annContent}>{ann.content}</Text>
+                        </AppCard>
+                    ))}
+                    {announcements.length === 0 && (
+                        <Text style={styles.emptyText}>Nenhum aviso no momento.</Text>
+                    )}
+                </View>
+            </ScrollView>
+        </SafeAreaView>
     );
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#FAFAFA', padding: 20 },
-    center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    header: { marginBottom: 30, marginTop: 20 },
-    welcome: { fontSize: 18, color: '#636E72' },
-    userName: { fontSize: 28, fontWeight: 'bold', color: '#2D3436' },
-    sectionTitle: { fontSize: 20, fontWeight: '700', color: '#2D3436', marginBottom: 15 },
-    childrenList: { marginBottom: 30 },
+    safeArea: {
+        flex: 1,
+        backgroundColor: Theme.colors.background,
+    },
+    container: {
+        flex: 1,
+    },
+    scrollContent: {
+        padding: Theme.spacing.md,
+    },
+    center: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: Theme.colors.background,
+    },
+    welcomeSection: {
+        marginBottom: Theme.spacing.lg,
+    },
+    welcome: {
+        ...Theme.typography.body1,
+        color: Theme.colors.gray[600],
+    },
+    userName: {
+        ...Theme.typography.h2,
+        color: Theme.colors.onBackground,
+    },
+    section: {
+        marginBottom: Theme.spacing.xl,
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: Theme.spacing.md,
+    },
+    sectionTitle: {
+        ...Theme.typography.h3,
+        color: Theme.colors.onBackground,
+    },
+    seeAll: {
+        ...Theme.typography.body2,
+        color: Theme.colors.primary,
+        fontWeight: '600',
+    },
     childCard: {
-        backgroundColor: '#FFF', padding: 20, borderRadius: 20, marginRight: 15,
-        alignItems: 'center', width: 150,
-        shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 5
+        width: 160,
+        marginRight: Theme.spacing.md,
+        alignItems: 'center',
+        padding: Theme.spacing.md,
     },
-    avatarPlaceholder: {
-        width: 60, height: 60, borderRadius: 30, backgroundColor: '#6C5CE7',
-        justifyContent: 'center', alignItems: 'center', marginBottom: 10
+    childAvatar: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        backgroundColor: Theme.colors.primary,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: Theme.spacing.sm,
     },
-    avatarText: { color: '#FFF', fontSize: 24, fontWeight: 'bold' },
-    childName: { fontSize: 16, fontWeight: '600', color: '#2D3436' },
-    childClass: { fontSize: 12, color: '#B2BEC3', marginTop: 4 },
+    childName: {
+        ...Theme.typography.h3,
+        fontSize: 16,
+        textAlign: 'center',
+    },
+    statusBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: Theme.spacing.xs,
+        backgroundColor: Theme.colors.gray[100],
+        paddingHorizontal: Theme.spacing.sm,
+        paddingVertical: 2,
+        borderRadius: 12,
+    },
+    statusDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        marginRight: 6,
+    },
+    childStatus: {
+        ...Theme.typography.caption,
+        color: Theme.colors.gray[700],
+        fontWeight: '600',
+    },
+    childClass: {
+        ...Theme.typography.caption,
+        color: Theme.colors.gray[500],
+        marginTop: 4,
+    },
     annCard: {
-        backgroundColor: '#FFF', padding: 15, borderRadius: 15, marginBottom: 15,
-        borderLeftWidth: 5, borderLeftColor: '#6C5CE7'
+        padding: Theme.spacing.md,
     },
-    annType: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 5, marginBottom: 8 },
-    allType: { backgroundColor: '#E17055' },
-    classType: { backgroundColor: '#00B894' },
-    typeText: { color: '#FFF', fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase' },
-    annContent: { fontSize: 15, color: '#2D3436', lineHeight: 22 },
-    annDate: { fontSize: 11, color: '#B2BEC3', marginTop: 10, textAlign: 'right' },
-    empty: { color: '#B2BEC3', fontStyle: 'italic', textAlign: 'center', marginTop: 10 }
+    annHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: Theme.spacing.sm,
+    },
+    annBadge: {
+        paddingHorizontal: Theme.spacing.sm,
+        paddingVertical: 2,
+        borderRadius: 4,
+    },
+    annBadgeText: {
+        ...Theme.typography.caption,
+        color: '#FFF',
+        fontWeight: 'bold',
+        textTransform: 'uppercase',
+    },
+    annDate: {
+        ...Theme.typography.caption,
+        color: Theme.colors.gray[500],
+    },
+    annContent: {
+        ...Theme.typography.body2,
+        color: Theme.colors.onBackground,
+        lineHeight: 20,
+    },
+    emptyCard: {
+        width: '100%',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: Theme.spacing.xl,
+        backgroundColor: 'transparent',
+        borderWidth: 1,
+        borderStyle: 'dashed',
+        borderColor: Theme.colors.gray[400],
+        elevation: 0,
+    },
+    emptyText: {
+        ...Theme.typography.body2,
+        color: Theme.colors.gray[500],
+        fontStyle: 'italic',
+    },
 });

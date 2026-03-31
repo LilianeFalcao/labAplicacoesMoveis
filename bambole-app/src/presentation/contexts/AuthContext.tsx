@@ -8,6 +8,8 @@ interface AuthContextData {
     signIn: (role: UserRole) => void;
     signOut: () => void;
     isLoading: boolean;
+    isSimulated: boolean;
+    startSimulation: (role: UserRole) => void;
 }
 
 const AuthContext = createContext<AuthContextData>({} as AuthContextData);
@@ -15,6 +17,7 @@ const AuthContext = createContext<AuthContextData>({} as AuthContextData);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [isSimulated, setIsSimulated] = useState(false);
 
     // Temporary sign in for navigation testing
     const signIn = (role: UserRole) => {
@@ -24,12 +27,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             Role.create(role)
         );
         setUser(mockUser);
+        setIsSimulated(false);
     };
 
-    const signOut = () => setUser(null);
+    const startSimulation = (role: UserRole) => {
+        const mockUser = new User(
+            'sim-id-' + role,
+            Email.create('demo@bambole.app'),
+            Role.create(role)
+        );
+        setUser(mockUser);
+        setIsSimulated(true);
+    };
+
+    const signOut = () => {
+        setUser(null);
+        setIsSimulated(false);
+    };
 
     return (
-        <AuthContext.Provider value={{ user, signIn, signOut, isLoading }}>
+        <AuthContext.Provider value={{ user, signIn, signOut, isLoading, isSimulated, startSimulation }}>
             {children}
         </AuthContext.Provider>
     );
