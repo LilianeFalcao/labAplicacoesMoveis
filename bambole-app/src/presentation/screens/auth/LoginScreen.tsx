@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, SafeAreaView, ScrollView } from 'react-native';
 import { useAuth } from '@/presentation/contexts/AuthContext';
 import { AppInput } from '../../components/base/AppInput';
 import { AppButton } from '../../components/base/AppButton';
 import { Theme } from '../../styles/Theme';
 import { useNavigation } from '@react-navigation/native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export const LoginScreen = () => {
     const [email, setEmail] = useState('');
@@ -12,6 +14,7 @@ export const LoginScreen = () => {
     const [loading, setLoading] = useState(false);
     const { signIn, startSimulation } = useAuth();
     const navigation = useNavigation<any>();
+    const insets = useSafeAreaInsets();
 
     const handlePreview = () => {
         Alert.alert(
@@ -44,58 +47,78 @@ export const LoginScreen = () => {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <View style={styles.container}>
-                <View style={styles.header}>
-                    <Text style={styles.logo}>Bambolê</Text>
-                    <Text style={styles.subtitle}>Gestão escolar simplificada</Text>
-                </View>
-
-                <View style={styles.form}>
-                    <AppInput
-                        label="E-mail"
-                        value={email}
-                        onChangeText={setEmail}
-                        keyboardType="email-address"
-                        placeholder="Ex: joao@email.com"
-                        autoCapitalize="none"
-                    />
-                    <AppInput
-                        label="Senha"
-                        value={password}
-                        onChangeText={setPassword}
-                        secureTextEntry
-                        placeholder="••••••••"
-                    />
-
-                    <AppButton
-                        title="Acessar"
-                        onPress={handleLogin}
-                        loading={loading}
-                        style={styles.button}
-                    />
-
-                    <AppButton
-                        title="Pré-visualizar App"
-                        onPress={handlePreview}
-                        variant="secondary"
-                        style={styles.previewButton}
-                    />
-
-                    <TouchableOpacity
-                        onPress={() => navigation.navigate('Recovery')}
-                        style={styles.forgotPassword}
-                    >
-                        <Text style={styles.forgotPasswordText}>Esqueci a senha</Text>
-                    </TouchableOpacity>
-                </View>
-
-                <View style={styles.footer}>
-                    <Text style={styles.footerText}>Não tem uma conta?</Text>
-                    <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
-                        <Text style={styles.link}>Criar Conta</Text>
-                    </TouchableOpacity>
-                </View>
+            <View style={styles.header}>
+                <TouchableOpacity
+                    style={styles.headerIconButton}
+                    onPress={() => Alert.alert('Menu', 'Funcionalidade de menu em desenvolvimento')}
+                >
+                    <MaterialCommunityIcons name="menu" size={24} color={Theme.colors.onBackground} />
+                </TouchableOpacity>
+                <Text style={styles.logo}>Bambolê</Text>
+                <TouchableOpacity
+                    style={styles.headerIconButton}
+                    onPress={() => Alert.alert('Notificações', 'Funcionalidade de notificações em desenvolvimento')}
+                >
+                    <MaterialCommunityIcons name="bell-outline" size={24} color={Theme.colors.onBackground} />
+                </TouchableOpacity>
             </View>
+            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+                <View style={styles.content}>
+                    <Text style={styles.welcomeTitle}>Bem-vindo de Volta !</Text>
+                    <Text style={styles.welcomeSubtitle}>
+                        Acesse o portal para gerenciar atividades e acompanhar o progresso dos seus filhos.
+                    </Text>
+
+                    <View style={styles.form}>
+                        <AppInput
+                            label="E-MAIL"
+                            value={email}
+                            onChangeText={setEmail}
+                            keyboardType="email-address"
+                            placeholder="nome@exemplo.com"
+                            autoCapitalize="none"
+                        />
+                        <AppInput
+                            label="SENHA"
+                            value={password}
+                            onChangeText={setPassword}
+                            secureTextEntry
+                            placeholder="••••••••"
+                        />
+
+                        <TouchableOpacity
+                            onPress={() => navigation.navigate('Recovery')}
+                            style={styles.forgotPassword}
+                        >
+                            <Text style={styles.forgotPasswordText}>Esqueci minha senha</Text>
+                        </TouchableOpacity>
+
+                        <AppButton
+                            title="Entrar"
+                            onPress={handleLogin}
+                            loading={loading}
+                            style={styles.loginButton}
+                        />
+
+                        <AppButton
+                            title="Pré-visualizar App"
+                            onPress={handlePreview}
+                            variant="outline"
+                            style={styles.previewButton}
+                        />
+                    </View>
+
+                    <View style={styles.footer}>
+                        <Text style={styles.footerText}>Ainda não faz parte da comunidade?</Text>
+                        <AppButton
+                            title="Criar conta"
+                            variant="outline"
+                            onPress={() => navigation.navigate('SignUp')}
+                            style={styles.signUpButton}
+                        />
+                    </View>
+                </View>
+            </ScrollView>
         </SafeAreaView>
     );
 };
@@ -105,56 +128,74 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: Theme.colors.background,
     },
-    container: {
-        flex: 1,
-        padding: Theme.spacing.lg,
-        justifyContent: 'center',
+    scrollContent: {
+        flexGrow: 1,
     },
     header: {
+        flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: Theme.spacing.xxl,
+        justifyContent: 'space-between',
+        paddingHorizontal: Theme.spacing.md,
+        paddingTop: Theme.spacing.md,
+        backgroundColor: Theme.colors.surface,
+        height: 60,
+    },
+    headerIconButton: {
+        padding: Theme.spacing.sm,
     },
     logo: {
-        ...Theme.typography.h1,
+        ...Theme.typography.h2,
         color: Theme.colors.primary,
-        fontSize: 48,
+        fontWeight: '800',
     },
-    subtitle: {
-        ...Theme.typography.body1,
+    content: {
+        flex: 1,
+        paddingHorizontal: Theme.spacing.lg,
+        paddingBottom: Theme.spacing.xl,
+        justifyContent: 'center',
+    },
+    welcomeTitle: {
+        ...Theme.typography.h1,
+        color: Theme.colors.onBackground,
+        textAlign: 'center',
+    },
+    welcomeSubtitle: {
+        ...Theme.typography.body2,
         color: Theme.colors.gray[600],
-        marginTop: Theme.spacing.xs,
+        textAlign: 'center',
+        marginTop: Theme.spacing.sm,
+        paddingHorizontal: Theme.spacing.md,
     },
     form: {
         width: '100%',
-    },
-    button: {
-        marginTop: Theme.spacing.md,
-    },
-    previewButton: {
-        marginTop: Theme.spacing.sm,
+        marginTop: Theme.spacing.xl,
     },
     forgotPassword: {
-        alignItems: 'center',
-        marginTop: Theme.spacing.md,
+        alignItems: 'flex-end',
+        marginBottom: Theme.spacing.lg,
     },
     forgotPasswordText: {
         ...Theme.typography.body2,
         color: Theme.colors.primary,
         fontWeight: '600',
     },
+    loginButton: {
+        marginBottom: Theme.spacing.md,
+    },
+    previewButton: {
+        marginBottom: Theme.spacing.xl,
+    },
     footer: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        marginTop: Theme.spacing.xxl,
+        alignItems: 'center',
+        marginTop: Theme.spacing.xl,
     },
     footerText: {
         ...Theme.typography.body2,
         color: Theme.colors.gray[600],
+        marginBottom: Theme.spacing.sm,
     },
-    link: {
-        ...Theme.typography.body2,
-        color: Theme.colors.primary,
-        fontWeight: '700',
-        marginLeft: Theme.spacing.xs,
+    signUpButton: {
+        width: '100%',
+        borderRadius: 30, // More rounded as in design
     },
 });

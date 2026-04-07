@@ -8,6 +8,8 @@ export type AuthStackParamList = {
 
 export type ParentTabsParamList = {
     Home: undefined;
+    Photos: undefined;
+    Notices: undefined;
     Profile: undefined;
 };
 

@@ -1,19 +1,21 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Image, TextInput, Alert, ScrollView } from 'react-native';
-import { AppHeader } from '@/presentation/components/base/AppHeader';
-import { AppButton } from '@/presentation/components/base/AppButton';
-import { Theme } from '@/presentation/styles/Theme';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, TextInput, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { AppHeader } from '../../components/base/AppHeader';
+import { AppButton } from '../../components/base/AppButton';
+import { Theme } from '../../styles/Theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export const PhotoCaptureScreen = () => {
     const navigation = useNavigation();
+    const insets = useSafeAreaInsets();
     const [observation, setObservation] = useState('');
     const [image, setImage] = useState<string | null>(null);
 
     const handleCapture = () => {
         // Simulação de captura
-        setImage('https://via.placeholder.com/400');
+        setImage('https://images.unsplash.com/photo-1502086223501-7ea6ecd79368?q=80&w=1000&auto=format&fit=crop');
     };
 
     const handleSave = () => {
@@ -21,54 +23,91 @@ export const PhotoCaptureScreen = () => {
             Alert.alert('Erro', 'Capture uma foto primeiro.');
             return;
         }
-        Alert.alert('Sucesso', 'Foto e observação salvas!', [
+        Alert.alert('Sucesso', 'O momento foi compartilhado com os pais!', [
             { text: 'OK', onPress: () => navigation.goBack() }
         ]);
     };
 
     return (
-        <SafeAreaView style={styles.safeArea}>
+        <View style={[styles.mainContainer, { paddingTop: insets.top }]}>
             <AppHeader
                 title="Capturar Momento"
                 showBack
                 onBack={() => navigation.goBack()}
             />
-            <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-                <View style={styles.photoContainer}>
-                    {image ? (
-                        <Image source={{ uri: image }} style={styles.preview} />
-                    ) : (
-                        <TouchableOpacity style={styles.capturePlaceholder} onPress={handleCapture}>
-                            <MaterialCommunityIcons name="camera" size={64} color={Theme.colors.gray[400]} />
-                            <Text style={styles.placeholderText}>Toque para capturar</Text>
+
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.container}
+            >
+                <ScrollView
+                    style={styles.container}
+                    contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
+                    showsVerticalScrollIndicator={false}
+                >
+                    <View style={styles.captureSection}>
+                        <TouchableOpacity
+                            style={[styles.photoCard, !image && styles.photoCardEmpty]}
+                            onPress={handleCapture}
+                            activeOpacity={0.9}
+                        >
+                            {image ? (
+                                <>
+                                    <Image source={{ uri: image }} style={styles.preview} />
+                                    <View style={styles.retakeBadge}>
+                                        <MaterialCommunityIcons name="refresh" size={16} color="#FFF" />
+                                        <Text style={styles.retakeText}>Trocar foto</Text>
+                                    </View>
+                                </>
+                            ) : (
+                                <View style={styles.uploadPlaceholder}>
+                                    <View style={styles.iconCircle}>
+                                        <MaterialCommunityIcons name="camera-plus" size={40} color={Theme.colors.primary} />
+                                    </View>
+                                    <Text style={styles.placeholderTitle}>Toque para fotografar</Text>
+                                    <Text style={styles.placeholderSubtitle}>Registre um momento especial da turma</Text>
+                                </View>
+                            )}
                         </TouchableOpacity>
-                    )}
-                </View>
+                    </View>
 
-                <View style={styles.form}>
-                    <Text style={styles.label}>Observação</Text>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Descreva o que está acontecendo..."
-                        multiline
-                        numberOfLines={4}
-                        value={observation}
-                        onChangeText={setObservation}
-                    />
+                    <View style={styles.formSection}>
+                        <View style={styles.labelRow}>
+                            <MaterialCommunityIcons name="pencil-outline" size={20} color={Theme.colors.primary} />
+                            <Text style={styles.label}>O que está acontecendo?</Text>
+                        </View>
+                        <View style={styles.inputContainer}>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Descreva brevemente para os pais (ex: Hora da contação de histórias)..."
+                                placeholderTextColor={Theme.colors.gray[400]}
+                                multiline
+                                textAlignVertical="top"
+                                value={observation}
+                                onChangeText={setObservation}
+                            />
+                        </View>
 
-                    <AppButton
-                        title="Enviar para os Pais"
-                        onPress={handleSave}
-                        style={styles.button}
-                    />
-                </View>
-            </ScrollView>
-        </SafeAreaView>
+                        <View style={styles.visibilityBox}>
+                            <MaterialCommunityIcons name="eye-outline" size={18} color={Theme.colors.gray[500]} />
+                            <Text style={styles.visibilityText}>Esta foto será visível para todos os pais desta turma.</Text>
+                        </View>
+
+                        <AppButton
+                            title="Compartilhar com os Pais"
+                            onPress={handleSave}
+                            disabled={!image}
+                            style={styles.button}
+                        />
+                    </View>
+                </ScrollView>
+            </KeyboardAvoidingView>
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
-    safeArea: {
+    mainContainer: {
         flex: 1,
         backgroundColor: Theme.colors.background,
     },
@@ -78,48 +117,116 @@ const styles = StyleSheet.create({
     scrollContent: {
         padding: Theme.spacing.md,
     },
-    photoContainer: {
+    captureSection: {
+        marginVertical: Theme.spacing.md,
+    },
+    photoCard: {
         width: '100%',
         aspectRatio: 1,
-        backgroundColor: Theme.colors.gray[200],
-        borderRadius: 12,
+        borderRadius: 24,
+        backgroundColor: '#FFF',
         overflow: 'hidden',
-        marginBottom: Theme.spacing.lg,
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        borderWidth: 1,
+        borderColor: Theme.colors.gray[100],
+    },
+    photoCardEmpty: {
+        borderStyle: 'dashed',
+        borderWidth: 2,
+        borderColor: Theme.colors.primary + '40',
+        backgroundColor: '#F0F9FF',
     },
     preview: {
         width: '100%',
         height: '100%',
     },
-    capturePlaceholder: {
+    uploadPlaceholder: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+        padding: Theme.spacing.xl,
     },
-    placeholderText: {
+    iconCircle: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: '#BAE6FD',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: Theme.spacing.lg,
+    },
+    placeholderTitle: {
+        ...Theme.typography.h3,
+        color: Theme.colors.onBackground,
+        textAlign: 'center',
+    },
+    placeholderSubtitle: {
         ...Theme.typography.body2,
         color: Theme.colors.gray[500],
-        marginTop: Theme.spacing.sm,
+        textAlign: 'center',
+        marginTop: 4,
     },
-    form: {
-        flex: 1,
+    retakeBadge: {
+        position: 'absolute',
+        bottom: 16,
+        right: 16,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        gap: 6,
+    },
+    retakeText: {
+        ...Theme.typography.caption,
+        color: '#FFF',
+        fontWeight: 'bold',
+    },
+    formSection: {
+        marginTop: Theme.spacing.lg,
+    },
+    labelRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: Theme.spacing.sm,
     },
     label: {
         ...Theme.typography.body1,
-        fontWeight: '700',
+        fontWeight: 'bold',
         color: Theme.colors.onBackground,
-        marginBottom: Theme.spacing.xs,
+    },
+    inputContainer: {
+        backgroundColor: '#FFF',
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: Theme.colors.gray[100],
+        minHeight: 100,
     },
     input: {
-        borderWidth: 1,
-        borderColor: Theme.colors.gray[300],
-        borderRadius: Theme.roundness,
         padding: Theme.spacing.md,
-        backgroundColor: '#FFF',
-        minHeight: 120,
-        textAlignVertical: 'top',
         ...Theme.typography.body2,
+        color: Theme.colors.onBackground,
+        flex: 1,
+    },
+    visibilityBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginTop: Theme.spacing.md,
+        paddingHorizontal: 4,
+    },
+    visibilityText: {
+        ...Theme.typography.caption,
+        color: Theme.colors.gray[500],
     },
     button: {
-        marginTop: Theme.spacing.lg,
+        marginTop: Theme.spacing.xl,
+        height: 56,
     },
 });

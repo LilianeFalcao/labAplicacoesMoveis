@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Switch, Alert, ScrollView, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Switch, Alert, ScrollView, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import { AppHeader } from '../../components/base/AppHeader';
 import { AppButton } from '../../components/base/AppButton';
 import { Theme } from '../../styles/Theme';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SendAnnouncementUseCase } from '@/application/communication/use-cases/SendAnnouncementUseCase';
 import { SupabaseAnnouncementRepository } from '@/infrastructure/communication/repositories/SupabaseAnnouncementRepository';
 import { SupabaseUserRepository } from '@/infrastructure/identity/repositories/SupabaseUserRepository';
@@ -11,6 +13,7 @@ import { ExpoPushService } from '@/infrastructure/notifications/ExpoPushService'
 
 export const CreateAnnouncementScreen = ({ navigation }: any) => {
     const { user } = useAuth();
+    const insets = useSafeAreaInsets();
     const [content, setContent] = useState('');
     const [isGeneral, setIsGeneral] = useState(true);
     const [classId, setClassId] = useState('');
@@ -46,63 +49,109 @@ export const CreateAnnouncementScreen = ({ navigation }: any) => {
     };
 
     return (
-        <SafeAreaView style={styles.safeArea}>
+        <View style={[styles.mainContainer, { paddingTop: insets.top }]}>
             <AppHeader
-                title="Novo Aviso"
+                title="Novo Comunicado Oficial"
                 showBack
                 onBack={() => navigation.goBack()}
             />
-            <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-                <View style={styles.form}>
-                    <Text style={styles.label}>Conteúdo do Aviso</Text>
-                    <TextInput
-                        style={styles.contentInput}
-                        multiline
-                        numberOfLines={6}
-                        placeholder="Digite a mensagem para os pais..."
-                        value={content}
-                        onChangeText={setContent}
-                    />
 
-                    <View style={styles.switchRow}>
-                        <View style={styles.switchText}>
-                            <Text style={styles.switchLabel}>Enviar para todos os pais?</Text>
-                            <Text style={styles.switchSublabel}>Se desativado, selecione uma turma abaixo.</Text>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.container}
+            >
+                <ScrollView
+                    style={styles.container}
+                    contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
+                    showsVerticalScrollIndicator={false}
+                >
+                    <View style={styles.headerSection}>
+                        <View style={styles.iconCircle}>
+                            <MaterialCommunityIcons name="bullhorn-variant-outline" size={40} color={Theme.colors.primary} />
                         </View>
-                        <Switch
-                            value={isGeneral}
-                            onValueChange={setIsGeneral}
-                            trackColor={{ false: Theme.colors.gray[300], true: Theme.colors.primary + '88' }}
-                            thumbColor={isGeneral ? Theme.colors.primary : Theme.colors.gray[400]}
-                        />
+                        <Text style={styles.headerTitle}>Comunicado Geral</Text>
+                        <Text style={styles.headerSubtitle}>Este aviso será enviado como notificação PUSH para todos os responsáveis selecionados.</Text>
                     </View>
 
-                    {!isGeneral && (
-                        <View style={styles.turmaSection}>
-                            <Text style={styles.label}>ID da Turma</Text>
+                    <View style={styles.form}>
+                        <View style={styles.inputLabelRow}>
+                            <Text style={styles.label}>Mensagem do Comunicado</Text>
+                            <Text style={styles.charCount}>{content.length}/500</Text>
+                        </View>
+                        <View style={styles.contentContainer}>
                             <TextInput
-                                style={styles.titleInput}
-                                placeholder="Ex: TURMA_A"
-                                value={classId}
-                                onChangeText={setClassId}
+                                style={styles.contentInput}
+                                multiline
+                                placeholder="Digite aqui a mensagem oficial da escola..."
+                                placeholderTextColor={Theme.colors.gray[400]}
+                                value={content}
+                                onChangeText={setContent}
+                                maxLength={500}
+                                textAlignVertical="top"
                             />
                         </View>
-                    )}
 
-                    <AppButton
-                        title="Disparar Aviso"
-                        onPress={handleSend}
-                        loading={sending}
-                        style={styles.button}
-                    />
-                </View>
-            </ScrollView>
-        </SafeAreaView>
+                        <View style={styles.configCard}>
+                            <View style={styles.switchRow}>
+                                <View style={styles.switchInfo}>
+                                    <View style={styles.switchTitleRow}>
+                                        <MaterialCommunityIcons name="earth" size={18} color={Theme.colors.gray[600]} />
+                                        <Text style={styles.switchLabel}>Enviar para toda a escola?</Text>
+                                    </View>
+                                    <Text style={styles.switchSublabel}>Se desativado, você poderá escolher uma turma específica.</Text>
+                                </View>
+                                <Switch
+                                    value={isGeneral}
+                                    onValueChange={setIsGeneral}
+                                    trackColor={{ false: Theme.colors.gray[200], true: Theme.colors.primary + '50' }}
+                                    thumbColor={isGeneral ? Theme.colors.primary : Theme.colors.gray[400]}
+                                />
+                            </View>
+
+                            {!isGeneral && (
+                                <View style={styles.turmaSection}>
+                                    <View style={styles.divider} />
+                                    <Text style={styles.innerLabel}>Identificador da Turma</Text>
+                                    <View style={styles.idInputContainer}>
+                                        <MaterialCommunityIcons name="door-open" size={18} color={Theme.colors.gray[400]} />
+                                        <TextInput
+                                            style={styles.idInput}
+                                            placeholder="Ex: TURMA_A"
+                                            placeholderTextColor={Theme.colors.gray[400]}
+                                            value={classId}
+                                            onChangeText={setClassId}
+                                            autoCapitalize="characters"
+                                        />
+                                    </View>
+                                </View>
+                            )}
+                        </View>
+
+                        <View style={styles.warningBox}>
+                            <MaterialCommunityIcons name="alert-decagram-outline" size={20} color="#D97706" />
+                            <Text style={styles.warningText}>Esta ação não pode ser desfeita após o envio das notificações.</Text>
+                        </View>
+
+                        <AppButton
+                            title="Disparar Comunicado Agora"
+                            onPress={handleSend}
+                            loading={sending}
+                            style={styles.button}
+                            variant="primary"
+                        />
+
+                        <TouchableOpacity style={styles.draftBtn} onPress={() => navigation.goBack()}>
+                            <Text style={styles.draftBtnText}>Cancelar e Descartar</Text>
+                        </TouchableOpacity>
+                    </View>
+                </ScrollView>
+            </KeyboardAvoidingView>
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
-    safeArea: {
+    mainContainer: {
         flex: 1,
         backgroundColor: Theme.colors.background,
     },
@@ -112,60 +161,153 @@ const styles = StyleSheet.create({
     scrollContent: {
         padding: Theme.spacing.md,
     },
+    headerSection: {
+        alignItems: 'center',
+        marginVertical: Theme.spacing.lg,
+    },
+    iconCircle: {
+        width: 72,
+        height: 72,
+        borderRadius: 36,
+        backgroundColor: '#F0F9FF',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: Theme.spacing.md,
+    },
+    headerTitle: {
+        ...Theme.typography.h2,
+        color: Theme.colors.onBackground,
+    },
+    headerSubtitle: {
+        ...Theme.typography.caption,
+        color: Theme.colors.gray[500],
+        textAlign: 'center',
+        marginTop: 4,
+        paddingHorizontal: Theme.spacing.xl,
+    },
     form: {
         flex: 1,
     },
-    label: {
-        ...Theme.typography.body1,
-        fontWeight: '700',
-        color: Theme.colors.onBackground,
-        marginBottom: Theme.spacing.xs,
+    inputLabelRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
         marginTop: Theme.spacing.md,
     },
-    contentInput: {
-        borderWidth: 1,
-        borderColor: Theme.colors.gray[300],
-        borderRadius: Theme.roundness,
-        padding: Theme.spacing.md,
+    label: {
+        ...Theme.typography.body1,
+        fontWeight: 'bold',
+        color: Theme.colors.onBackground,
+    },
+    charCount: {
+        ...Theme.typography.caption,
+        color: Theme.colors.gray[400],
+    },
+    contentContainer: {
         backgroundColor: '#FFF',
-        minHeight: 180,
-        textAlignVertical: 'top',
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: Theme.colors.gray[100],
+        minHeight: 160,
+    },
+    contentInput: {
+        padding: Theme.spacing.md,
         ...Theme.typography.body2,
+        color: Theme.colors.onBackground,
+        flex: 1,
+    },
+    configCard: {
+        backgroundColor: '#FFF',
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: Theme.colors.gray[100],
+        marginTop: Theme.spacing.lg,
+        padding: Theme.spacing.md,
     },
     switchRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginTop: Theme.spacing.xl,
-        paddingVertical: Theme.spacing.md,
-        borderTopWidth: 1,
-        borderTopColor: Theme.colors.gray[200],
     },
-    switchText: {
+    switchInfo: {
         flex: 1,
         paddingRight: Theme.spacing.md,
     },
+    switchTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
     switchLabel: {
-        ...Theme.typography.body1,
-        fontWeight: '600',
+        ...Theme.typography.body2,
+        fontWeight: 'bold',
         color: Theme.colors.onBackground,
     },
     switchSublabel: {
         ...Theme.typography.caption,
         color: Theme.colors.gray[500],
+        marginTop: 2,
     },
     turmaSection: {
         marginTop: Theme.spacing.md,
     },
-    titleInput: {
+    divider: {
+        height: 1,
+        backgroundColor: Theme.colors.gray[100],
+        marginBottom: Theme.spacing.md,
+    },
+    innerLabel: {
+        ...Theme.typography.caption,
+        color: Theme.colors.gray[600],
+        fontWeight: 'bold',
+        marginBottom: 8,
+    },
+    idInputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F8FAFC',
+        borderRadius: 12,
+        paddingHorizontal: Theme.spacing.md,
+        height: 44,
         borderWidth: 1,
-        borderColor: Theme.colors.gray[300],
-        borderRadius: Theme.roundness,
+        borderColor: Theme.colors.gray[100],
+        gap: 8,
+    },
+    idInput: {
+        flex: 1,
+        ...Theme.typography.body2,
+        color: Theme.colors.onBackground,
+        fontWeight: 'bold',
+    },
+    warningBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FFFBEB',
         padding: Theme.spacing.md,
-        backgroundColor: '#FFF',
-        ...Theme.typography.body1,
+        borderRadius: 12,
+        marginTop: Theme.spacing.xl,
+        gap: Theme.spacing.sm,
+        borderWidth: 1,
+        borderColor: '#FEF3C7',
+    },
+    warningText: {
+        ...Theme.typography.caption,
+        color: '#92400E',
+        fontWeight: '600',
+        flex: 1,
     },
     button: {
-        marginTop: Theme.spacing.xxl,
+        marginTop: Theme.spacing.xl,
+        height: 56,
+    },
+    draftBtn: {
+        alignItems: 'center',
+        marginTop: Theme.spacing.lg,
+    },
+    draftBtnText: {
+        ...Theme.typography.body2,
+        color: Theme.colors.error,
+        fontWeight: 'bold',
     },
 });

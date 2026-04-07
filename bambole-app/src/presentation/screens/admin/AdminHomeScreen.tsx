@@ -1,101 +1,142 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { AppHeader } from '../../components/base/AppHeader';
 import { AppCard } from '../../components/base/AppCard';
 import { Theme } from '../../styles/Theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export const AdminHomeScreen = ({ navigation }: any) => {
-    const { user, signOut } = useAuth();
+    const { signOut } = useAuth();
+    const insets = useSafeAreaInsets();
 
-    const ActionItem = ({ title, icon, onPress, color }: any) => (
-        <TouchableOpacity style={styles.actionItem} onPress={onPress}>
+    const ActionItem = ({ title, icon, onPress, color, description }: any) => (
+        <TouchableOpacity style={styles.actionItem} onPress={onPress} activeOpacity={0.7}>
             <AppCard style={styles.actionCard}>
-                <View style={[styles.iconBadge, { backgroundColor: color + '22' }]}>
-                    <MaterialCommunityIcons name={icon} size={32} color={color} />
+                <View style={[styles.iconBadge, { backgroundColor: color + '15' }]}>
+                    <MaterialCommunityIcons name={icon} size={28} color={color} />
                 </View>
-                <Text style={styles.actionTitle}>{title}</Text>
+                <View style={styles.actionTextContent}>
+                    <Text style={styles.actionTitle}>{title}</Text>
+                    <Text style={styles.actionDescription} numberOfLines={1}>{description}</Text>
+                </View>
+                <MaterialCommunityIcons name="chevron-right" size={20} color={Theme.colors.gray[300]} />
             </AppCard>
         </TouchableOpacity>
     );
 
     return (
-        <SafeAreaView style={styles.safeArea}>
+        <View style={[styles.mainContainer, { paddingTop: insets.top }]}>
             <AppHeader
-                title="Bambolê Admin"
+                title="Painel Administrativo"
                 rightAction={{
                     icon: 'logout',
                     onPress: signOut
                 }}
             />
-            <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-                <View style={styles.welcomeSection}>
-                    <Text style={styles.welcome}>Olá, Administrador</Text>
-                    <Text style={styles.dateText}>31 de Março, 2026</Text>
+            <ScrollView
+                style={styles.container}
+                contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 80 }]}
+                showsVerticalScrollIndicator={false}
+            >
+                <View style={styles.headerSection}>
+                    <View>
+                        <Text style={styles.welcome}>Olá, Administrador 👋</Text>
+                        <Text style={styles.dateText}>Terça-feira, 31 de Março</Text>
+                    </View>
+                    <View style={styles.avatarPlaceholder}>
+                        <MaterialCommunityIcons name="shield-account" size={32} color={Theme.colors.primary} />
+                    </View>
                 </View>
 
-                <View style={styles.statsRow}>
+                <View style={styles.statsGrid}>
                     <AppCard style={styles.statCard}>
+                        <View style={[styles.statIconCircle, { backgroundColor: '#E0F2FE' }]}>
+                            <MaterialCommunityIcons name="account-group" size={20} color={Theme.colors.primary} />
+                        </View>
                         <Text style={styles.statValue}>42</Text>
                         <Text style={styles.statLabel}>Alunos</Text>
                     </AppCard>
-                    <AppCard style={[styles.statCard, styles.presentCard]}>
+
+                    <AppCard style={styles.statCard}>
+                        <View style={[styles.statIconCircle, { backgroundColor: '#DCFCE7' }]}>
+                            <MaterialCommunityIcons name="check-circle" size={20} color="#059669" />
+                        </View>
                         <Text style={styles.statValue}>38</Text>
                         <Text style={styles.statLabel}>Presentes</Text>
                     </AppCard>
+
                     <AppCard style={styles.statCard}>
+                        <View style={[styles.statIconCircle, { backgroundColor: '#FEF3C7' }]}>
+                            <MaterialCommunityIcons name="school" size={20} color="#D97706" />
+                        </View>
                         <Text style={styles.statValue}>08</Text>
                         <Text style={styles.statLabel}>Turmas</Text>
                     </AppCard>
                 </View>
 
-                <Text style={styles.sectionTitle}>Gerenciamento</Text>
-                <View style={styles.grid}>
+                <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>Gerenciamento Geral</Text>
+                </View>
+
+                <View style={styles.managementList}>
                     <ActionItem
-                        title="Avisos"
-                        icon="bullhorn"
+                        title="Avisos e Mural"
+                        description="Comunicados oficiais para toda a escola"
+                        icon="bullhorn-outline"
                         color={Theme.colors.primary}
                         onPress={() => navigation.navigate('CreateAnnouncement')}
                     />
                     <ActionItem
-                        title="Turmas"
-                        icon="school"
-                        color="#4CAF50"
+                        title="Gestão de Turmas"
+                        description="Horários, capacidades e atividades"
+                        icon="domain"
+                        color="#059669"
                         onPress={() => navigation.navigate('GroupManagement')}
                     />
                     <ActionItem
-                        title="Monitores"
-                        icon="account-tie"
-                        color="#FF9800"
+                        title="Equipe de Monitores"
+                        description="Cadastro e atribuição de turmas"
+                        icon="account-tie-outline"
+                        color="#D97706"
                         onPress={() => navigation.navigate('MonitorManagement')}
                     />
                     <ActionItem
-                        title="Vínculos"
+                        title="Vínculos e Família"
+                        description="Conectar pais a alunos e monitores"
                         icon="link-variant"
-                        color="#2196F3"
+                        color="#6366F1"
                         onPress={() => navigation.navigate('StudentMonitorLinking')}
                     />
                     <ActionItem
-                        title="Relatórios"
-                        icon="file-chart"
-                        color="#9C27B0"
-                        onPress={() => { }}
-                    />
-                    <ActionItem
-                        title="Ajustes"
-                        icon="cog"
-                        color={Theme.colors.gray[600]}
+                        title="Relatórios e Logs"
+                        description="Histórico de presença e atividades"
+                        icon="file-chart-outline"
+                        color="#8B5CF6"
                         onPress={() => { }}
                     />
                 </View>
+
+                <AppCard style={styles.quickSettingsCard}>
+                    <View style={styles.settingsInfo}>
+                        <MaterialCommunityIcons name="cog-outline" size={24} color={Theme.colors.gray[600]} />
+                        <View style={styles.settingsText}>
+                            <Text style={styles.settingsTitle}>Configurações do Sistema</Text>
+                            <Text style={styles.settingsSubtitle}>Ajustes de segurança e permissões</Text>
+                        </View>
+                    </View>
+                    <TouchableOpacity style={styles.settingsBtn}>
+                        <Text style={styles.settingsBtnText}>Acessar</Text>
+                    </TouchableOpacity>
+                </AppCard>
             </ScrollView>
-        </SafeAreaView>
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
-    safeArea: {
+    mainContainer: {
         flex: 1,
         backgroundColor: Theme.colors.background,
     },
@@ -105,68 +146,140 @@ const styles = StyleSheet.create({
     scrollContent: {
         padding: Theme.spacing.md,
     },
-    welcomeSection: {
-        marginBottom: Theme.spacing.lg,
+    headerSection: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: Theme.spacing.xl,
+        marginTop: Theme.spacing.sm,
     },
     welcome: {
-        ...Theme.typography.h2,
+        ...Theme.typography.h1,
         color: Theme.colors.onBackground,
+        fontSize: 22,
     },
     dateText: {
         ...Theme.typography.body2,
         color: Theme.colors.gray[500],
+        marginTop: 2,
     },
-    statsRow: {
+    avatarPlaceholder: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: '#F0F9FF',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: Theme.colors.primary + '20',
+    },
+    statsGrid: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         marginBottom: Theme.spacing.xl,
     },
     statCard: {
         width: '31%',
-        alignItems: 'center',
-        padding: Theme.spacing.sm,
+        alignItems: 'flex-start',
+        padding: Theme.spacing.md,
     },
-    presentCard: {
-        borderLeftWidth: 4,
-        borderLeftColor: '#4CAF50',
+    statIconCircle: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 8,
     },
     statValue: {
-        ...Theme.typography.h3,
+        ...Theme.typography.h2,
         color: Theme.colors.onBackground,
+        fontSize: 20,
     },
     statLabel: {
         ...Theme.typography.caption,
-        color: Theme.colors.gray[500],
+        color: Theme.colors.gray[400],
+        fontWeight: '600',
+    },
+    sectionHeader: {
+        marginBottom: Theme.spacing.md,
     },
     sectionTitle: {
         ...Theme.typography.h3,
         color: Theme.colors.onBackground,
-        marginBottom: Theme.spacing.md,
     },
-    grid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'space-between',
+    managementList: {
+        gap: Theme.spacing.sm,
     },
     actionItem: {
-        width: '48%',
-        marginBottom: Theme.spacing.md,
+        width: '100%',
     },
     actionCard: {
+        flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: Theme.spacing.lg,
+        padding: Theme.spacing.md,
     },
     iconBadge: {
-        width: 60,
-        height: 60,
-        borderRadius: 30,
+        width: 48,
+        height: 48,
+        borderRadius: 12,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: Theme.spacing.sm,
+        marginRight: Theme.spacing.md,
+    },
+    actionTextContent: {
+        flex: 1,
     },
     actionTitle: {
-        ...Theme.typography.body2,
-        fontWeight: '700',
+        ...Theme.typography.body1,
+        fontWeight: 'bold',
         color: Theme.colors.onBackground,
+    },
+    actionDescription: {
+        ...Theme.typography.caption,
+        color: Theme.colors.gray[500],
+        marginTop: 2,
+    },
+    quickSettingsCard: {
+        marginTop: Theme.spacing.xl,
+        padding: Theme.spacing.md,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: '#F8FAFC',
+        borderStyle: 'dashed',
+        borderWidth: 1,
+        borderColor: Theme.colors.gray[200],
+    },
+    settingsInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Theme.spacing.md,
+        flex: 1,
+    },
+    settingsText: {
+        flex: 1,
+    },
+    settingsTitle: {
+        ...Theme.typography.body2,
+        fontWeight: 'bold',
+        color: Theme.colors.onBackground,
+    },
+    settingsSubtitle: {
+        ...Theme.typography.caption,
+        color: Theme.colors.gray[500],
+    },
+    settingsBtn: {
+        backgroundColor: '#FFF',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: Theme.colors.gray[200],
+    },
+    settingsBtnText: {
+        ...Theme.typography.caption,
+        color: Theme.colors.gray[700],
+        fontWeight: '700',
     },
 });
