@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Theme } from '../../styles/Theme';
 import { useAuth } from '../../contexts/AuthContext';
@@ -21,9 +22,14 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     rightAction,
 }) => {
     const { isSimulated, signOut } = useAuth();
+    const insets = useSafeAreaInsets();
 
     return (
-        <SafeAreaView style={[styles.safeArea, isSimulated && styles.simulatedSafeArea]}>
+        <View style={[
+            styles.headerWrapper,
+            { paddingTop: Math.max(insets.top, 10) },
+            isSimulated && styles.simulatedHeaderWrapper
+        ]}>
             {isSimulated && (
                 <View style={styles.simulationBanner}>
                     <Text style={styles.simulationText}>MODO DE PRÉ-VISUALIZAÇÃO</Text>
@@ -49,15 +55,15 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                     )}
                 </View>
             </View>
-        </SafeAreaView>
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
-    safeArea: {
+    headerWrapper: {
         backgroundColor: Theme.colors.primary,
     },
-    simulatedSafeArea: {
+    simulatedHeaderWrapper: {
         backgroundColor: Theme.colors.secondaryVariant,
     },
     simulationBanner: {

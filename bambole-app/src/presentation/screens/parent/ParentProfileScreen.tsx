@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme } from '../../styles/Theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
@@ -20,8 +21,8 @@ export const ParentProfileScreen = () => {
     ];
 
     return (
-        <SafeAreaView style={styles.safeArea}>
-            <View style={[styles.header, { paddingTop: insets.top || Theme.spacing.md }]}>
+        <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
+            <View style={[styles.header, { paddingTop: Math.max(insets.top, Theme.spacing.md) }]}>
                 <Text style={styles.headerTitle}>Meu Perfil</Text>
                 <TouchableOpacity onPress={signOut} style={styles.logoutIconButton}>
                     <MaterialCommunityIcons name="logout" size={22} color={Theme.colors.error} />

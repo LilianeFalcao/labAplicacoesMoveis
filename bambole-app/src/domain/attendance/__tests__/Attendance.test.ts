@@ -35,5 +35,18 @@ describe('Attendance Domain', () => {
 
         expect(record.status.value).toBe('justified');
         expect(record.justificationNote).toBe('Atraso no ônibus');
+        expect(record.justifiedAt).toBeInstanceOf(Date);
+    });
+
+    it('should pre-justify and have justifiedAt set', () => {
+        const record = AttendanceRecord.createAbsent(childId, classId, monitorId, date);
+        record.preJustify('Aviso prévio');
+        expect(record.justifiedAt).toBeInstanceOf(Date);
+    });
+
+    describe('AttendanceStatus Value Object', () => {
+        it('should throw error for invalid status', () => {
+            expect(() => AttendanceStatus.create('invalid' as any)).toThrow('Invalid attendance status');
+        });
     });
 });

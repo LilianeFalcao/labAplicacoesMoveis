@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { AppHeader } from '../../components/base/AppHeader';
 import { AppCard } from '../../components/base/AppCard';
@@ -27,7 +28,7 @@ export const AdminHomeScreen = ({ navigation }: any) => {
     );
 
     return (
-        <View style={[styles.mainContainer, { paddingTop: insets.top }]}>
+        <SafeAreaView style={styles.mainContainer} edges={['left', 'right', 'bottom']}>
             <AppHeader
                 title="Painel Administrativo"
                 rightAction={{
@@ -131,7 +132,7 @@ export const AdminHomeScreen = ({ navigation }: any) => {
                     </TouchableOpacity>
                 </AppCard>
             </ScrollView>
-        </View>
+        </SafeAreaView>
     );
 };
 

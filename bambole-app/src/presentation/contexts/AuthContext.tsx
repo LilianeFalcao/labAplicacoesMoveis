@@ -5,11 +5,11 @@ import { Email } from '@/domain/identity/value-objects/Email';
 
 interface AuthContextData {
     user: User | null;
-    signIn: (role: UserRole) => void;
+    signIn: (email: string, role: UserRole) => void;
     signOut: () => void;
     isLoading: boolean;
     isSimulated: boolean;
-    startSimulation: (role: UserRole) => void;
+    startSimulation: (email: string, role: UserRole) => void;
 }
 
 const AuthContext = createContext<AuthContextData>({} as AuthContextData);
@@ -20,20 +20,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [isSimulated, setIsSimulated] = useState(false);
 
     // Temporary sign in for navigation testing
-    const signIn = (role: UserRole) => {
+    const signIn = (email: string, role: UserRole) => {
         const mockUser = new User(
-            'mock-id',
-            Email.create('mock@test.com'),
+            'mock-' + Math.random().toString(36).substr(2, 9),
+            Email.create(email),
             Role.create(role)
         );
         setUser(mockUser);
         setIsSimulated(false);
     };
 
-    const startSimulation = (role: UserRole) => {
+    const startSimulation = (email: string, role: UserRole) => {
         const mockUser = new User(
-            'sim-id-' + role,
-            Email.create('demo@bambole.app'),
+            'sim-' + Math.random().toString(36).substr(2, 9),
+            Email.create(email),
             Role.create(role)
         );
         setUser(mockUser);

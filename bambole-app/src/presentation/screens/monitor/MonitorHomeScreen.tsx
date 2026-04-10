@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, FlatList, ScrollView, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../../components/base/AppHeader';
 import { AppCard } from '../../components/base/AppCard';
 import { Theme } from '../../styles/Theme';
@@ -20,7 +21,7 @@ export const MonitorHomeScreen = () => {
     ];
 
     return (
-        <View style={[styles.mainContainer, { paddingTop: insets.top }]}>
+        <SafeAreaView style={styles.mainContainer} edges={['left', 'right', 'bottom']}>
             <AppHeader
                 title="Portal do Monitor"
                 rightAction={{
@@ -31,7 +32,7 @@ export const MonitorHomeScreen = () => {
 
             <ScrollView
                 style={styles.container}
-                contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 80 }]}
+                contentContainerStyle={[styles.scrollContent, { paddingBottom: 80 }]}
                 showsVerticalScrollIndicator={false}
             >
                 <View style={styles.welcomeSection}>
@@ -128,8 +129,9 @@ export const MonitorHomeScreen = () => {
                         <Text style={styles.viewAgendaLabel}>Ver agenda completa</Text>
                     </TouchableOpacity>
                 </AppCard>
+
             </ScrollView>
-        </View>
+        </SafeAreaView>
     );
 };
 

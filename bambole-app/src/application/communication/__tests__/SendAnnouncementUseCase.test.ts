@@ -51,4 +51,14 @@ describe('SendAnnouncementUseCase', () => {
         expect(mockAnnounceRepo.save).toHaveBeenCalled();
         expect(mockPushService.send).toHaveBeenCalledWith(tokens, 'Bambolê: Comunicado Geral', 'Feriado');
     });
+
+    it('should throw error if classId is missing for class audience', async () => {
+        await expect(useCase.execute('u1', 'Aviso', 'class')).rejects.toThrow('Class ID is required for class audience');
+    });
+
+    it('should not call push service if no tokens found', async () => {
+        mockUserRepo.findAllParentTokens.mockResolvedValue([]);
+        await useCase.execute('u1', 'Aviso', 'all');
+        expect(mockPushService.send).not.toHaveBeenCalled();
+    });
 });

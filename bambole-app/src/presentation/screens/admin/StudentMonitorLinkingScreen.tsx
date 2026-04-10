@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../../components/base/AppHeader';
 import { AppCard } from '../../components/base/AppCard';
 import { Theme } from '../../styles/Theme';
@@ -19,7 +20,7 @@ export const StudentMonitorLinkingScreen = () => {
     ];
 
     return (
-        <View style={[styles.mainContainer, { paddingTop: insets.top }]}>
+        <SafeAreaView style={styles.mainContainer} edges={['left', 'right', 'bottom']}>
             <AppHeader
                 title="Vínculos Escoleres"
                 showBack
@@ -103,7 +104,7 @@ export const StudentMonitorLinkingScreen = () => {
                     )}
                 />
             </View>
-        </View>
+        </SafeAreaView>
     );
 };
 

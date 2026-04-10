@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Image, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme } from '../../styles/Theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -22,8 +23,8 @@ export const PhotoFeedScreen = () => {
     ];
 
     return (
-        <SafeAreaView style={styles.safeArea}>
-            <View style={[styles.header, { paddingTop: insets.top || Theme.spacing.md }]}>
+        <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
+            <View style={[styles.header, { paddingTop: Math.max(insets.top, Theme.spacing.md) }]}>
                 <Text style={styles.headerTitle}>Fotos da Turma</Text>
                 <TouchableOpacity style={styles.filterButton}>
                     <MaterialCommunityIcons name="filter-variant" size={24} color={Theme.colors.primary} />

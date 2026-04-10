@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../../components/base/AppHeader';
 import { AppCard } from '../../components/base/AppCard';
 import { Theme } from '../../styles/Theme';
@@ -42,7 +43,7 @@ export const GroupManagementScreen = () => {
     };
 
     return (
-        <View style={[styles.mainContainer, { paddingTop: insets.top }]}>
+        <SafeAreaView style={styles.mainContainer} edges={['left', 'right', 'bottom']}>
             <AppHeader
                 title="Gestão de Turmas"
                 showBack
@@ -104,7 +105,7 @@ export const GroupManagementScreen = () => {
                     )}
                 />
             </View>
-        </View>
+        </SafeAreaView>
     );
 };
 

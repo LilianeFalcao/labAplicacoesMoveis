@@ -54,4 +54,15 @@ describe('TakeAttendanceUseCase', () => {
 
         await expect(useCase.execute('cl1', 'm1', new Date(), [])).rejects.toThrow('Attendance outside schedule');
     });
+
+    it('should throw error if geolocation is missing for present student', async () => {
+        const classId = 'cl1';
+        const date = new Date('2026-03-23T15:00:00');
+        const students = [{ childId: 'c1', status: 'present' as const }]; // missing geolocation
+
+        const mockClass = new Class(classId, 'Turma A', new WeeklySchedule(['MON'], '14:00', '17:00'));
+        mockClassRepo.findById.mockResolvedValue(mockClass);
+
+        await expect(useCase.execute(classId, 'm1', date, students)).rejects.toThrow('Geolocation required for present student c1');
+    });
 });

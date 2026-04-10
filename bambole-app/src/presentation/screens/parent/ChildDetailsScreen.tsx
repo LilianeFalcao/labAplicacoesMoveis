@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, Image, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme } from '../../styles/Theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -20,8 +21,8 @@ export const ChildDetailsScreen = () => {
     const { childName = 'Lucas Ferreira', class_id = 'Futebol — 6 a 9 anos' } = route.params;
 
     return (
-        <SafeAreaView style={styles.safeArea}>
-            <View style={[styles.header, { paddingTop: insets.top || Theme.spacing.md }]}>
+        <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
+            <View style={[styles.header, { paddingTop: Math.max(insets.top, Theme.spacing.md) }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <MaterialCommunityIcons name="arrow-left" size={24} color={Theme.colors.primary} />
                 </TouchableOpacity>

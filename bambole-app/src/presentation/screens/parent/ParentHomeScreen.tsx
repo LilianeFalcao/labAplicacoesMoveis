@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, ScrollView, RefreshControl, ActivityIndicator, SafeAreaView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ScrollView, RefreshControl, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { OfflineSyncService } from '@/infrastructure/offline/OfflineSyncService';
 import { AppCard } from '../../components/base/AppCard';
@@ -63,8 +64,8 @@ export const ParentHomeScreen = () => {
     }
 
     return (
-        <SafeAreaView style={styles.safeArea}>
-            <View style={[styles.header, { paddingTop: insets.top || Theme.spacing.md }]}>
+        <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
+            <View style={[styles.header, { paddingTop: Math.max(insets.top, Theme.spacing.md) }]}>
                 <View style={styles.headerLeft}>
                     <View style={styles.avatarMini}>
                         <MaterialCommunityIcons name="emoticon-happy-outline" size={20} color={Theme.colors.primary} />

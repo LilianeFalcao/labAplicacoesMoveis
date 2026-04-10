@@ -11,33 +11,33 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export const LoginScreen = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [selectedRole, setSelectedRole] = useState<any>('parent');
     const [loading, setLoading] = useState(false);
-    const { signIn, startSimulation } = useAuth();
+    const { signIn } = useAuth();
     const navigation = useNavigation<any>();
     const insets = useSafeAreaInsets();
 
-    const handlePreview = () => {
-        Alert.alert(
-            'Pré-visualizar App',
-            'Escolha um perfil para visualizar as telas e o fluxo do aplicativo:',
-            [
-                { text: 'Administrador', onPress: () => startSimulation('admin') },
-                { text: 'Monitor', onPress: () => startSimulation('monitor') },
-                { text: 'Pai/Mãe', onPress: () => startSimulation('parent') },
-                { text: 'Cancelar', style: 'cancel' }
-            ]
-        );
-    };
 
     const handleLogin = async () => {
-        if (!email || !password) {
-            Alert.alert('Erro', 'Preencha todos os campos');
+        if (!email) {
+            Alert.alert('Erro', 'Por favor, preencha seu e-mail.');
+            return;
+        }
+
+        if (!password) {
+            Alert.alert('Erro', 'Por favor, preencha sua senha.');
+            return;
+        }
+
+        if (password !== '123456') {
+            Alert.alert('Erro', "Por favor, use a senha de demonstração '123456'.");
             return;
         }
 
         setLoading(true);
         try {
-            signIn('parent');
+            // Simulated login using the typed email and selected role
+            signIn(email, selectedRole);
         } catch (error: any) {
             Alert.alert('Erro', error.message);
         } finally {
@@ -93,18 +93,59 @@ export const LoginScreen = () => {
                             <Text style={styles.forgotPasswordText}>Esqueci minha senha</Text>
                         </TouchableOpacity>
 
+                        <Text style={styles.roleLabel}>Acessar como:</Text>
+                        <View style={styles.roleSelector}>
+                            <TouchableOpacity
+                                style={[styles.roleCard, selectedRole === 'parent' && styles.roleCardActive]}
+                                onPress={() => {
+                                    setSelectedRole('parent');
+                                    if (!email.trim()) setEmail('ana.parent@bambole.app');
+                                }}
+                            >
+                                <MaterialCommunityIcons
+                                    name="account-child"
+                                    size={24}
+                                    color={selectedRole === 'parent' ? '#FFF' : Theme.colors.primary}
+                                />
+                                <Text style={[styles.roleText, selectedRole === 'parent' && styles.roleTextActive]}>Pai/Mãe</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[styles.roleCard, selectedRole === 'monitor' && styles.roleCardActive]}
+                                onPress={() => {
+                                    setSelectedRole('monitor');
+                                    if (!email.trim()) setEmail('pedro.monitor@bambole.app');
+                                }}
+                            >
+                                <MaterialCommunityIcons
+                                    name="account-tie"
+                                    size={24}
+                                    color={selectedRole === 'monitor' ? '#FFF' : Theme.colors.primary}
+                                />
+                                <Text style={[styles.roleText, selectedRole === 'monitor' && styles.roleTextActive]}>Monitor</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[styles.roleCard, selectedRole === 'admin' && styles.roleCardActive]}
+                                onPress={() => {
+                                    setSelectedRole('admin');
+                                    if (!email.trim()) setEmail('diretoria@bambole.app');
+                                }}
+                            >
+                                <MaterialCommunityIcons
+                                    name="shield-account"
+                                    size={24}
+                                    color={selectedRole === 'admin' ? '#FFF' : Theme.colors.primary}
+                                />
+                                <Text style={[styles.roleText, selectedRole === 'admin' && styles.roleTextActive]}>Escola</Text>
+                            </TouchableOpacity>
+                        </View>
+
                         <AppButton
-                            title="Entrar"
+                            title={`Entrar como ${selectedRole === 'parent' ? 'Responsável' : selectedRole === 'monitor' ? 'Monitor' : 'Administrador'}`}
                             onPress={handleLogin}
                             loading={loading}
                             style={styles.loginButton}
-                        />
-
-                        <AppButton
-                            title="Pré-visualizar App"
-                            onPress={handlePreview}
-                            variant="outline"
-                            style={styles.previewButton}
                         />
                     </View>
 
@@ -181,9 +222,42 @@ const styles = StyleSheet.create({
     },
     loginButton: {
         marginBottom: Theme.spacing.md,
+        marginTop: Theme.spacing.md,
     },
-    previewButton: {
-        marginBottom: Theme.spacing.xl,
+    roleLabel: {
+        ...Theme.typography.caption,
+        color: Theme.colors.gray[500],
+        fontWeight: 'bold',
+        marginBottom: Theme.spacing.sm,
+        marginTop: Theme.spacing.sm,
+    },
+    roleSelector: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        gap: Theme.spacing.sm,
+        marginBottom: Theme.spacing.md,
+    },
+    roleCard: {
+        flex: 1,
+        backgroundColor: '#FFF',
+        borderRadius: 12,
+        padding: Theme.spacing.sm,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: Theme.colors.gray[100],
+        gap: 4,
+    },
+    roleCardActive: {
+        backgroundColor: Theme.colors.primary,
+        borderColor: Theme.colors.primary,
+    },
+    roleText: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: Theme.colors.gray[600],
+    },
+    roleTextActive: {
+        color: '#FFF',
     },
     footer: {
         alignItems: 'center',

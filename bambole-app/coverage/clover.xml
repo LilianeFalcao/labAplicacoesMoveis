@@ -1,0 +1,284 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<coverage generated="1775856165376" clover="3.2.0">
+  <project timestamp="1775856165376" name="All files">
+    <metrics statements="182" coveredstatements="182" conditionals="36" coveredconditionals="36" methods="42" coveredmethods="42" elements="260" coveredelements="260" complexity="0" loc="182" ncloc="182" packages="14" files="18" classes="18"/>
+    <package name="application.activity.use-cases">
+      <metrics statements="8" coveredstatements="8" conditionals="5" coveredconditionals="5" methods="2" coveredmethods="2"/>
+      <file name="CreateClassUseCase.ts" path="/var/www/linnr/bambole-app/src/application/activity/use-cases/CreateClassUseCase.ts">
+        <metrics statements="8" coveredstatements="8" conditionals="5" coveredconditionals="5" methods="2" coveredmethods="2"/>
+        <line num="2" count="1" type="stmt"/>
+        <line num="13" count="1" type="stmt"/>
+        <line num="14" count="3" type="stmt"/>
+        <line num="17" count="3" type="cond" truecount="3" falsecount="0"/>
+        <line num="18" count="1" type="stmt"/>
+        <line num="21" count="2" type="stmt"/>
+        <line num="27" count="2" type="stmt"/>
+        <line num="35" count="2" type="stmt"/>
+      </file>
+    </package>
+    <package name="application.attendance.use-cases">
+      <metrics statements="15" coveredstatements="15" conditionals="5" coveredconditionals="5" methods="2" coveredmethods="2"/>
+      <file name="TakeAttendanceUseCase.ts" path="/var/www/linnr/bambole-app/src/application/attendance/use-cases/TakeAttendanceUseCase.ts">
+        <metrics statements="15" coveredstatements="15" conditionals="5" coveredconditionals="5" methods="2" coveredmethods="2"/>
+        <line num="3" count="1" type="stmt"/>
+        <line num="12" count="1" type="stmt"/>
+        <line num="14" count="4" type="stmt"/>
+        <line num="15" count="4" type="stmt"/>
+        <line num="24" count="4" type="stmt"/>
+        <line num="25" count="4" type="cond" truecount="1" falsecount="0"/>
+        <line num="26" count="1" type="stmt"/>
+        <line num="29" count="3" type="cond" truecount="1" falsecount="0"/>
+        <line num="30" count="1" type="stmt"/>
+        <line num="33" count="2" type="stmt"/>
+        <line num="35" count="3" type="cond" truecount="2" falsecount="0"/>
+        <line num="36" count="2" type="cond" truecount="1" falsecount="0"/>
+        <line num="37" count="1" type="stmt"/>
+        <line num="39" count="1" type="stmt"/>
+        <line num="41" count="2" type="stmt"/>
+      </file>
+    </package>
+    <package name="application.communication.use-cases">
+      <metrics statements="20" coveredstatements="20" conditionals="6" coveredconditionals="6" methods="2" coveredmethods="2"/>
+      <file name="SendAnnouncementUseCase.ts" path="/var/www/linnr/bambole-app/src/application/communication/use-cases/SendAnnouncementUseCase.ts">
+        <metrics statements="20" coveredstatements="20" conditionals="6" coveredconditionals="6" methods="2" coveredmethods="2"/>
+        <line num="4" count="1" type="stmt"/>
+        <line num="5" count="1" type="stmt"/>
+        <line num="7" count="1" type="stmt"/>
+        <line num="9" count="4" type="stmt"/>
+        <line num="10" count="4" type="stmt"/>
+        <line num="11" count="4" type="stmt"/>
+        <line num="20" count="4" type="stmt"/>
+        <line num="21" count="4" type="cond" truecount="2" falsecount="0"/>
+        <line num="23" count="4" type="stmt"/>
+        <line num="24" count="4" type="stmt"/>
+        <line num="26" count="4" type="stmt"/>
+        <line num="27" count="4" type="stmt"/>
+        <line num="29" count="4" type="cond" truecount="2" falsecount="0"/>
+        <line num="30" count="2" type="cond" truecount="1" falsecount="0"/>
+        <line num="31" count="1" type="stmt"/>
+        <line num="32" count="1" type="stmt"/>
+        <line num="34" count="2" type="stmt"/>
+        <line num="35" count="2" type="stmt"/>
+        <line num="38" count="3" type="cond" truecount="1" falsecount="0"/>
+        <line num="39" count="2" type="stmt"/>
+      </file>
+    </package>
+    <package name="application.enrollment.use-cases">
+      <metrics statements="10" coveredstatements="10" conditionals="2" coveredconditionals="2" methods="2" coveredmethods="2"/>
+      <file name="LinkGuardianToChildUseCase.ts" path="/var/www/linnr/bambole-app/src/application/enrollment/use-cases/LinkGuardianToChildUseCase.ts">
+        <metrics statements="10" coveredstatements="10" conditionals="2" coveredconditionals="2" methods="2" coveredmethods="2"/>
+        <line num="4" count="1" type="stmt"/>
+        <line num="6" count="3" type="stmt"/>
+        <line num="7" count="3" type="stmt"/>
+        <line num="11" count="3" type="stmt"/>
+        <line num="12" count="3" type="cond" truecount="1" falsecount="0"/>
+        <line num="13" count="1" type="stmt"/>
+        <line num="16" count="2" type="stmt"/>
+        <line num="17" count="2" type="cond" truecount="1" falsecount="0"/>
+        <line num="18" count="1" type="stmt"/>
+        <line num="21" count="1" type="stmt"/>
+      </file>
+    </package>
+    <package name="application.identity.use-cases">
+      <metrics statements="24" coveredstatements="24" conditionals="2" coveredconditionals="2" methods="4" coveredmethods="4"/>
+      <file name="SignInUseCase.ts" path="/var/www/linnr/bambole-app/src/application/identity/use-cases/SignInUseCase.ts">
+        <metrics statements="10" coveredstatements="10" conditionals="1" coveredconditionals="1" methods="2" coveredmethods="2"/>
+        <line num="3" count="1" type="stmt"/>
+        <line num="6" count="1" type="stmt"/>
+        <line num="8" count="2" type="stmt"/>
+        <line num="9" count="2" type="stmt"/>
+        <line num="13" count="2" type="stmt"/>
+        <line num="15" count="2" type="stmt"/>
+        <line num="16" count="2" type="cond" truecount="1" falsecount="0"/>
+        <line num="17" count="1" type="stmt"/>
+        <line num="20" count="1" type="stmt"/>
+        <line num="22" count="1" type="stmt"/>
+      </file>
+      <file name="SignUpUseCase.ts" path="/var/www/linnr/bambole-app/src/application/identity/use-cases/SignUpUseCase.ts">
+        <metrics statements="14" coveredstatements="14" conditionals="1" coveredconditionals="1" methods="2" coveredmethods="2"/>
+        <line num="3" count="1" type="stmt"/>
+        <line num="4" count="1" type="stmt"/>
+        <line num="5" count="1" type="stmt"/>
+        <line num="7" count="1" type="stmt"/>
+        <line num="9" count="2" type="stmt"/>
+        <line num="10" count="2" type="stmt"/>
+        <line num="14" count="2" type="stmt"/>
+        <line num="16" count="2" type="stmt"/>
+        <line num="17" count="2" type="cond" truecount="1" falsecount="0"/>
+        <line num="18" count="1" type="stmt"/>
+        <line num="22" count="1" type="stmt"/>
+        <line num="24" count="1" type="stmt"/>
+        <line num="30" count="1" type="stmt"/>
+        <line num="31" count="1" type="stmt"/>
+      </file>
+    </package>
+    <package name="domain.activity.entities">
+      <metrics statements="30" coveredstatements="30" conditionals="6" coveredconditionals="6" methods="4" coveredmethods="4"/>
+      <file name="Class.ts" path="/var/www/linnr/bambole-app/src/domain/activity/entities/Class.ts">
+        <metrics statements="22" coveredstatements="22" conditionals="5" coveredconditionals="5" methods="3" coveredmethods="3"/>
+        <line num="3" count="3" type="stmt"/>
+        <line num="5" count="9" type="stmt"/>
+        <line num="6" count="9" type="stmt"/>
+        <line num="7" count="9" type="stmt"/>
+        <line num="11" count="9" type="stmt"/>
+        <line num="12" count="9" type="stmt"/>
+        <line num="14" count="9" type="cond" truecount="1" falsecount="0"/>
+        <line num="16" count="7" type="stmt"/>
+        <line num="17" count="7" type="stmt"/>
+        <line num="19" count="7" type="stmt"/>
+        <line num="20" count="7" type="stmt"/>
+        <line num="22" count="7" type="stmt"/>
+        <line num="23" count="7" type="stmt"/>
+        <line num="24" count="7" type="stmt"/>
+        <line num="26" count="7" type="cond" truecount="2" falsecount="0"/>
+        <line num="30" count="3" type="stmt"/>
+        <line num="32" count="7" type="stmt"/>
+        <line num="33" count="7" type="stmt"/>
+        <line num="34" count="7" type="stmt"/>
+        <line num="35" count="7" type="stmt"/>
+        <line num="36" count="7" type="stmt"/>
+        <line num="40" count="5" type="stmt"/>
+      </file>
+      <file name="Schedule.ts" path="/var/www/linnr/bambole-app/src/domain/activity/entities/Schedule.ts">
+        <metrics statements="8" coveredstatements="8" conditionals="1" coveredconditionals="1" methods="1" coveredmethods="1"/>
+        <line num="4" count="1" type="stmt"/>
+        <line num="6" count="2" type="stmt"/>
+        <line num="7" count="2" type="stmt"/>
+        <line num="8" count="2" type="stmt"/>
+        <line num="9" count="2" type="stmt"/>
+        <line num="10" count="2" type="stmt"/>
+        <line num="11" count="2" type="stmt"/>
+        <line num="12" count="2" type="cond" truecount="1" falsecount="0"/>
+      </file>
+    </package>
+    <package name="domain.attendance.entities">
+      <metrics statements="23" coveredstatements="23" conditionals="0" coveredconditionals="0" methods="9" coveredmethods="9"/>
+      <file name="AttendanceRecord.ts" path="/var/www/linnr/bambole-app/src/domain/attendance/entities/AttendanceRecord.ts">
+        <metrics statements="23" coveredstatements="23" conditionals="0" coveredconditionals="0" methods="9" coveredmethods="9"/>
+        <line num="1" count="2" type="stmt"/>
+        <line num="3" count="2" type="stmt"/>
+        <line num="5" count="7" type="stmt"/>
+        <line num="6" count="7" type="stmt"/>
+        <line num="7" count="7" type="stmt"/>
+        <line num="8" count="7" type="stmt"/>
+        <line num="9" count="7" type="stmt"/>
+        <line num="10" count="7" type="stmt"/>
+        <line num="11" count="7" type="stmt"/>
+        <line num="12" count="7" type="stmt"/>
+        <line num="13" count="7" type="stmt"/>
+        <line num="16" count="4" type="stmt"/>
+        <line num="17" count="1" type="stmt"/>
+        <line num="18" count="2" type="stmt"/>
+        <line num="19" count="2" type="stmt"/>
+        <line num="22" count="2" type="stmt"/>
+        <line num="26" count="5" type="stmt"/>
+        <line num="30" count="2" type="stmt"/>
+        <line num="31" count="2" type="stmt"/>
+        <line num="32" count="2" type="stmt"/>
+        <line num="36" count="1" type="stmt"/>
+        <line num="37" count="1" type="stmt"/>
+        <line num="38" count="1" type="stmt"/>
+      </file>
+    </package>
+    <package name="domain.attendance.value-objects">
+      <metrics statements="5" coveredstatements="5" conditionals="1" coveredconditionals="1" methods="2" coveredmethods="2"/>
+      <file name="AttendanceStatus.ts" path="/var/www/linnr/bambole-app/src/domain/attendance/value-objects/AttendanceStatus.ts">
+        <metrics statements="5" coveredstatements="5" conditionals="1" coveredconditionals="1" methods="2" coveredmethods="2"/>
+        <line num="3" count="2" type="stmt"/>
+        <line num="4" count="10" type="stmt"/>
+        <line num="7" count="11" type="stmt"/>
+        <line num="8" count="11" type="cond" truecount="1" falsecount="0"/>
+        <line num="9" count="10" type="stmt"/>
+      </file>
+    </package>
+    <package name="domain.communication.entities">
+      <metrics statements="6" coveredstatements="6" conditionals="0" coveredconditionals="0" methods="1" coveredmethods="1"/>
+      <file name="Announcement.ts" path="/var/www/linnr/bambole-app/src/domain/communication/entities/Announcement.ts">
+        <metrics statements="6" coveredstatements="6" conditionals="0" coveredconditionals="0" methods="1" coveredmethods="1"/>
+        <line num="3" count="2" type="stmt"/>
+        <line num="5" count="6" type="stmt"/>
+        <line num="6" count="6" type="stmt"/>
+        <line num="7" count="6" type="stmt"/>
+        <line num="8" count="6" type="stmt"/>
+        <line num="9" count="6" type="stmt"/>
+      </file>
+    </package>
+    <package name="domain.communication.value-objects">
+      <metrics statements="9" coveredstatements="9" conditionals="4" coveredconditionals="4" methods="5" coveredmethods="5"/>
+      <file name="CommunicationVOs.ts" path="/var/www/linnr/bambole-app/src/domain/communication/value-objects/CommunicationVOs.ts">
+        <metrics statements="9" coveredstatements="9" conditionals="4" coveredconditionals="4" methods="5" coveredmethods="5"/>
+        <line num="1" count="2" type="stmt"/>
+        <line num="2" count="7" type="stmt"/>
+        <line num="5" count="9" type="cond" truecount="3" falsecount="0"/>
+        <line num="6" count="8" type="cond" truecount="1" falsecount="0"/>
+        <line num="7" count="7" type="stmt"/>
+        <line num="13" count="2" type="stmt"/>
+        <line num="14" count="6" type="stmt"/>
+        <line num="17" count="3" type="stmt"/>
+        <line num="21" count="3" type="stmt"/>
+      </file>
+    </package>
+    <package name="domain.enrollment.entities">
+      <metrics statements="11" coveredstatements="11" conditionals="0" coveredconditionals="0" methods="2" coveredmethods="2"/>
+      <file name="Child.ts" path="/var/www/linnr/bambole-app/src/domain/enrollment/entities/Child.ts">
+        <metrics statements="6" coveredstatements="6" conditionals="0" coveredconditionals="0" methods="1" coveredmethods="1"/>
+        <line num="3" count="2" type="stmt"/>
+        <line num="5" count="2" type="stmt"/>
+        <line num="6" count="2" type="stmt"/>
+        <line num="7" count="2" type="stmt"/>
+        <line num="8" count="2" type="stmt"/>
+        <line num="9" count="2" type="stmt"/>
+      </file>
+      <file name="Guardian.ts" path="/var/www/linnr/bambole-app/src/domain/enrollment/entities/Guardian.ts">
+        <metrics statements="5" coveredstatements="5" conditionals="0" coveredconditionals="0" methods="1" coveredmethods="1"/>
+        <line num="1" count="2" type="stmt"/>
+        <line num="3" count="3" type="stmt"/>
+        <line num="4" count="3" type="stmt"/>
+        <line num="5" count="3" type="stmt"/>
+        <line num="6" count="3" type="stmt"/>
+      </file>
+    </package>
+    <package name="domain.enrollment.value-objects">
+      <metrics statements="5" coveredstatements="5" conditionals="3" coveredconditionals="3" methods="2" coveredmethods="2"/>
+      <file name="ChildName.ts" path="/var/www/linnr/bambole-app/src/domain/enrollment/value-objects/ChildName.ts">
+        <metrics statements="5" coveredstatements="5" conditionals="3" coveredconditionals="3" methods="2" coveredmethods="2"/>
+        <line num="1" count="2" type="stmt"/>
+        <line num="2" count="3" type="stmt"/>
+        <line num="5" count="5" type="cond" truecount="3" falsecount="0"/>
+        <line num="6" count="2" type="stmt"/>
+        <line num="8" count="3" type="stmt"/>
+      </file>
+    </package>
+    <package name="domain.identity.entities">
+      <metrics statements="4" coveredstatements="4" conditionals="0" coveredconditionals="0" methods="1" coveredmethods="1"/>
+      <file name="User.ts" path="/var/www/linnr/bambole-app/src/domain/identity/entities/User.ts">
+        <metrics statements="4" coveredstatements="4" conditionals="0" coveredconditionals="0" methods="1" coveredmethods="1"/>
+        <line num="4" count="3" type="stmt"/>
+        <line num="6" count="3" type="stmt"/>
+        <line num="7" count="3" type="stmt"/>
+        <line num="8" count="3" type="stmt"/>
+      </file>
+    </package>
+    <package name="domain.identity.value-objects">
+      <metrics statements="12" coveredstatements="12" conditionals="2" coveredconditionals="2" methods="4" coveredmethods="4"/>
+      <file name="Email.ts" path="/var/www/linnr/bambole-app/src/domain/identity/value-objects/Email.ts">
+        <metrics statements="6" coveredstatements="6" conditionals="1" coveredconditionals="1" methods="2" coveredmethods="2"/>
+        <line num="1" count="4" type="stmt"/>
+        <line num="2" count="7" type="stmt"/>
+        <line num="5" count="9" type="stmt"/>
+        <line num="6" count="9" type="cond" truecount="1" falsecount="0"/>
+        <line num="7" count="2" type="stmt"/>
+        <line num="9" count="7" type="stmt"/>
+      </file>
+      <file name="Role.ts" path="/var/www/linnr/bambole-app/src/domain/identity/value-objects/Role.ts">
+        <metrics statements="6" coveredstatements="6" conditionals="1" coveredconditionals="1" methods="2" coveredmethods="2"/>
+        <line num="3" count="4" type="stmt"/>
+        <line num="4" count="6" type="stmt"/>
+        <line num="7" count="7" type="stmt"/>
+        <line num="8" count="7" type="cond" truecount="1" falsecount="0"/>
+        <line num="9" count="1" type="stmt"/>
+        <line num="11" count="6" type="stmt"/>
+      </file>
+    </package>
+  </project>
+</coverage>

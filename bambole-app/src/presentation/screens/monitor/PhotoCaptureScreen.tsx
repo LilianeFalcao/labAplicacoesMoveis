@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, TextInput, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../../components/base/AppHeader';
 import { AppButton } from '../../components/base/AppButton';
 import { Theme } from '../../styles/Theme';
@@ -29,7 +30,7 @@ export const PhotoCaptureScreen = () => {
     };
 
     return (
-        <View style={[styles.mainContainer, { paddingTop: insets.top }]}>
+        <SafeAreaView style={styles.mainContainer} edges={['left', 'right', 'bottom']}>
             <AppHeader
                 title="Capturar Momento"
                 showBack
@@ -42,7 +43,7 @@ export const PhotoCaptureScreen = () => {
             >
                 <ScrollView
                     style={styles.container}
-                    contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
+                    contentContainerStyle={[styles.scrollContent, { paddingBottom: Theme.spacing.xl }]}
                     showsVerticalScrollIndicator={false}
                 >
                     <View style={styles.captureSection}>
@@ -102,7 +103,7 @@ export const PhotoCaptureScreen = () => {
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
-        </View>
+        </SafeAreaView>
     );
 };
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../../components/base/AppHeader';
 import { AppCard } from '../../components/base/AppCard';
 import { Theme } from '../../styles/Theme';
@@ -26,7 +27,7 @@ export const MonitorManagementScreen = () => {
     };
 
     return (
-        <View style={[styles.mainContainer, { paddingTop: insets.top }]}>
+        <SafeAreaView style={styles.mainContainer} edges={['left', 'right', 'bottom']}>
             <AppHeader
                 title="Equipe de Monitores"
                 showBack
@@ -96,7 +97,7 @@ export const MonitorManagementScreen = () => {
                     )}
                 />
             </View>
-        </View>
+        </SafeAreaView>
     );
 };
 

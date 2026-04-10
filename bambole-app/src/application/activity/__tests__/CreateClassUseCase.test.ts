@@ -43,4 +43,27 @@ describe('CreateClassUseCase', () => {
 
         await expect(useCase.execute(input)).rejects.toThrow('Class name is required');
     });
+
+    it('should use fallback random ID if crypto.randomUUID is not available', async () => {
+        const input = {
+            name: 'Pintura',
+            days: ['MON'] as any,
+            startTime: '14:00',
+            endTime: '15:30'
+        };
+
+        // Mock crypto.randomUUID to be undefined
+        const originalCrypto = (global as any).crypto;
+        (global as any).crypto = { randomUUID: undefined };
+
+        await useCase.execute(input);
+
+        expect(mockClassRepo.save).toHaveBeenCalled();
+        const savedClass = mockClassRepo.save.mock.calls[0][0];
+        expect(savedClass.id).toBeDefined();
+        expect(typeof savedClass.id).toBe('string');
+
+        // Restore original crypto
+        (global as any).crypto = originalCrypto;
+    });
 });

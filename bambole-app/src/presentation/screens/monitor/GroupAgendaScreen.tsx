@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../../components/base/AppHeader';
 import { AppCard } from '../../components/base/AppCard';
 import { Theme } from '../../styles/Theme';
@@ -27,7 +28,7 @@ export const GroupAgendaScreen = () => {
     ];
 
     return (
-        <View style={[styles.mainContainer, { paddingTop: insets.top }]}>
+        <SafeAreaView style={styles.mainContainer} edges={['left', 'right', 'bottom']}>
             <AppHeader
                 title={groupName}
                 showBack
@@ -86,7 +87,7 @@ export const GroupAgendaScreen = () => {
                     <MaterialCommunityIcons name="plus" size={32} color="#FFF" />
                 </TouchableOpacity>
             </View>
-        </View>
+        </SafeAreaView>
     );
 };
 
@@ -202,16 +203,12 @@ const styles = StyleSheet.create({
     fab: {
         position: 'absolute',
         right: 20,
+        bottom: 20,
         width: 56,
         height: 56,
         borderRadius: 28,
         backgroundColor: Theme.colors.primary,
         justifyContent: 'center',
         alignItems: 'center',
-        elevation: 8,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 5,
     },
 });

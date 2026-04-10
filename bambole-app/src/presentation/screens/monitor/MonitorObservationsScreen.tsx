@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, Alert, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../../components/base/AppHeader';
 import { AppButton } from '../../components/base/AppButton';
 import { Theme } from '../../styles/Theme';
@@ -27,7 +28,7 @@ export const MonitorObservationsScreen = () => {
     };
 
     return (
-        <View style={[styles.mainContainer, { paddingTop: insets.top }]}>
+        <SafeAreaView style={styles.mainContainer} edges={['left', 'right', 'bottom']}>
             <AppHeader
                 title="Novo Comunicado"
                 showBack
@@ -40,7 +41,7 @@ export const MonitorObservationsScreen = () => {
             >
                 <ScrollView
                     style={styles.container}
-                    contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
+                    contentContainerStyle={[styles.scrollContent, { paddingBottom: Theme.spacing.xl }]}
                     showsVerticalScrollIndicator={false}
                 >
                     <View style={styles.headerSection}>
@@ -103,7 +104,7 @@ export const MonitorObservationsScreen = () => {
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
-        </View>
+        </SafeAreaView>
     );
 };
 

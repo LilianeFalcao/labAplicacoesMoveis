@@ -35,8 +35,8 @@ export const ParentTabs = () => {
                 tabBarInactiveTintColor: Theme.colors.gray[400],
                 headerShown: false,
                 tabBarStyle: {
-                    height: TAB_BAR_BASE_HEIGHT + insets.bottom,
-                    paddingBottom: TAB_BAR_BASE_PADDING + insets.bottom,
+                    height: TAB_BAR_BASE_HEIGHT + Math.max(insets.bottom, 10),
+                    paddingBottom: TAB_BAR_BASE_PADDING + Math.max(insets.bottom, 10),
                     paddingTop: 10,
                     backgroundColor: '#FFFFFF',
                     borderTopColor: Theme.colors.gray[100],
@@ -94,11 +94,16 @@ export const MonitorTabs = () => {
                 tabBarInactiveTintColor: Theme.colors.gray[400],
                 headerShown: false,
                 tabBarStyle: {
-                    height: TAB_BAR_BASE_HEIGHT + insets.bottom,
-                    paddingBottom: TAB_BAR_BASE_PADDING + insets.bottom,
+                    height: TAB_BAR_BASE_HEIGHT + Math.max(insets.bottom, 10),
+                    paddingBottom: TAB_BAR_BASE_PADDING + Math.max(insets.bottom, 10),
                     paddingTop: 10,
                     backgroundColor: '#FFFFFF',
                     borderTopColor: Theme.colors.gray[100],
+                    elevation: 10,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: -4 },
+                    shadowOpacity: 0.05,
+                    shadowRadius: 10,
                 }
             }}
         >
@@ -132,11 +137,16 @@ export const AdminTabs = () => {
                 tabBarInactiveTintColor: Theme.colors.gray[400],
                 headerShown: false,
                 tabBarStyle: {
-                    height: TAB_BAR_BASE_HEIGHT + insets.bottom,
-                    paddingBottom: TAB_BAR_BASE_PADDING + insets.bottom,
+                    height: TAB_BAR_BASE_HEIGHT + Math.max(insets.bottom, 10),
+                    paddingBottom: TAB_BAR_BASE_PADDING + Math.max(insets.bottom, 10),
                     paddingTop: 10,
                     backgroundColor: '#FFFFFF',
                     borderTopColor: Theme.colors.gray[100],
+                    elevation: 10,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: -4 },
+                    shadowOpacity: 0.05,
+                    shadowRadius: 10,
                 }
             }}
         >

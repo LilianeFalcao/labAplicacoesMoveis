@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme } from '../../styles/Theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -39,8 +40,8 @@ export const NoticesScreen = () => {
     ];
 
     return (
-        <SafeAreaView style={styles.safeArea}>
-            <View style={[styles.header, { paddingTop: insets.top || Theme.spacing.md }]}>
+        <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
+            <View style={[styles.header, { paddingTop: Math.max(insets.top, Theme.spacing.md) }]}>
                 <Text style={styles.headerTitle}>Avisos</Text>
                 <TouchableOpacity style={styles.searchButton}>
                     <MaterialCommunityIcons name="magnify" size={24} color={Theme.colors.primary} />

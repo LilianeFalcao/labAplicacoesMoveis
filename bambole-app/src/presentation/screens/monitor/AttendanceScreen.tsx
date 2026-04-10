@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { AppHeader } from '../../components/base/AppHeader';
 import { AppCard } from '../../components/base/AppCard';
@@ -107,30 +108,24 @@ export const AttendanceScreen = () => {
     }
 
     return (
-        <View style={[styles.mainContainer, { paddingTop: insets.top }]}>
+        <SafeAreaView style={styles.mainContainer} edges={['left', 'right', 'bottom']}>
             <AppHeader
                 title="Chamada da Turma"
                 showBack
                 onBack={() => navigation.goBack()}
             />
-
-            <View style={styles.container}>
+            <View>
                 <View style={styles.headerInfo}>
                     <View>
                         <Text style={styles.groupName}>{groupName}</Text>
                         <Text style={styles.subtext}>Selecione a presença de cada aluno</Text>
-                    </View>
-                    <View style={styles.statsBadge}>
-                        <Text style={styles.statsText}>
-                            {students.filter(s => s.status === 'present').length}/{students.length}
-                        </Text>
                     </View>
                 </View>
 
                 <FlatList
                     data={students}
                     keyExtractor={item => item.id}
-                    contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 100 }]}
+                    contentContainerStyle={styles.listContent}
                     showsVerticalScrollIndicator={false}
                     renderItem={({ item }) => (
                         <AppCard style={styles.studentCard}>
@@ -176,17 +171,30 @@ export const AttendanceScreen = () => {
                         </AppCard>
                     )}
                 />
-
-                <View style={[styles.footer, { paddingBottom: insets.bottom + Theme.spacing.md }]}>
-                    <AppButton
-                        title="Finalizar Chamada"
-                        onPress={submitAttendance}
-                        loading={submitting}
-                        style={styles.submitBtn}
-                    />
-                </View>
             </View>
-        </View>
+            <View style={styles.footer}>
+                <View style={styles.progressSection}>
+                    <Text style={styles.progressText}>
+                        {students.filter(s => s.status === 'present').length} de {students.length} marcados
+                    </Text>
+                    <View style={styles.progressBarBg}>
+                        <View
+                            style={[
+                                styles.progressBarFill,
+                                { width: `${(students.filter(s => s.status === 'present').length / students.length) * 100}%` }
+                            ]}
+                        />
+                    </View>
+                </View>
+                <AppButton
+                    title="Confirmar Chamada"
+                    onPress={submitAttendance}
+                    loading={submitting}
+                    style={styles.submitBtn}
+                    icon="arrow-right"
+                />
+            </View>
+        </SafeAreaView>
     );
 };
 
@@ -194,9 +202,6 @@ const styles = StyleSheet.create({
     mainContainer: {
         flex: 1,
         backgroundColor: Theme.colors.background,
-    },
-    container: {
-        flex: 1,
     },
     center: {
         flex: 1,
@@ -295,19 +300,30 @@ const styles = StyleSheet.create({
         borderColor: Theme.colors.error,
     },
     footer: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
         padding: Theme.spacing.md,
         backgroundColor: '#FFF',
         borderTopWidth: 1,
         borderTopColor: Theme.colors.gray[100],
-        elevation: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
+    },
+    progressSection: {
+        marginBottom: Theme.spacing.md,
+    },
+    progressText: {
+        ...Theme.typography.caption,
+        fontWeight: 'bold',
+        color: Theme.colors.onBackground,
+        marginBottom: 8,
+    },
+    progressBarBg: {
+        height: 6,
+        backgroundColor: Theme.colors.gray[100],
+        borderRadius: 3,
+        overflow: 'hidden',
+    },
+    progressBarFill: {
+        height: '100%',
+        backgroundColor: Theme.colors.primary,
+        borderRadius: 3,
     },
     submitBtn: {
         height: 56,
