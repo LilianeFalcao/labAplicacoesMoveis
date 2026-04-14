@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme } from '../../styles/Theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -7,10 +7,13 @@ import { useAuth } from '../../contexts/AuthContext';
 import { AppButton } from '../../components/base/AppButton';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppCard } from '../../components/base/AppCard';
+import { ProfilePhotoCaptureModal } from '../../components/shared/ProfilePhotoCaptureModal';
 
 export const ParentProfileScreen = () => {
     const { user, signOut } = useAuth();
     const insets = useSafeAreaInsets();
+    const [isModalVisible, setModalVisible] = useState(false);
+    const [photoUri, setPhotoUri] = useState<string | null>(null);
 
     const sections = [
         { id: '1', title: 'Dados Pessoais', icon: 'account-outline', color: '#3182CE' },
@@ -37,15 +40,25 @@ export const ParentProfileScreen = () => {
                 <View style={styles.profileHeader}>
                     <View style={styles.avatarContainer}>
                         <View style={styles.avatar}>
-                            <MaterialCommunityIcons name="account" size={56} color={Theme.colors.onPrimary} />
+                            {photoUri ? (
+                                <Image source={{ uri: photoUri }} style={styles.avatarImage} />
+                            ) : (
+                                <MaterialCommunityIcons name="account" size={56} color={Theme.colors.onPrimary} />
+                            )}
                         </View>
-                        <TouchableOpacity style={styles.editAvatar}>
+                        <TouchableOpacity style={styles.editAvatar} onPress={() => setModalVisible(true)}>
                             <MaterialCommunityIcons name="camera" size={16} color="#FFFFFF" />
                         </TouchableOpacity>
                     </View>
                     <Text style={styles.userName}>{user?.email.value.split('@')[0] || 'Maria Silva'}</Text>
                     <Text style={styles.userEmail}>{user?.email.value}</Text>
                 </View>
+
+                <ProfilePhotoCaptureModal
+                    isVisible={isModalVisible}
+                    onClose={() => setModalVisible(false)}
+                    onCapture={(uri) => setPhotoUri(uri)}
+                />
 
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>CONFIGURAÇÕES</Text>
@@ -122,6 +135,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         borderWidth: 4,
         borderColor: '#DBEAFE',
+        overflow: 'hidden',
+    },
+    avatarImage: {
+        width: '100%',
+        height: '100%',
     },
     editAvatar: {
         position: 'absolute',

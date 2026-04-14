@@ -1,136 +1,97 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { AppHeader } from '../../components/base/AppHeader';
-import { AppCard } from '../../components/base/AppCard';
 import { Theme } from '../../styles/Theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { StatusBadge } from '../../components/base/StatusBadge';
+import { MonitorSummaryCard } from '../../components/monitor/MonitorSummaryCard';
+import { TurmaAgendaCard } from '../../components/monitor/TurmaAgendaCard';
+import { MONITOR_DASHBOARD_DATA } from './MonitorMockData';
 
 export const MonitorHomeScreen = () => {
     const { user, signOut } = useAuth();
     const navigation = useNavigation<any>();
     const insets = useSafeAreaInsets();
-
-    const groups = [
-        { id: '1', name: 'Turma A1', students: 15, time: '08:00 - 12:00', status: 'present', statusLabel: 'Em aula' },
-        { id: '2', name: 'Turma B2', students: 12, time: '13:00 - 17:00', status: 'pending', statusLabel: 'Próxima' },
-    ];
+    const { stats, agenda } = MONITOR_DASHBOARD_DATA;
 
     return (
-        <SafeAreaView style={styles.mainContainer} edges={['left', 'right', 'bottom']}>
-            <AppHeader
-                title="Portal do Monitor"
-                rightAction={{
-                    icon: 'logout',
-                    onPress: signOut
-                }}
-            />
+        <SafeAreaView style={styles.mainContainer} edges={['top', 'left', 'right']}>
+            <View style={styles.header}>
+                <View style={styles.headerLeft}>
+                    <TouchableOpacity style={styles.headerIcon}>
+                        <MaterialCommunityIcons name="menu" size={24} color={Theme.colors.onBackground} />
+                    </TouchableOpacity>
+                    <Text style={styles.headerTitle}>Bambolê</Text>
+                </View>
+                <TouchableOpacity style={styles.headerIcon}>
+                    <View style={styles.notificationDot} />
+                    <MaterialCommunityIcons name="bell-outline" size={24} color={Theme.colors.onBackground} />
+                </TouchableOpacity>
+            </View>
 
             <ScrollView
                 style={styles.container}
-                contentContainerStyle={[styles.scrollContent, { paddingBottom: 80 }]}
+                contentContainerStyle={[
+                    styles.scrollContent,
+                    { paddingBottom: insets.bottom + 100 }
+                ]}
                 showsVerticalScrollIndicator={false}
             >
-                <View style={styles.welcomeSection}>
-                    <Text style={styles.welcome}>Bom dia,</Text>
-                    <Text style={styles.userName}>{user?.email.value.split('@')[0]} 👋</Text>
-                    <Text style={styles.subtitle}>Pronto para mais um dia de atividades?</Text>
-                </View>
-
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Suas Turmas de Hoje</Text>
-                    <TouchableOpacity onPress={() => { }}>
-                        <Text style={styles.seeAll}>Ver todas</Text>
-                    </TouchableOpacity>
-                </View>
-
-                <View style={styles.groupsList}>
-                    {groups.map((item) => (
-                        <TouchableOpacity
-                            key={item.id}
-                            onPress={() => navigation.navigate('GroupAgenda', { groupId: item.id, groupName: item.name })}
-                            activeOpacity={0.7}
-                        >
-                            <AppCard style={styles.groupCard}>
-                                <View style={styles.groupContent}>
-                                    <View style={styles.groupMainInfo}>
-                                        <View style={styles.iconContainer}>
-                                            <MaterialCommunityIcons name="account-group" size={24} color={Theme.colors.primary} />
-                                        </View>
-                                        <View>
-                                            <Text style={styles.groupName}>{item.name}</Text>
-                                            <Text style={styles.groupDetails}>
-                                                <MaterialCommunityIcons name="clock-outline" size={12} /> {item.time}
-                                            </Text>
-                                        </View>
-                                    </View>
-                                    <View style={styles.groupRight}>
-                                        <StatusBadge type={item.status as any} label={item.statusLabel} />
-                                        <MaterialCommunityIcons name="chevron-right" size={20} color={Theme.colors.gray[400]} />
-                                    </View>
-                                </View>
-                                <View style={styles.groupFooter}>
-                                    <Text style={styles.studentCountText}>{item.students} Alunos vinculados</Text>
-                                </View>
-                            </AppCard>
+                <View style={styles.topSection}>
+                    <View style={styles.titleRow}>
+                        <View style={styles.titleGroup}>
+                            <Text style={styles.overtitle}>PAINEL DO MONITOR</Text>
+                            <Text style={styles.mainTitle}>Minhas Turmas</Text>
+                        </View>
+                        <TouchableOpacity style={styles.solicitarBtn}>
+                            <MaterialCommunityIcons name="plus" size={16} color="#FFF" />
+                            <Text style={styles.solicitarLabel}>Solicitar</Text>
                         </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.summaryGrid}>
+                        <MonitorSummaryCard
+                            label="Turmas Ativas"
+                            value={stats.activeTurmas}
+                            icon="account-group"
+                            variant="blue"
+                        />
+                        <MonitorSummaryCard
+                            label="Presença Média"
+                            value={stats.avgAttendance}
+                            icon="check-decagram"
+                            variant="green"
+                        />
+                    </View>
+                </View>
+
+                <View style={styles.agendaSection}>
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Agenda de Hoje</Text>
+                        <TouchableOpacity>
+                            <Text style={styles.seeAllText}>Ver tudo</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {agenda.map(item => (
+                        <TurmaAgendaCard
+                            key={item.id}
+                            item={item}
+                            onAction={() => navigation.navigate('Attendance', { classId: item.id, groupName: item.name })}
+                            onPress={() => navigation.navigate('GroupAgenda', { groupName: item.name })}
+                        />
                     ))}
                 </View>
-
-                <View style={styles.quickActionsSection}>
-                    <Text style={styles.sectionTitle}>Ações Rápidas</Text>
-                    <View style={styles.actionsGrid}>
-                        <TouchableOpacity
-                            style={[styles.actionCard, { backgroundColor: '#E0F2FE' }]}
-                            onPress={() => navigation.navigate('Attendance')}
-                        >
-                            <View style={[styles.actionIconCircle, { backgroundColor: '#BAE6FD' }]}>
-                                <MaterialCommunityIcons name="clipboard-check" size={28} color={Theme.colors.primary} />
-                            </View>
-                            <Text style={styles.actionLabel}>Chamada</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={[styles.actionCard, { backgroundColor: '#F0F9FF' }]}
-                            onPress={() => navigation.navigate('PhotoCapture')}
-                        >
-                            <View style={[styles.actionIconCircle, { backgroundColor: '#D1FAE5' }]}>
-                                <MaterialCommunityIcons name="camera" size={28} color="#059669" />
-                            </View>
-                            <Text style={styles.actionLabel}>Foto</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={[styles.actionCard, { backgroundColor: '#FEF3C7' }]}
-                            onPress={() => navigation.navigate('Observations')}
-                        >
-                            <View style={[styles.actionIconCircle, { backgroundColor: '#FDE68A' }]}>
-                                <MaterialCommunityIcons name="note-text" size={28} color="#D97706" />
-                            </View>
-                            <Text style={styles.actionLabel}>Avisos</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-
-                <AppCard style={styles.nextTurmaCard}>
-                    <View style={styles.nextTurmaInfo}>
-                        <MaterialCommunityIcons name="calendar-clock" size={24} color={Theme.colors.primary} />
-                        <View style={styles.nextTurmaTextContent}>
-                            <Text style={styles.nextTurmaTitle}>Próxima atividade</Text>
-                            <Text style={styles.nextTurmaValue}>Turma B2 às 13:00</Text>
-                        </View>
-                    </View>
-                    <View style={styles.nextTurmaDivider} />
-                    <TouchableOpacity style={styles.viewAgendaBtn}>
-                        <Text style={styles.viewAgendaLabel}>Ver agenda completa</Text>
-                    </TouchableOpacity>
-                </AppCard>
-
             </ScrollView>
+
+            <TouchableOpacity
+                style={[styles.fab, { bottom: Math.max(24, insets.bottom + 16) }]}
+                activeOpacity={0.8}
+            >
+                <MaterialCommunityIcons name="plus" size={32} color="#FFF" />
+            </TouchableOpacity>
         </SafeAreaView>
     );
 };
@@ -138,167 +99,131 @@ export const MonitorHomeScreen = () => {
 const styles = StyleSheet.create({
     mainContainer: {
         flex: 1,
-        backgroundColor: Theme.colors.background,
+        backgroundColor: '#F8FAFC',
+    },
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: Theme.spacing.lg,
+        paddingBottom: Theme.spacing.sm,
+    },
+    headerLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 16,
+    },
+    headerIcon: {
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    headerTitle: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: Theme.colors.primary,
+    },
+    notificationDot: {
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: Theme.colors.error,
+        zIndex: 1,
+        borderWidth: 1.5,
+        borderColor: '#F8FAFC',
     },
     container: {
         flex: 1,
     },
     scrollContent: {
-        padding: Theme.spacing.md,
+        padding: Theme.spacing.lg,
     },
-    welcomeSection: {
-        marginBottom: Theme.spacing.xl,
-        marginTop: Theme.spacing.sm,
+    topSection: {
+        marginBottom: 32,
     },
-    welcome: {
-        ...Theme.typography.body1,
-        color: Theme.colors.gray[500],
-        marginBottom: 2,
+    titleRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 24,
     },
-    userName: {
-        ...Theme.typography.h1,
-        color: Theme.colors.onBackground,
+    titleGroup: {
+        flex: 1,
+    },
+    overtitle: {
+        fontSize: 10,
+        fontWeight: '900',
+        color: '#B45309',
+        letterSpacing: 1,
         marginBottom: 4,
     },
-    subtitle: {
-        ...Theme.typography.body2,
-        color: Theme.colors.gray[600],
+    mainTitle: {
+        fontSize: 32,
+        fontWeight: '800',
+        color: Theme.colors.onBackground,
+        lineHeight: 36,
+    },
+    solicitarBtn: {
+        backgroundColor: Theme.colors.primary,
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderRadius: 20,
+        gap: 4,
+        elevation: 4,
+        shadowColor: Theme.colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        marginLeft: 8,
+    },
+    solicitarLabel: {
+        color: '#FFF',
+        fontWeight: 'bold',
+        fontSize: 12,
+    },
+    summaryGrid: {
+        flexDirection: 'row',
+        gap: Theme.spacing.md,
+    },
+    agendaSection: {
+        flex: 1,
     },
     sectionHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'baseline',
-        marginBottom: Theme.spacing.md,
+        alignItems: 'center',
+        marginBottom: 20,
     },
     sectionTitle: {
-        ...Theme.typography.h3,
+        fontSize: 20,
+        fontWeight: '800',
         color: Theme.colors.onBackground,
     },
-    seeAll: {
-        ...Theme.typography.caption,
+    seeAllText: {
+        fontSize: 14,
         color: Theme.colors.primary,
         fontWeight: '700',
     },
-    groupsList: {
-        gap: Theme.spacing.sm,
-    },
-    groupCard: {
-        padding: Theme.spacing.md,
-    },
-    groupContent: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    groupMainInfo: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Theme.spacing.md,
-    },
-    iconContainer: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        backgroundColor: '#F0F9FF',
+    fab: {
+        position: 'absolute',
+        bottom: 24,
+        right: 24,
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        backgroundColor: Theme.colors.primary,
         justifyContent: 'center',
         alignItems: 'center',
-    },
-    groupName: {
-        ...Theme.typography.body1,
-        fontWeight: 'bold',
-        color: Theme.colors.onBackground,
-    },
-    groupDetails: {
-        ...Theme.typography.caption,
-        color: Theme.colors.gray[500],
-        marginTop: 2,
-    },
-    groupRight: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Theme.spacing.xs,
-    },
-    groupFooter: {
-        marginTop: Theme.spacing.sm,
-        paddingTop: Theme.spacing.sm,
-        borderTopWidth: 1,
-        borderTopColor: Theme.colors.gray[100],
-    },
-    studentCountText: {
-        ...Theme.typography.caption,
-        color: Theme.colors.gray[400],
-        fontSize: 10,
-    },
-    quickActionsSection: {
-        marginTop: Theme.spacing.xl,
-        marginBottom: Theme.spacing.lg,
-    },
-    actionsGrid: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginTop: Theme.spacing.md,
-    },
-    actionCard: {
-        width: '31%',
-        aspectRatio: 0.9,
-        borderRadius: 16,
-        padding: Theme.spacing.sm,
-        alignItems: 'center',
-        justifyContent: 'center',
-        elevation: 2,
+        elevation: 8,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-    },
-    actionIconCircle: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: Theme.spacing.sm,
-    },
-    actionLabel: {
-        ...Theme.typography.caption,
-        fontWeight: '700',
-        color: Theme.colors.onBackground,
-    },
-    nextTurmaCard: {
-        padding: Theme.spacing.md,
-        backgroundColor: '#F8FAFC',
-        borderWidth: 1,
-        borderColor: Theme.colors.gray[100],
-    },
-    nextTurmaInfo: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Theme.spacing.md,
-    },
-    nextTurmaTextContent: {
-        flex: 1,
-    },
-    nextTurmaTitle: {
-        ...Theme.typography.caption,
-        color: Theme.colors.gray[500],
-        fontWeight: '600',
-    },
-    nextTurmaValue: {
-        ...Theme.typography.body1,
-        fontWeight: 'bold',
-        color: Theme.colors.onBackground,
-    },
-    nextTurmaDivider: {
-        height: 1,
-        backgroundColor: Theme.colors.gray[100],
-        marginVertical: Theme.spacing.md,
-    },
-    viewAgendaBtn: {
-        alignItems: 'center',
-    },
-    viewAgendaLabel: {
-        ...Theme.typography.caption,
-        color: Theme.colors.primary,
-        fontWeight: '700',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 10,
     },
 });

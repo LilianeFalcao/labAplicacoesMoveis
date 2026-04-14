@@ -48,19 +48,9 @@ export const LoginScreen = () => {
     return (
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.header}>
-                <TouchableOpacity
-                    style={styles.headerIconButton}
-                    onPress={() => Alert.alert('Menu', 'Funcionalidade de menu em desenvolvimento')}
-                >
-                    <MaterialCommunityIcons name="menu" size={24} color={Theme.colors.onBackground} />
-                </TouchableOpacity>
+                <View style={styles.headerIconButton} />
                 <Text style={styles.logo}>Bambolê</Text>
-                <TouchableOpacity
-                    style={styles.headerIconButton}
-                    onPress={() => Alert.alert('Notificações', 'Funcionalidade de notificações em desenvolvimento')}
-                >
-                    <MaterialCommunityIcons name="bell-outline" size={24} color={Theme.colors.onBackground} />
-                </TouchableOpacity>
+                <View style={styles.headerIconButton} />
             </View>
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                 <View style={styles.content}>

@@ -153,24 +153,6 @@ export const ParentHomeScreen = () => {
                     ))}
                 </View>
 
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>ACESSO RÁPIDO</Text>
-                    <View style={styles.quickAccessGrid}>
-                        <TouchableOpacity style={[styles.quickActionButton, { backgroundColor: '#3182CE' }]}>
-                            <View style={styles.quickActionIcon}>
-                                <MaterialCommunityIcons name="plus-circle" size={32} color="#FFFFFF" />
-                            </View>
-                            <Text style={styles.quickActionLabel}>Nova{"\n"}Inscrição</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity style={[styles.quickActionButton, { backgroundColor: '#047857' }]}>
-                            <View style={styles.quickActionIcon}>
-                                <MaterialCommunityIcons name="receipt" size={32} color="#FFFFFF" />
-                            </View>
-                            <Text style={styles.quickActionLabel}>Pagamentos</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
             </ScrollView>
         </SafeAreaView>
     );
@@ -353,27 +335,5 @@ const styles = StyleSheet.create({
         ...Theme.typography.caption,
         color: Theme.colors.gray[500],
         marginTop: 4,
-        textTransform: 'uppercase',
-    },
-    quickAccessGrid: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginTop: Theme.spacing.md,
-    },
-    quickActionButton: {
-        width: '48%',
-        height: 160,
-        borderRadius: 24,
-        padding: Theme.spacing.lg,
-        justifyContent: 'space-between',
-    },
-    quickActionIcon: {
-        width: 40,
-        height: 40,
-    },
-    quickActionLabel: {
-        ...Theme.typography.h3,
-        color: '#FFFFFF',
-        fontSize: 18,
     },
 });

@@ -9,6 +9,10 @@ import { MonitorHomeScreen } from '../../screens/monitor/MonitorHomeScreen';
 import { AttendanceScreen } from '../../screens/monitor/AttendanceScreen';
 import { AdminHomeScreen } from '../../screens/admin/AdminHomeScreen';
 import { CreateAnnouncementScreen } from '../../screens/admin/CreateAnnouncementScreen';
+import { MonitorProfileScreen } from '../../screens/monitor/MonitorProfileScreen';
+import { AdminProfileScreen } from '../../screens/admin/AdminProfileScreen';
+import { PhotoCaptureScreen } from '../../screens/monitor/PhotoCaptureScreen';
+import { MonitorObservationsScreen } from '../../screens/monitor/MonitorObservationsScreen';
 import { ParentTabsParamList, MonitorTabsParamList, AdminTabsParamList } from '../types';
 
 const ParentTabCreator = createBottomTabNavigator<ParentTabsParamList>();
@@ -123,6 +127,30 @@ export const MonitorTabs = () => {
                     tabBarIcon: (props) => <TabIcon name="clipboard-check-outline" {...props} />,
                 }}
             />
+            <MonitorTabCreator.Screen
+                name="Photos"
+                component={PhotoCaptureScreen}
+                options={{
+                    title: 'Fotos',
+                    tabBarIcon: (props) => <TabIcon name="camera-outline" {...props} />,
+                }}
+            />
+            <MonitorTabCreator.Screen
+                name="Notices"
+                component={MonitorObservationsScreen}
+                options={{
+                    title: 'Avisos',
+                    tabBarIcon: (props) => <TabIcon name="note-text-outline" {...props} />,
+                }}
+            />
+            <MonitorTabCreator.Screen
+                name="Profile"
+                component={MonitorProfileScreen}
+                options={{
+                    title: 'Perfil',
+                    tabBarIcon: (props) => <TabIcon name="account" {...props} />,
+                }}
+            />
         </MonitorTabCreator.Navigator>
     );
 };
@@ -164,6 +192,14 @@ export const AdminTabs = () => {
                 options={{
                     title: 'Avisos',
                     tabBarIcon: (props) => <TabIcon name="bullhorn-outline" {...props} />,
+                }}
+            />
+            <AdminTabCreator.Screen
+                name="Profile"
+                component={AdminProfileScreen}
+                options={{
+                    title: 'Perfil',
+                    tabBarIcon: (props) => <TabIcon name="shield-account" {...props} />,
                 }}
             />
         </AdminTabCreator.Navigator>

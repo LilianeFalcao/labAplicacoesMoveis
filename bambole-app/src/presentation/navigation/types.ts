@@ -22,6 +22,9 @@ export type ParentStackParamList = {
 export type MonitorTabsParamList = {
     Home: undefined;
     Attendance: undefined;
+    Photos: undefined;
+    Notices: undefined;
+    Profile: undefined;
 };
 
 export type MonitorStackParamList = {
@@ -35,6 +38,7 @@ export type MonitorStackParamList = {
 export type AdminTabsParamList = {
     Home: undefined;
     Announcements: undefined;
+    Profile: undefined;
 };
 
 export type AdminStackParamList = {
