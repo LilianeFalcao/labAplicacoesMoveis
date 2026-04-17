@@ -9,12 +9,65 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MonitorSummaryCard } from '../../components/monitor/MonitorSummaryCard';
 import { TurmaAgendaCard } from '../../components/monitor/TurmaAgendaCard';
 import { MONITOR_DASHBOARD_DATA } from './MonitorMockData';
+import { ClassSelectionModal } from '../../components/monitor/ClassSelectionModal';
+import { MockClassRepository } from '../../../infrastructure/activity/repositories/MockClassRepository';
+import { MockAccessRequestRepository } from '../../../infrastructure/activity/repositories/MockAccessRequestRepository';
+import { GetClassesWithoutMonitorUseCase } from '../../../application/activity/use-cases/GetClassesWithoutMonitorUseCase';
+import { RequestTemporaryAccessUseCase } from '../../../application/activity/use-cases/RequestTemporaryAccessUseCase';
+import { Alert } from 'react-native';
 
 export const MonitorHomeScreen = () => {
     const { user, signOut } = useAuth();
     const navigation = useNavigation<any>();
     const insets = useSafeAreaInsets();
-    const { stats, agenda } = MONITOR_DASHBOARD_DATA;
+    const { stats } = MONITOR_DASHBOARD_DATA;
+    const [isModalVisible, setIsModalVisible] = React.useState(false);
+    const [dynamicAgenda, setDynamicAgenda] = React.useState(MONITOR_DASHBOARD_DATA.agenda);
+
+    // Initialize repositories and use cases
+    const classRepo = MockClassRepository.getInstance();
+    const accessRequestRepo = MockAccessRequestRepository.getInstance();
+    const getClassesUseCase = new GetClassesWithoutMonitorUseCase(classRepo);
+    const requestAccessUseCase = new RequestTemporaryAccessUseCase(accessRequestRepo);
+
+    const loadDynamicData = async () => {
+        try {
+            // In a real app, 'agenda' would come from a use case like GetMonitorAgendaUseCase
+            // Here we simulate it by merging static mock data with approved requests
+            const monitorId = user?.id || 'monitor-mock-id';
+            const allRequests = await accessRequestRepo.findByMonitorId(monitorId);
+            const approvedRequests = allRequests.filter(r => r.status === 'APPROVED');
+
+            const newAgendaItems = await Promise.all(approvedRequests.map(async (req) => {
+                const cls = await classRepo.findById(req.classId);
+                if (!cls) return null;
+                return {
+                    id: cls.id,
+                    name: cls.name,
+                    category: 'Extra',
+                    status: 'upcoming' as const,
+                    statusLabel: 'Acesso Temporário',
+                    ageGroup: cls.ageRange,
+                    timeLabel: `${cls.weeklySchedule.startTime} - ${cls.weeklySchedule.endTime}`,
+                    location: 'A definir'
+                };
+            }));
+
+            const validNewItems = newAgendaItems.filter((item): item is any => item !== null);
+            setDynamicAgenda([...MONITOR_DASHBOARD_DATA.agenda, ...validNewItems]);
+        } catch (error) {
+            console.error('Failed to load dynamic agenda', error);
+        }
+    };
+
+    React.useEffect(() => {
+        loadDynamicData();
+        // Subscribe to changes in the access request repository
+        const unsubscribe = accessRequestRepo.subscribe(() => {
+            loadDynamicData();
+        });
+        return unsubscribe;
+    }, [user?.id]);
 
     return (
         <SafeAreaView style={styles.mainContainer} edges={['top', 'left', 'right']}>
@@ -31,6 +84,17 @@ export const MonitorHomeScreen = () => {
                 </TouchableOpacity>
             </View>
 
+            <ClassSelectionModal
+                isVisible={isModalVisible}
+                onClose={() => setIsModalVisible(false)}
+                monitorId={user?.id || 'monitor-mock-id'}
+                getClassesUseCase={getClassesUseCase}
+                requestAccessUseCase={requestAccessUseCase}
+                onSuccess={(className) => {
+                    Alert.alert('Sucesso', `Solicitação de acesso para a turma ${className} enviada com sucesso!`);
+                }}
+            />
+
             <ScrollView
                 style={styles.container}
                 contentContainerStyle={[
@@ -45,7 +109,10 @@ export const MonitorHomeScreen = () => {
                             <Text style={styles.overtitle}>PAINEL DO MONITOR</Text>
                             <Text style={styles.mainTitle}>Minhas Turmas</Text>
                         </View>
-                        <TouchableOpacity style={styles.solicitarBtn}>
+                        <TouchableOpacity
+                            style={styles.solicitarBtn}
+                            onPress={() => setIsModalVisible(true)}
+                        >
                             <MaterialCommunityIcons name="plus" size={16} color="#FFF" />
                             <Text style={styles.solicitarLabel}>Solicitar</Text>
                         </TouchableOpacity>
@@ -75,7 +142,7 @@ export const MonitorHomeScreen = () => {
                         </TouchableOpacity>
                     </View>
 
-                    {agenda.map(item => (
+                    {dynamicAgenda.map(item => (
                         <TurmaAgendaCard
                             key={item.id}
                             item={item}

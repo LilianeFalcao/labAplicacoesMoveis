@@ -8,15 +8,43 @@ import { Theme } from '../../styles/Theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { MockAccessRequestRepository } from '../../../infrastructure/activity/repositories/MockAccessRequestRepository';
+import { MockClassRepository } from '../../../infrastructure/activity/repositories/MockClassRepository';
+import { PendingRequestsModal } from '../../components/admin/PendingRequestsModal';
+
 export const AdminHomeScreen = ({ navigation }: any) => {
     const { signOut } = useAuth();
     const insets = useSafeAreaInsets();
+    const [pendingCount, setPendingCount] = React.useState(0);
+    const [isModalVisible, setIsModalVisible] = React.useState(false);
 
-    const ActionItem = ({ title, icon, onPress, color, description }: any) => (
+    // Mocks
+    const accessRepo = MockAccessRequestRepository.getInstance();
+    const classRepo = MockClassRepository.getInstance();
+
+    const updatePendingCount = async () => {
+        const pending = await accessRepo.findPending();
+        setPendingCount(pending.length);
+    };
+
+    React.useEffect(() => {
+        updatePendingCount();
+        const unsubscribe = accessRepo.subscribe(() => {
+            updatePendingCount();
+        });
+        return unsubscribe;
+    }, []);
+
+    const ActionItem = ({ title, icon, onPress, color, description, badgeCount = 0 }: any) => (
         <TouchableOpacity style={styles.actionItem} onPress={onPress} activeOpacity={0.7}>
             <AppCard style={styles.actionCard}>
                 <View style={[styles.iconBadge, { backgroundColor: color + '15' }]}>
                     <MaterialCommunityIcons name={icon} size={28} color={color} />
+                    {badgeCount > 0 && (
+                        <View style={styles.notificationBadge}>
+                            <Text style={styles.badgeText}>{badgeCount}</Text>
+                        </View>
+                    )}
                 </View>
                 <View style={styles.actionTextContent}>
                     <Text style={styles.actionTitle}>{title}</Text>
@@ -36,6 +64,14 @@ export const AdminHomeScreen = ({ navigation }: any) => {
                     onPress: signOut
                 }}
             />
+
+            <PendingRequestsModal
+                isVisible={isModalVisible}
+                onClose={() => setIsModalVisible(false)}
+                accessRepo={accessRepo}
+                classRepo={classRepo}
+            />
+
             <ScrollView
                 style={styles.container}
                 contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 80 }]}
@@ -116,6 +152,14 @@ export const AdminHomeScreen = ({ navigation }: any) => {
                         icon="file-chart-outline"
                         color="#8B5CF6"
                         onPress={() => { }}
+                    />
+                    <ActionItem
+                        title="Solicitações de Acesso"
+                        description="Pedidos de acesso temporário de monitores"
+                        icon="account-key-outline"
+                        color={Theme.colors.error}
+                        onPress={() => setIsModalVisible(true)}
+                        badgeCount={pendingCount}
                     />
                 </View>
 
@@ -227,6 +271,26 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: Theme.spacing.md,
+        position: 'relative',
+    },
+    notificationBadge: {
+        position: 'absolute',
+        top: -4,
+        right: -4,
+        backgroundColor: Theme.colors.error,
+        borderRadius: 10,
+        minWidth: 18,
+        height: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 2,
+        borderColor: Theme.colors.background,
+        paddingHorizontal: 2,
+    },
+    badgeText: {
+        color: '#FFF',
+        fontSize: 10,
+        fontWeight: 'bold',
     },
     actionTextContent: {
         flex: 1,

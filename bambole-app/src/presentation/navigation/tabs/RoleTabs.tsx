@@ -25,6 +25,7 @@ const TabIcon = ({ name, color, size }: { name: any; color: string; size: number
 
 import { PhotoFeedScreen } from '../../screens/parent/PhotoFeedScreen';
 import { NoticesScreen } from '../../screens/parent/NoticesScreen';
+import { ParentFeedScreen } from '@/presentation/screens/parent/ParentFeedScreen';
 
 const TAB_BAR_BASE_HEIGHT = 70;
 const TAB_BAR_BASE_PADDING = 10;
@@ -62,7 +63,7 @@ export const ParentTabs = () => {
             />
             <ParentTabCreator.Screen
                 name="Photos"
-                component={PhotoFeedScreen}
+                component={ParentFeedScreen}
                 options={{
                     title: 'Fotos',
                     tabBarIcon: (props) => <TabIcon name="image-multiple" {...props} />,
