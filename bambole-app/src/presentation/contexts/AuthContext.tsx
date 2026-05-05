@@ -22,7 +22,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Temporary sign in for navigation testing
     const signIn = (email: string, role: UserRole) => {
         const mockUser = new User(
-            'mock-' + Math.random().toString(36).substr(2, 9),
+            email, // Deterministic ID for mock
             Email.create(email),
             Role.create(role)
         );
@@ -32,7 +32,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const startSimulation = (email: string, role: UserRole) => {
         const mockUser = new User(
-            'sim-' + Math.random().toString(36).substr(2, 9),
+            email, // Deterministic ID for mock
             Email.create(email),
             Role.create(role)
         );

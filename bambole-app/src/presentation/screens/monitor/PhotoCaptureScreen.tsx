@@ -1,19 +1,23 @@
-import React, { useState, useRef, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, TextInput, Alert, KeyboardAvoidingView, Platform, FlatList } from "react-native";
+import React, { useState, useRef, useCallback } from "react";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, TextInput, Alert, FlatList } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppHeader } from "../../components/base/AppHeader";
 import { AppButton } from "../../components/base/AppButton";
 import { Theme } from "../../styles/Theme";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { useAuth } from "../../contexts/AuthContext";
 import { CameraView } from "expo-camera";
 import { ExpoCameraService } from "../../../infrastructure/camera/ExpoCameraService";
 import { MockActivityRepository } from "../../../infrastructure/activity/repositories/MockActivityRepository";
 import { UploadActivityPhotoUseCase } from "../../../application/activity/use-cases/UploadActivityPhotoUseCase";
 import { GetMonitorClassesUseCase, MonitorClass } from "../../../application/activity/use-cases/GetMonitorClassesUseCase";
+import { MockClassRepository } from "../../../infrastructure/activity/repositories/MockClassRepository";
+import { MockAccessRequestRepository } from "../../../infrastructure/activity/repositories/MockAccessRequestRepository";
 
 export const PhotoCaptureScreen = () => {
     const navigation = useNavigation();
+    const { user } = useAuth();
     const [image, setImage] = useState<string | null>(null);
     const [hasPermission, setHasPermission] = useState<boolean | null>(null);
     const [cameraVisible, setCameraVisible] = useState(false);
@@ -24,17 +28,25 @@ export const PhotoCaptureScreen = () => {
     const cameraRef = useRef<CameraView>(null);
     const cameraService = new ExpoCameraService();
 
-    useEffect(() => {
-        const fetchClasses = async () => {
-            const useCase = new GetMonitorClassesUseCase();
-            const data = await useCase.execute();
-            setClasses(data);
-            if (data.length > 0) {
-                setSelectedClassId(data[0].id);
-            }
-        };
-        fetchClasses();
-    }, []);
+    useFocusEffect(
+        useCallback(() => {
+            const fetchClasses = async () => {
+                const classRepo = MockClassRepository.getInstance();
+                const accessRequestRepo = MockAccessRequestRepository.getInstance();
+                const useCase = new GetMonitorClassesUseCase(classRepo, accessRequestRepo);
+                
+                const monitorId = user?.id || 'monitor-mock-id';
+                const data = await useCase.execute(monitorId);
+                setClasses(data);
+                
+                // Keep selection if it's still valid, otherwise select the first one
+                if (data.length > 0 && (!selectedClassId || !data.some(c => c.id === selectedClassId))) {
+                    setSelectedClassId(data[0].id);
+                }
+            };
+            fetchClasses();
+        }, [user?.id, selectedClassId])
+    );
 
     const handleStartCapture = async () => {
         const { granted } = await cameraService.requestPermissions();

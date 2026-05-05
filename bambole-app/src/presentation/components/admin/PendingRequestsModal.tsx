@@ -6,6 +6,9 @@ import { AppCard } from '../base/AppCard';
 import { ClassAccessRequest } from '../../../domain/activity/entities/ClassAccessRequest';
 import { GetPendingAccessRequestsUseCase } from '../../../application/activity/use-cases/GetPendingAccessRequestsUseCase';
 import { ApproveAccessRequestUseCase } from '../../../application/activity/use-cases/ApproveAccessRequestUseCase';
+import { RejectAccessRequestUseCase } from '../../../application/activity/use-cases/RejectAccessRequestUseCase';
+import { MockNotificationRepository } from '../../../infrastructure/notification/repositories/MockNotificationRepository';
+import { NotificationService } from '../../../infrastructure/notification/services/NotificationService';
 
 interface PendingRequestsModalProps {
     isVisible: boolean;
@@ -24,8 +27,12 @@ export const PendingRequestsModal: React.FC<PendingRequestsModalProps> = ({
     const [loading, setLoading] = useState(true);
     const [processing, setProcessing] = useState<string | null>(null);
 
+    const notificationRepo = MockNotificationRepository.getInstance();
+    const notificationService = NotificationService.getInstance();
+
     const getPendingUseCase = new GetPendingAccessRequestsUseCase(accessRepo);
-    const approveUseCase = new ApproveAccessRequestUseCase(accessRepo, classRepo);
+    const approveUseCase = new ApproveAccessRequestUseCase(accessRepo, classRepo, notificationRepo, notificationService);
+    const rejectUseCase = new RejectAccessRequestUseCase(accessRepo, classRepo, notificationRepo, notificationService);
 
     const loadRequests = async () => {
         setLoading(true);
@@ -58,6 +65,19 @@ export const PendingRequestsModal: React.FC<PendingRequestsModalProps> = ({
         }
     };
 
+    const handleReject = async (id: string) => {
+        setProcessing(id);
+        try {
+            await rejectUseCase.execute(id);
+            Alert.alert('Sucesso', 'Solicitação rejeitada com sucesso!');
+            loadRequests();
+        } catch (error) {
+            Alert.alert('Erro', 'Não foi possível rejeitar a solicitação.');
+        } finally {
+            setProcessing(null);
+        }
+    };
+
     const renderItem = ({ item }: { item: ClassAccessRequest }) => (
         <AppCard style={styles.requestCard}>
             <View style={styles.requestInfo}>
@@ -69,17 +89,30 @@ export const PendingRequestsModal: React.FC<PendingRequestsModalProps> = ({
                     <Text style={styles.classText}>ID da Turma: {item.classId}</Text>
                 </View>
             </View>
-            <TouchableOpacity
-                style={styles.approveBtn}
-                onPress={() => handleApprove(item.id || '')}
-                disabled={processing !== null}
-            >
-                {processing === item.id ? (
-                    <ActivityIndicator size="small" color="#FFF" />
-                ) : (
-                    <MaterialCommunityIcons name="check" size={20} color="#FFF" />
-                )}
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TouchableOpacity
+                    style={[styles.actionBtn, styles.rejectBtn]}
+                    onPress={() => handleReject(item.id || '')}
+                    disabled={processing !== null}
+                >
+                    {processing === item.id ? (
+                        <ActivityIndicator size="small" color="#FFF" />
+                    ) : (
+                        <MaterialCommunityIcons name="close" size={20} color="#FFF" />
+                    )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.actionBtn, styles.approveBtn]}
+                    onPress={() => handleApprove(item.id || '')}
+                    disabled={processing !== null}
+                >
+                    {processing === item.id ? (
+                        <ActivityIndicator size="small" color="#FFF" />
+                    ) : (
+                        <MaterialCommunityIcons name="check" size={20} color="#FFF" />
+                    )}
+                </TouchableOpacity>
+            </View>
         </AppCard>
     );
 
@@ -194,13 +227,18 @@ const styles = StyleSheet.create({
         ...Theme.typography.caption,
         color: Theme.colors.gray[600],
     },
-    approveBtn: {
-        backgroundColor: Theme.colors.success,
+    actionBtn: {
         width: 40,
         height: 40,
         borderRadius: 20,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    approveBtn: {
+        backgroundColor: Theme.colors.success,
+    },
+    rejectBtn: {
+        backgroundColor: Theme.colors.error,
     },
     center: {
         flex: 1,

@@ -1,73 +1,112 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme } from '../../styles/Theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MonitorSummaryCard } from '../../components/monitor/MonitorSummaryCard';
 import { TurmaAgendaCard } from '../../components/monitor/TurmaAgendaCard';
-import { MONITOR_DASHBOARD_DATA } from './MonitorMockData';
+// MONITOR_DASHBOARD_DATA has been removed.
 import { ClassSelectionModal } from '../../components/monitor/ClassSelectionModal';
 import { MockClassRepository } from '../../../infrastructure/activity/repositories/MockClassRepository';
 import { MockAccessRequestRepository } from '../../../infrastructure/activity/repositories/MockAccessRequestRepository';
 import { GetClassesWithoutMonitorUseCase } from '../../../application/activity/use-cases/GetClassesWithoutMonitorUseCase';
 import { RequestTemporaryAccessUseCase } from '../../../application/activity/use-cases/RequestTemporaryAccessUseCase';
+import { GetMonitorClassesUseCase } from '../../../application/activity/use-cases/GetMonitorClassesUseCase';
+import { GetMonitorAverageAttendanceUseCase } from '../../../application/attendance/use-cases/GetMonitorAverageAttendanceUseCase';
+import { MockNotificationRepository } from '../../../infrastructure/notification/repositories/MockNotificationRepository';
+import { MockAttendanceRepository } from '../../../infrastructure/attendance/repositories/MockAttendanceRepository';
+import { NotificationService } from '../../../infrastructure/notification/services/NotificationService';
 import { Alert } from 'react-native';
 
 export const MonitorHomeScreen = () => {
     const { user, signOut } = useAuth();
     const navigation = useNavigation<any>();
     const insets = useSafeAreaInsets();
-    const { stats } = MONITOR_DASHBOARD_DATA;
-    const [isModalVisible, setIsModalVisible] = React.useState(false);
-    const [dynamicAgenda, setDynamicAgenda] = React.useState(MONITOR_DASHBOARD_DATA.agenda);
+    const [isModalVisible, setIsModalVisible] = useState(false);
+    const [dynamicAgenda, setDynamicAgenda] = useState<any[]>([]);
+    const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
+    const [avgAttendance, setAvgAttendance] = useState('N/A');
 
     // Initialize repositories and use cases
+    const notificationRepo = MockNotificationRepository.getInstance();
+    const notificationService = NotificationService.getInstance();
     const classRepo = MockClassRepository.getInstance();
     const accessRequestRepo = MockAccessRequestRepository.getInstance();
+    const attendanceRepo = MockAttendanceRepository.getInstance();
     const getClassesUseCase = new GetClassesWithoutMonitorUseCase(classRepo);
     const requestAccessUseCase = new RequestTemporaryAccessUseCase(accessRequestRepo);
+    const getMonitorClassesUseCase = new GetMonitorClassesUseCase(classRepo, accessRequestRepo);
+    const getMonitorAverageAttendanceUseCase = new GetMonitorAverageAttendanceUseCase(classRepo, accessRequestRepo, attendanceRepo);
 
     const loadDynamicData = async () => {
         try {
-            // In a real app, 'agenda' would come from a use case like GetMonitorAgendaUseCase
-            // Here we simulate it by merging static mock data with approved requests
             const monitorId = user?.id || 'monitor-mock-id';
-            const allRequests = await accessRequestRepo.findByMonitorId(monitorId);
-            const approvedRequests = allRequests.filter(r => r.status === 'APPROVED');
+            const monitorClasses = await getMonitorClassesUseCase.execute(monitorId);
+            const avg = await getMonitorAverageAttendanceUseCase.execute(monitorId);
+            
+            setAvgAttendance(avg);
 
-            const newAgendaItems = await Promise.all(approvedRequests.map(async (req) => {
-                const cls = await classRepo.findById(req.classId);
-                if (!cls) return null;
+            const newAgendaItems = monitorClasses.map((cls) => {
+                const isAvailable = cls.isCallAllowedNow();
                 return {
                     id: cls.id,
                     name: cls.name,
-                    category: 'Extra',
-                    status: 'upcoming' as const,
-                    statusLabel: 'Acesso Temporário',
-                    ageGroup: cls.ageRange,
-                    timeLabel: `${cls.weeklySchedule.startTime} - ${cls.weeklySchedule.endTime}`,
-                    location: 'A definir'
+                    category: 'Regular',
+                    status: isAvailable ? ('pending' as const) : ('upcoming' as const),
+                    statusLabel: isAvailable ? 'Em Andamento' : 'Próxima Aula',
+                    ageGroup: cls.ageGroup,
+                    timeLabel: cls.timeLabel,
+                    location: 'A definir',
+                    students: 0 // Mock count
                 };
-            }));
+            });
 
-            const validNewItems = newAgendaItems.filter((item): item is any => item !== null);
-            setDynamicAgenda([...MONITOR_DASHBOARD_DATA.agenda, ...validNewItems]);
+            setDynamicAgenda(newAgendaItems);
         } catch (error) {
             console.error('Failed to load dynamic agenda', error);
         }
     };
 
-    React.useEffect(() => {
-        loadDynamicData();
-        // Subscribe to changes in the access request repository
-        const unsubscribe = accessRequestRepo.subscribe(() => {
+    useFocusEffect(
+        useCallback(() => {
             loadDynamicData();
-        });
-        return unsubscribe;
-    }, [user?.id]);
+            // Request push permissions
+            notificationService.requestPermissions();
+
+            // Load notifications count
+            const updateUnreadCount = async () => {
+                if (user?.id) {
+                    const count = await notificationRepo.countUnreadByRecipientId(user.id);
+                    setHasUnreadNotifications(count > 0);
+                }
+            };
+            updateUnreadCount();
+
+            // Subscribe to changes in the access request repository
+            const unsubscribeRequests = accessRequestRepo.subscribe(() => {
+                loadDynamicData();
+            });
+            
+            // Subscribe to changes in notifications
+            const unsubscribeNotifications = notificationRepo.subscribe(() => {
+                updateUnreadCount();
+            });
+
+            // Subscribe to changes in attendance (updates stats card)
+            const unsubscribeAttendance = attendanceRepo.subscribe(() => {
+                loadDynamicData();
+            });
+
+            return () => {
+                unsubscribeRequests();
+                unsubscribeNotifications();
+                unsubscribeAttendance();
+            };
+        }, [user?.id])
+    );
 
     return (
         <SafeAreaView style={styles.mainContainer} edges={['top', 'left', 'right']}>
@@ -78,8 +117,11 @@ export const MonitorHomeScreen = () => {
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Bambolê</Text>
                 </View>
-                <TouchableOpacity style={styles.headerIcon}>
-                    <View style={styles.notificationDot} />
+                <TouchableOpacity 
+                    style={styles.headerIcon} 
+                    onPress={() => navigation.navigate('Notifications')}
+                >
+                    {hasUnreadNotifications && <View style={styles.notificationDot} />}
                     <MaterialCommunityIcons name="bell-outline" size={24} color={Theme.colors.onBackground} />
                 </TouchableOpacity>
             </View>
@@ -121,13 +163,13 @@ export const MonitorHomeScreen = () => {
                     <View style={styles.summaryGrid}>
                         <MonitorSummaryCard
                             label="Turmas Ativas"
-                            value={stats.activeTurmas}
+                            value={dynamicAgenda.length.toString()}
                             icon="account-group"
                             variant="blue"
                         />
                         <MonitorSummaryCard
                             label="Presença Média"
-                            value={stats.avgAttendance}
+                            value={avgAttendance}
                             icon="check-decagram"
                             variant="green"
                         />

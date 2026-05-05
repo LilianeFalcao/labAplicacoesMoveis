@@ -33,6 +33,7 @@ export type MonitorStackParamList = {
     Attendance: { classId: string; groupName: string };
     PhotoCapture: undefined;
     Observations: undefined;
+    Notifications: undefined;
 };
 
 export type AdminTabsParamList = {

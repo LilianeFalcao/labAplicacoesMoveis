@@ -12,6 +12,7 @@ import { GroupAgendaScreen } from '@/presentation/screens/monitor/GroupAgendaScr
 import { AttendanceScreen } from '@/presentation/screens/monitor/AttendanceScreen';
 import { PhotoCaptureScreen } from '@/presentation/screens/monitor/PhotoCaptureScreen';
 import { MonitorObservationsScreen } from '@/presentation/screens/monitor/MonitorObservationsScreen';
+import { NotificationsScreen } from '../../screens/monitor/NotificationsScreen';
 
 // Admin Screens
 import { AdminHomeScreen } from '../../screens/admin/AdminHomeScreen';
@@ -41,6 +42,7 @@ export const MonitorStack = () => (
         <MonitorStackCreator.Screen name="Attendance" component={AttendanceScreen} />
         <MonitorStackCreator.Screen name="PhotoCapture" component={PhotoCaptureScreen} />
         <MonitorStackCreator.Screen name="Observations" component={MonitorObservationsScreen} />
+        <MonitorStackCreator.Screen name="Notifications" component={NotificationsScreen} />
     </MonitorStackCreator.Navigator>
 );
 

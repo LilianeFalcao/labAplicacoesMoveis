@@ -6,7 +6,17 @@ export class MockAccessRequestRepository implements IAccessRequestRepository {
     private requests: ClassAccessRequest[] = [];
     private listeners: (() => void)[] = [];
 
-    private constructor() { }
+    private constructor() {
+        // Populando dados iniciais para facilitar o teste do fluxo de notificações
+        // Essas solicitações estarão pendentes para aprovação do Administrador
+        const req1 = ClassAccessRequest.create('pedro.monitor@bambole.app', '101'); // Futebol
+        (req1 as any).id = 'req-1';
+        const req2 = ClassAccessRequest.create('pedro.monitor@bambole.app', '102'); // Pintura a Óleo
+        (req2 as any).id = 'req-2';
+        
+        // Simular um atraso na criação para ficar com datas diferentes
+        this.requests = [req1, req2];
+    }
 
     public static getInstance(): MockAccessRequestRepository {
         if (!MockAccessRequestRepository.instance) {
@@ -16,6 +26,9 @@ export class MockAccessRequestRepository implements IAccessRequestRepository {
     }
 
     async save(request: ClassAccessRequest): Promise<void> {
+        if (!request.id) {
+            (request as any).id = Math.random().toString(36).substr(2, 9);
+        }
         this.requests.push(request);
         this.notifyListeners();
     }

@@ -7,10 +7,14 @@ export class MockClassRepository implements IClassRepository {
 
     private constructor() {
         // Initial mock data
+        const allDays: any[] = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+        const alwaysOpen = new WeeklySchedule(allDays, '00:00', '23:59');
+
         this.classes = [
-            new Class('101', 'Futebol Juvenil', new WeeklySchedule(['MON', 'WED'], '14:00', '16:00'), 'Treino de futebol para jovens', '10-14 anos'),
-            new Class('102', 'Pintura a Óleo', new WeeklySchedule(['TUE', 'THU'], '09:00', '11:00'), 'Aula de pintura', '8-12 anos'),
-            new Class('103', 'Dança Criativa', new WeeklySchedule(['FRI'], '15:00', '17:00'), 'Aula de dança', '6-9 anos'),
+            new Class('101', 'Futebol Juvenil', alwaysOpen, 'Treino de futebol para jovens', '10-14 anos'),
+            new Class('102', 'Pintura a Óleo', alwaysOpen, 'Aula de pintura', '8-12 anos'),
+            new Class('103', 'Dança Criativa', alwaysOpen, 'Aula de dança', '6-9 anos'),
+            new Class('104', 'Robótica Básica', alwaysOpen, 'Introdução à robótica', '10-14 anos', 'pedro.monitor@bambole.app'),
         ];
     }
 
@@ -25,10 +29,17 @@ export class MockClassRepository implements IClassRepository {
         return this.classes.find(c => c.id === id) || null;
     }
 
+    async findByIds(ids: string[]): Promise<Class[]> {
+        return this.classes.filter(c => ids.includes(c.id));
+    }
+
+    async findByMonitorId(monitorId: string): Promise<Class[]> {
+        return this.classes.filter(c => c.monitorId === monitorId);
+    }
+
     async findAllWithoutMonitor(): Promise<Class[]> {
-        // In this mock, we assume all these classes are currently without an assigned monitor
-        // for the purpose of the temporary access request demonstration.
-        return this.classes;
+        // In this mock, classes without monitorId are considered available
+        return this.classes.filter(c => !c.monitorId);
     }
 
     async save(cls: Class): Promise<void> {

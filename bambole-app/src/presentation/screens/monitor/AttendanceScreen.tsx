@@ -11,10 +11,10 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { MonitorStackParamList } from '../../navigation/types';
-import { SupabaseChildRepository } from '@/infrastructure/enrollment/repositories/SupabaseChildRepository';
+import { MockChildRepository } from '@/infrastructure/enrollment/repositories/MockChildRepository';
 import { TakeAttendanceUseCase } from '@/application/attendance/use-cases/TakeAttendanceUseCase';
-import { SupabaseAttendanceRepository } from '@/infrastructure/attendance/repositories/SupabaseAttendanceRepository';
-import { SupabaseClassRepository } from '@/infrastructure/activity/repositories/SupabaseClassRepository';
+import { MockAttendanceRepository } from '@/infrastructure/attendance/repositories/MockAttendanceRepository';
+import { MockClassRepository } from '@/infrastructure/activity/repositories/MockClassRepository';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type AttendanceRouteProp = RouteProp<MonitorStackParamList, 'Attendance'>;
@@ -39,7 +39,7 @@ export const AttendanceScreen = () => {
 
     const loadStudents = async () => {
         try {
-            const repo = new SupabaseChildRepository();
+            const repo = MockChildRepository.getInstance();
             const list = await repo.findByClass(classId);
             setStudents(list.map(s => ({ ...s, status: 'present' })));
         } catch (err) {
@@ -74,8 +74,8 @@ export const AttendanceScreen = () => {
             const geo = { lat: location.coords.latitude, lng: location.coords.longitude };
 
             const useCase = new TakeAttendanceUseCase(
-                new SupabaseAttendanceRepository(),
-                new SupabaseClassRepository()
+                MockAttendanceRepository.getInstance(),
+                MockClassRepository.getInstance()
             );
 
             await useCase.execute(

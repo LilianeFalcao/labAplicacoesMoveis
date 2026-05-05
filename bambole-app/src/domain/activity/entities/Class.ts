@@ -33,7 +33,8 @@ export class Class {
         public readonly name: string,
         public readonly weeklySchedule: WeeklySchedule,
         public readonly description?: string,
-        public readonly ageRange?: string
+        public readonly ageRange?: string,
+        public readonly monitorId?: string
     ) { }
 
     isCallAllowedNow(now: Date = new Date()): boolean {

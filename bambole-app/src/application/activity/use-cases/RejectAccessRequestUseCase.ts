@@ -4,7 +4,7 @@ import { INotificationRepository } from '../../../domain/notification/repositori
 import { Notification } from '../../../domain/notification/entities/Notification';
 import { NotificationService } from '../../../infrastructure/notification/services/NotificationService';
 
-export class ApproveAccessRequestUseCase {
+export class RejectAccessRequestUseCase {
     constructor(
         private accessRequestRepository: IAccessRequestRepository,
         private classRepository: IClassRepository,
@@ -18,15 +18,15 @@ export class ApproveAccessRequestUseCase {
             throw new Error('Access request not found');
         }
 
-        request.approve();
-        await this.accessRequestRepository.update(request);
-
         const cls = await this.classRepository.findById(request.classId);
         const className = cls ? cls.name : 'Desconhecida';
 
+        request.reject();
+        await this.accessRequestRepository.update(request);
+
         // Send Notification
-        const title = 'Acesso Aprovado';
-        const message = `Sua solicitação de acesso temporário à turma ${className} foi aprovada.`;
+        const title = 'Acesso Negado';
+        const message = `Sua solicitação de acesso temporário à turma ${className} foi rejeitada.`;
 
         const notification = Notification.create(request.monitorId, title, message);
         await this.notificationRepository.save(notification);
