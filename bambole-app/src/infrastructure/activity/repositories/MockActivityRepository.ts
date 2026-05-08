@@ -22,6 +22,10 @@ export class MockActivityRepository implements IActivityRepository {
         return this.photos.filter((photo) => photo.classId === classId);
     }
 
+    async getFeedByMonitor(monitorId: string): Promise<ActivityPhoto[]> {
+        return this.photos.filter((photo) => photo.monitorId === monitorId);
+    }
+
     // Helper for testing/mocking initial state
     setPhotos(photos: ActivityPhoto[]) {
         this.photos = photos;

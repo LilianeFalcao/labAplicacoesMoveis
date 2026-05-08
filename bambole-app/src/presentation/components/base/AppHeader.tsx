@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Theme } from '../../styles/Theme';
 import { useAuth } from '../../contexts/AuthContext';
+import { SyncStatusIndicator } from './SyncStatusIndicator';
 
 interface AppHeaderProps {
     title: string;
@@ -13,6 +14,7 @@ interface AppHeaderProps {
         icon: any;
         onPress: () => void;
     };
+    hideSync?: boolean;
 }
 
 export const AppHeader: React.FC<AppHeaderProps> = ({
@@ -20,6 +22,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     showBack = false,
     onBack,
     rightAction,
+    hideSync = false,
 }) => {
     const { isSimulated, signOut } = useAuth();
     const insets = useSafeAreaInsets();
@@ -48,8 +51,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 </View>
                 <Text style={styles.title} numberOfLines={1}>{title}</Text>
                 <View style={styles.right}>
+                    {!hideSync && <SyncStatusIndicator />}
                     {rightAction && (
-                        <TouchableOpacity onPress={rightAction.onPress}>
+                        <TouchableOpacity onPress={rightAction.onPress} style={{ marginLeft: 8 }}>
                             <MaterialCommunityIcons name={rightAction.icon} size={24} color={Theme.colors.onPrimary} />
                         </TouchableOpacity>
                     )}
@@ -96,8 +100,9 @@ const styles = StyleSheet.create({
         width: 40,
     },
     right: {
-        width: 40,
-        alignItems: 'flex-end',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
     },
     title: {
         ...Theme.typography.h3,

@@ -151,7 +151,7 @@ export const AdminHomeScreen = ({ navigation }: any) => {
                         description="Histórico de presença e atividades"
                         icon="file-chart-outline"
                         color="#8B5CF6"
-                        onPress={() => { }}
+                        onPress={() => navigation.navigate('AdminIncidentList')}
                     />
                     <ActionItem
                         title="Solicitações de Acesso"

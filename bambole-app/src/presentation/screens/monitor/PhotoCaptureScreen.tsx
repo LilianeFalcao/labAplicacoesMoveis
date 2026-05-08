@@ -19,7 +19,7 @@ import { ClassDashboardTabsParamList } from "../../navigation/types";
 export const PhotoCaptureScreen = () => {
     const navigation = useNavigation();
     const route = useRoute<RouteProp<ClassDashboardTabsParamList, 'Photos'>>();
-    const { classId } = route.params || {};
+    const { classId, groupName = 'Turma' } = route.params || {};
     const { user } = useAuth();
     const [image, setImage] = useState<string | null>(null);
     const [hasPermission, setHasPermission] = useState<boolean | null>(null);
@@ -130,7 +130,7 @@ export const PhotoCaptureScreen = () => {
 
     return (
         <SafeAreaView style={styles.mainContainer} edges={["left", "right", "bottom"]}>
-            <AppHeader title="Capturar Momento" showBack onBack={() => navigation.goBack()} />
+            <AppHeader title={`Capturar Momento: ${groupName}`} showBack onBack={() => navigation.goBack()} />
 
             <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
 

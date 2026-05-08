@@ -6,7 +6,7 @@ import { Theme } from '../../styles/Theme';
 interface AppButtonProps {
     title: string;
     onPress: () => void;
-    variant?: 'primary' | 'secondary' | 'outline' | 'text' | 'ghost';
+    variant?: 'primary' | 'secondary' | 'outline' | 'text' | 'ghost' | 'error';
     loading?: boolean;
     disabled?: boolean;
     icon?: keyof typeof MaterialCommunityIcons.glyphMap;
@@ -30,11 +30,13 @@ export const AppButton: React.FC<AppButtonProps> = ({
     const isText = variant === 'text';
     const isGhost = variant === 'ghost';
     const isSecondary = variant === 'secondary';
+    const isError = variant === 'error';
 
     const getTextColor = () => {
         if (disabled) return Theme.colors.gray[500];
         if (isOutline || isText || isGhost) return Theme.colors.primary;
         if (isSecondary) return Theme.colors.onSecondary;
+        if (isError) return Theme.colors.onError;
         return Theme.colors.onPrimary;
     };
 
@@ -47,6 +49,7 @@ export const AppButton: React.FC<AppButtonProps> = ({
             style={[
                 styles.button,
                 isSecondary && styles.secondary,
+                isError && styles.error,
                 isOutline && styles.outline,
                 (isText || isGhost) && styles.ghost,
                 disabled && styles.disabled,
@@ -101,6 +104,10 @@ const styles = StyleSheet.create({
     secondary: {
         backgroundColor: Theme.colors.secondary,
         shadowColor: Theme.colors.secondary,
+    },
+    error: {
+        backgroundColor: Theme.colors.error,
+        shadowColor: Theme.colors.error,
     },
     outline: {
         backgroundColor: 'transparent',

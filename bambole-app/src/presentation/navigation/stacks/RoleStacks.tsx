@@ -10,6 +10,11 @@ import { AttendanceHistoryScreen } from '../../screens/parent/AttendanceHistoryS
 import { MonitorHomeScreen } from '@/presentation/screens/monitor/MonitorHomeScreen';
 import { ClassDashboardTabs } from '../tabs/ClassDashboardTabs';
 import { NotificationsScreen } from '../../screens/monitor/NotificationsScreen';
+import { MonitorClassesScreen } from '../../screens/monitor/MonitorClassesScreen';
+import { ActivityHistoryScreen } from '../../screens/monitor/ActivityHistoryScreen';
+import { MonitorSettingsScreen } from '../../screens/monitor/MonitorSettingsScreen';
+import { MonitorSupportScreen } from '../../screens/monitor/MonitorSupportScreen';
+import { MonitorSecurityScreen } from '../../screens/monitor/MonitorSecurityScreen';
 
 // Admin Screens
 import { AdminHomeScreen } from '../../screens/admin/AdminHomeScreen';
@@ -17,6 +22,7 @@ import { MonitorManagementScreen } from '../../screens/admin/MonitorManagementSc
 import { GroupManagementScreen } from '../../screens/admin/GroupManagementScreen';
 import { StudentMonitorLinkingScreen } from '../../screens/admin/StudentMonitorLinkingScreen';
 import { CreateAnnouncementScreen } from '../../screens/admin/CreateAnnouncementScreen';
+import { AdminIncidentListScreen } from '../../screens/admin/AdminIncidentListScreen';
 
 import { ParentStackParamList, MonitorStackParamList, AdminStackParamList } from '../types';
 
@@ -37,6 +43,11 @@ export const MonitorStack = () => (
         <MonitorStackCreator.Screen name="MonitorRoot" component={MonitorTabs} />
         <MonitorStackCreator.Screen name="ClassDashboard" component={ClassDashboardTabs} />
         <MonitorStackCreator.Screen name="Notifications" component={NotificationsScreen} />
+        <MonitorStackCreator.Screen name="MonitorClasses" component={MonitorClassesScreen} />
+        <MonitorStackCreator.Screen name="ActivityHistory" component={ActivityHistoryScreen} />
+        <MonitorStackCreator.Screen name="MonitorSettings" component={MonitorSettingsScreen} />
+        <MonitorStackCreator.Screen name="MonitorSupport" component={MonitorSupportScreen} />
+        <MonitorStackCreator.Screen name="MonitorSecurity" component={MonitorSecurityScreen} />
     </MonitorStackCreator.Navigator>
 );
 
@@ -47,5 +58,6 @@ export const AdminStack = () => (
         <AdminStackCreator.Screen name="GroupManagement" component={GroupManagementScreen} />
         <AdminStackCreator.Screen name="StudentMonitorLinking" component={StudentMonitorLinkingScreen} />
         <AdminStackCreator.Screen name="CreateAnnouncement" component={CreateAnnouncementScreen} />
+        <AdminStackCreator.Screen name="AdminIncidentList" component={AdminIncidentListScreen} />
     </AdminStackCreator.Navigator>
 );

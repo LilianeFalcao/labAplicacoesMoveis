@@ -35,6 +35,11 @@ export type MonitorStackParamList = {
     MonitorRoot: NavigatorScreenParams<MonitorTabsParamList>;
     ClassDashboard: { classId: string; groupName: string };
     Notifications: undefined;
+    MonitorClasses: undefined;
+    ActivityHistory: undefined;
+    MonitorSettings: undefined;
+    MonitorSupport: undefined;
+    MonitorSecurity: undefined;
 };
 
 export type AdminTabsParamList = {
@@ -49,4 +54,5 @@ export type AdminStackParamList = {
     GroupManagement: undefined;
     StudentMonitorLinking: undefined;
     CreateAnnouncement: undefined;
+    AdminIncidentList: undefined;
 };

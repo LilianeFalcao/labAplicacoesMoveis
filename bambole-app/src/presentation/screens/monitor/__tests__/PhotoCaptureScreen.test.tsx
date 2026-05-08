@@ -46,6 +46,22 @@ jest.mock("react-native-safe-area-context", () => {
     };
 });
 
+jest.mock("@react-navigation/native", () => {
+    const actual = jest.requireActual("@react-navigation/native");
+    return {
+        ...actual,
+        useNavigation: () => ({
+            goBack: jest.fn(),
+            navigate: jest.fn(),
+            addListener: jest.fn().mockReturnValue(jest.fn()),
+        }),
+        useRoute: () => ({
+            params: { classId: "1", groupName: "Turma A" },
+        }),
+        useFocusEffect: jest.fn(),
+    };
+});
+
 describe("PhotoCaptureScreen", () => {
     const mockNavigation = {
         goBack: jest.fn(),
@@ -59,9 +75,7 @@ describe("PhotoCaptureScreen", () => {
     const renderScreen = () => {
         return render(
             <SafeAreaProvider initialMetrics={{ frame: { x: 0, y: 0, width: 0, height: 0 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } }}>
-                <NavigationContainer>
-                    <PhotoCaptureScreen />
-                </NavigationContainer>
+                <PhotoCaptureScreen />
             </SafeAreaProvider>
         );
     };
@@ -73,7 +87,7 @@ describe("PhotoCaptureScreen", () => {
         const screen = renderScreen();
 
         // Wait for classes to load to avoid act() warnings
-        await waitFor(() => screen.getByText("Turma A"));
+        await waitFor(() => screen.getByText(/Turma A/));
 
         const captureSection = screen.getByText("Toque para fotografar");
         fireEvent.press(captureSection);
@@ -94,7 +108,7 @@ describe("PhotoCaptureScreen", () => {
         const screen = renderScreen();
 
         // Wait for classes to load to avoid act() warnings
-        await waitFor(() => screen.getByText("Turma A"));
+        await waitFor(() => screen.getByText(/Turma A/));
 
         // 2. Mock state having an image (simulating capture result)
         // Since we can't easily trigger the camera capture in this mock, we'll verify the 

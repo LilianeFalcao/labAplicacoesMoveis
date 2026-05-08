@@ -19,7 +19,10 @@ export class SendAnnouncementUseCase {
     ): Promise<void> {
         const annContent = AnnouncementContent.create(content);
 
-        if (audienceType === 'class' && classIds && classIds.length > 0) {
+        if (audienceType === 'class') {
+            if (!classIds || classIds.length === 0) {
+                throw new Error('Class ID is required for class audience');
+            }
             for (const classId of classIds) {
                 const audience = Audience.forClass(classId);
                 const announcement = new Announcement(undefined, authorId, annContent, audience, new Date());

@@ -13,7 +13,20 @@ interface ProfilePhotoCaptureModalProps {
 
 export const ProfilePhotoCaptureModal: React.FC<ProfilePhotoCaptureModalProps> = ({ isVisible, onClose, onCapture }) => {
     const cameraRef = useRef<CameraView>(null);
-    const cameraService = new ExpoCameraService();
+    const [facing, setFacing] = useState<'back' | 'front'>('back');
+    const [flash, setFlash] = useState<'off' | 'on' | 'auto'>('off');
+
+    const toggleFacing = () => {
+        setFacing(current => (current === 'back' ? 'front' : 'back'));
+    };
+
+    const toggleFlash = () => {
+        setFlash(current => {
+            if (current === 'off') return 'on';
+            if (current === 'on') return 'auto';
+            return 'off';
+        });
+    };
 
     const handleCapture = async () => {
         if (cameraRef.current) {
@@ -32,8 +45,26 @@ export const ProfilePhotoCaptureModal: React.FC<ProfilePhotoCaptureModalProps> =
     return (
         <Modal visible={isVisible} animationType="slide">
             <View style={styles.container}>
-                <CameraView style={styles.camera} ref={cameraRef}>
+                <CameraView 
+                    style={styles.camera} 
+                    ref={cameraRef}
+                    facing={facing}
+                    flash={flash}
+                >
                     <View style={styles.overlay}>
+                        <View style={styles.topControls}>
+                            <TouchableOpacity style={styles.controlBtn} onPress={toggleFlash}>
+                                <MaterialCommunityIcons 
+                                    name={flash === 'on' ? 'flash' : flash === 'auto' ? 'flash-auto' : 'flash-off'} 
+                                    size={28} 
+                                    color="#FFF" 
+                                />
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.controlBtn} onPress={toggleFacing}>
+                                <MaterialCommunityIcons name="camera-flip" size={28} color="#FFF" />
+                            </TouchableOpacity>
+                        </View>
+
                         <View style={styles.holeContainer}>
                             <View style={styles.maskTop} />
                             <View style={styles.maskMiddle}>
@@ -84,5 +115,23 @@ const styles = StyleSheet.create({
     },
     captureButton: { width: 70, height: 70, borderRadius: 35, backgroundColor: "rgba(255, 255, 255, 0.3)", justifyContent: "center", alignItems: "center" },
     captureButtonInner: { width: 60, height: 60, borderRadius: 30, backgroundColor: "#FFF" },
-    closeButton: { width: 40, height: 40, justifyContent: "center", alignItems: "center" },
+    closeButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+    topControls: {
+        position: 'absolute',
+        top: 60,
+        left: 0,
+        right: 0,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingHorizontal: 30,
+        zIndex: 10,
+    },
+    controlBtn: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: 'rgba(0,0,0,0.3)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
 });

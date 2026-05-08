@@ -4,20 +4,32 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme } from '../../styles/Theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppCard } from '../../components/base/AppCard';
 import { ProfilePhotoCaptureModal } from '../../components/shared/ProfilePhotoCaptureModal';
 
 export const MonitorProfileScreen = () => {
-    const { user, signOut } = useAuth();
+    const { user, signOut, profilePhotoUri, updateProfilePhoto } = useAuth();
+    const navigation = useNavigation<any>();
     const insets = useSafeAreaInsets();
     const [isCaptureModalVisible, setCaptureModalVisible] = useState(false);
-    const [avatarUri, setAvatarUri] = useState<string | null>(null);
 
     const menuItems = [
-        { id: '1', title: 'Minhas Turmas', icon: 'account-group-outline', color: Theme.colors.primary },
-        { id: '2', title: 'Histórico de Atividades', icon: 'history', color: '#10B981' },
-        { id: '3', title: 'Configurações', icon: 'cog-outline', color: '#6B7280' },
+        { 
+            id: '3', 
+            title: 'Configurações', 
+            icon: 'cog-outline', 
+            color: '#6B7280',
+            onPress: () => navigation.navigate('MonitorSettings')
+        },
+        {
+            id: '4',
+            title: 'Segurança e Senha',
+            icon: 'shield-lock-outline',
+            color: '#F59E0B',
+            onPress: () => navigation.navigate('MonitorSecurity') 
+        }
     ];
 
     return (
@@ -33,8 +45,8 @@ export const MonitorProfileScreen = () => {
                 <View style={styles.profileHeader}>
                     <View style={styles.avatarWrapper}>
                         <View style={styles.avatarCircle}>
-                            {avatarUri ? (
-                                <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+                            {profilePhotoUri ? (
+                                <Image source={{ uri: profilePhotoUri }} style={styles.avatarImage} />
                             ) : (
                                 <MaterialCommunityIcons name="account-tie" size={56} color="#FFF" />
                             )}
@@ -53,9 +65,31 @@ export const MonitorProfileScreen = () => {
                     <Text style={styles.userEmail}>{user?.email.value}</Text>
                 </View>
 
+                {/* Statistics Section */}
+                <View style={styles.statsSection}>
+                    <StatsCard 
+                        icon="image-multiple" 
+                        value="12" 
+                        label="Fotos Hoje" 
+                        color={Theme.colors.primary} 
+                    />
+                    <StatsCard 
+                        icon="clipboard-check" 
+                        value="4" 
+                        label="Chamadas" 
+                        color="#10B981" 
+                    />
+                </View>
+
                 <View style={styles.menuSection}>
+                    <Text style={styles.sectionLabel}>Conta e Preferências</Text>
                     {menuItems.map(item => (
-                        <TouchableOpacity key={item.id} activeOpacity={0.7} style={styles.menuItemWrapper}>
+                        <TouchableOpacity 
+                            key={item.id} 
+                            activeOpacity={0.7} 
+                            style={styles.menuItemWrapper}
+                            onPress={item.onPress}
+                        >
                             <AppCard style={styles.menuItem}>
                                 <View style={styles.menuLeft}>
                                     <View style={[styles.iconBox, { backgroundColor: `${item.color}15` }]}>
@@ -77,11 +111,21 @@ export const MonitorProfileScreen = () => {
             <ProfilePhotoCaptureModal
                 isVisible={isCaptureModalVisible}
                 onClose={() => setCaptureModalVisible(false)}
-                onCapture={(uri) => setAvatarUri(uri)}
+                onCapture={(uri) => updateProfilePhoto(uri)}
             />
         </SafeAreaView>
     );
 };
+
+const StatsCard = ({ icon, value, label, color }: any) => (
+    <AppCard style={styles.statsCard}>
+        <View style={[styles.statsIconBox, { backgroundColor: `${color}15` }]}>
+            <MaterialCommunityIcons name={icon} size={20} color={color} />
+        </View>
+        <Text style={styles.statsValue}>{value}</Text>
+        <Text style={styles.statsLabel}>{label}</Text>
+    </AppCard>
+);
 
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: Theme.colors.background },
@@ -105,6 +149,12 @@ const styles = StyleSheet.create({
     menuLeft: { flexDirection: 'row', alignItems: 'center' },
     iconBox: { width: 40, height: 40, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
     menuLabel: { ...Theme.typography.body1, fontWeight: '600', color: Theme.colors.onBackground },
+    sectionLabel: { ...Theme.typography.caption, fontWeight: 'bold', color: Theme.colors.gray[400], marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 },
+    statsSection: { flexDirection: 'row', gap: 12, width: '100%', marginBottom: Theme.spacing.xl },
+    statsCard: { flex: 1, alignItems: 'center', padding: 16 },
+    statsIconBox: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
+    statsValue: { ...Theme.typography.h3, color: Theme.colors.onBackground },
+    statsLabel: { ...Theme.typography.caption, color: Theme.colors.gray[500] },
     logoutLink: { marginTop: Theme.spacing.xl, paddingVertical: 12 },
     logoutText: { ...Theme.typography.body2, color: Theme.colors.error, fontWeight: 'bold' },
 });

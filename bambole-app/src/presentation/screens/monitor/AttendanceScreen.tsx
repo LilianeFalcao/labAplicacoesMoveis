@@ -32,6 +32,7 @@ export const AttendanceScreen = () => {
     const [students, setStudents] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+    const [isSummaryModalVisible, setIsSummaryModalVisible] = useState(false);
 
     useEffect(() => {
         loadStudents();
@@ -43,11 +44,10 @@ export const AttendanceScreen = () => {
             const list = await repo.findByClass(classId);
             setStudents(list.map(s => ({ ...s, status: 'present' })));
         } catch (err) {
-            // Fallback for demo/dev
             setStudents([
-                { id: '1', name: { value: 'Alice Silva' }, status: 'present' },
+                { id: '1', name: { value: 'Alice Silva' }, status: 'present', medicalAlerts: ['Alergia a Amendoim'] },
                 { id: '2', name: { value: 'Bruno Costa' }, status: 'present' },
-                { id: '3', name: { value: 'Carla Dias' }, status: 'present' },
+                { id: '3', name: { value: 'Carla Dias' }, status: 'present', medicalAlerts: ['Asma'] },
                 { id: '4', name: { value: 'Daniel Souza' }, status: 'absent' },
             ]);
         } finally {
@@ -61,12 +61,28 @@ export const AttendanceScreen = () => {
         ));
     };
 
+    const markAllPresent = () => {
+        setStudents(prev => prev.map(s => ({ ...s, status: 'present' })));
+    };
+
+    const showAlerts = (student: any) => {
+        if (student.medicalAlerts && student.medicalAlerts.length > 0) {
+            Alert.alert(
+                `Alertas: ${student.name.value}`,
+                student.medicalAlerts.join('\n'),
+                [{ text: 'Entendido', style: 'default' }]
+            );
+        }
+    };
+
     const submitAttendance = async () => {
+        setIsSummaryModalVisible(false);
         setSubmitting(true);
         try {
             let { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== 'granted') {
                 Alert.alert('Acesso negado', 'Precisamos da geolocalização para confirmar a presença.');
+                setSubmitting(false);
                 return;
             }
 
@@ -118,6 +134,9 @@ export const AttendanceScreen = () => {
         );
     }
 
+    const presentCount = students.filter(s => s.status === 'present').length;
+    const absentCount = students.length - presentCount;
+
     return (
         <SafeAreaView style={styles.mainContainer} edges={['left', 'right', 'bottom']}>
             <AppHeader
@@ -125,12 +144,17 @@ export const AttendanceScreen = () => {
                 showBack
                 onBack={() => navigation.goBack()}
             />
-            <View>
+            
+            <View style={styles.flex1}>
                 <View style={styles.headerInfo}>
                     <View>
                         <Text style={styles.groupName}>{groupName}</Text>
                         <Text style={styles.subtext}>Selecione a presença de cada aluno</Text>
                     </View>
+                    <TouchableOpacity style={styles.bulkActionBtn} onPress={markAllPresent}>
+                        <MaterialCommunityIcons name="check-all" size={20} color={Theme.colors.primary} />
+                        <Text style={styles.bulkActionText}>Todos</Text>
+                    </TouchableOpacity>
                 </View>
 
                 <FlatList
@@ -147,7 +171,19 @@ export const AttendanceScreen = () => {
                                     </Text>
                                 </View>
                                 <View style={styles.nameContainer}>
-                                    <Text style={styles.name} numberOfLines={1}>{item.name.value}</Text>
+                                    <View style={styles.nameRow}>
+                                        <Text style={styles.name} numberOfLines={1}>{item.name.value}</Text>
+                                        {item.medicalAlerts && item.medicalAlerts.length > 0 && (
+                                            <TouchableOpacity onPress={() => showAlerts(item)}>
+                                                <MaterialCommunityIcons 
+                                                    name="alert-circle" 
+                                                    size={18} 
+                                                    color="#F59E0B" 
+                                                    style={styles.alertIcon}
+                                                />
+                                            </TouchableOpacity>
+                                        )}
+                                    </View>
                                     <Text style={styles.statusLabel}>
                                         {item.status === 'present' ? 'Presente' : 'Ausente'}
                                     </Text>
@@ -183,29 +219,85 @@ export const AttendanceScreen = () => {
                     )}
                 />
             </View>
+
             <View style={styles.footer}>
                 <View style={styles.progressSection}>
                     <Text style={styles.progressText}>
-                        {students.filter(s => s.status === 'present').length} de {students.length} marcados
+                        {presentCount} de {students.length} marcados
                     </Text>
                     <View style={styles.progressBarBg}>
                         <View
                             style={[
                                 styles.progressBarFill,
-                                { width: `${(students.filter(s => s.status === 'present').length / students.length) * 100}%` }
+                                { width: `${(presentCount / students.length) * 100}%` }
                             ]}
                         />
                     </View>
                 </View>
                 <AppButton
                     title="Confirmar Chamada"
-                    onPress={submitAttendance}
+                    onPress={() => setIsSummaryModalVisible(true)}
                     loading={submitting}
                     style={styles.submitBtn}
                     icon="arrow-right"
                 />
             </View>
+
+            {/* Summary Modal */}
+            <AttendanceSummaryModal 
+                isVisible={isSummaryModalVisible}
+                onClose={() => setIsSummaryModalVisible(false)}
+                onConfirm={submitAttendance}
+                presentCount={presentCount}
+                absentCount={absentCount}
+                loading={submitting}
+            />
         </SafeAreaView>
+    );
+};
+
+// Internal Modal Component for simplicity
+const AttendanceSummaryModal = ({ isVisible, onClose, onConfirm, presentCount, absentCount, loading }: any) => {
+    if (!isVisible) return null;
+
+    return (
+        <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+                <MaterialCommunityIcons name="clipboard-check-outline" size={48} color={Theme.colors.primary} style={styles.modalIcon} />
+                <Text style={styles.modalTitle}>Resumo da Chamada</Text>
+                <Text style={styles.modalSubtitle}>Confira os totais antes de finalizar</Text>
+
+                <View style={styles.summaryGrid}>
+                    <View style={[styles.summaryBox, { backgroundColor: '#DCFCE7' }]}>
+                        <Text style={[styles.summaryValue, { color: '#16A34A' }]}>{presentCount}</Text>
+                        <Text style={[styles.summaryLabel, { color: '#16A34A' }]}>Presentes</Text>
+                    </View>
+                    <View style={[styles.summaryBox, { backgroundColor: '#FEE2E2' }]}>
+                        <Text style={[styles.summaryValue, { color: '#DC2626' }]}>{absentCount}</Text>
+                        <Text style={[styles.summaryLabel, { color: '#DC2626' }]}>Ausentes</Text>
+                    </View>
+                </View>
+
+                <Text style={styles.modalInfo}>Sua localização será registrada para confirmar o ponto de chamada.</Text>
+
+                <View style={styles.modalActions}>
+                    <TouchableOpacity style={styles.cancelBtn} onPress={onClose} disabled={loading}>
+                        <Text style={styles.cancelBtnText}>Corrigir</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                        style={[styles.confirmBtn, loading && { opacity: 0.7 }]} 
+                        onPress={onConfirm}
+                        disabled={loading}
+                    >
+                        {loading ? (
+                            <ActivityIndicator size="small" color="#FFF" />
+                        ) : (
+                            <Text style={styles.confirmBtnText}>Confirmar e Enviar</Text>
+                        )}
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </View>
     );
 };
 
@@ -338,5 +430,115 @@ const styles = StyleSheet.create({
     },
     submitBtn: {
         height: 56,
+    },
+    flex1: { flex: 1 },
+    bulkActionBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F0F9FF',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: Theme.colors.primary + '20',
+    },
+    bulkActionText: {
+        ...Theme.typography.caption,
+        fontWeight: 'bold',
+        color: Theme.colors.primary,
+        marginLeft: 6,
+    },
+    nameRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    alertIcon: {
+        marginLeft: 8,
+    },
+    modalOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 24,
+        zIndex: 1000,
+    },
+    modalContent: {
+        backgroundColor: '#FFF',
+        borderRadius: 24,
+        padding: 32,
+        width: '100%',
+        alignItems: 'center',
+    },
+    modalIcon: {
+        marginBottom: 16,
+    },
+    modalTitle: {
+        ...Theme.typography.h2,
+        color: Theme.colors.onBackground,
+        marginBottom: 4,
+    },
+    modalSubtitle: {
+        ...Theme.typography.body2,
+        color: Theme.colors.gray[400],
+        marginBottom: 24,
+    },
+    summaryGrid: {
+        flexDirection: 'row',
+        gap: 16,
+        width: '100%',
+        marginBottom: 24,
+    },
+    summaryBox: {
+        flex: 1,
+        padding: 16,
+        borderRadius: 16,
+        alignItems: 'center',
+    },
+    summaryValue: {
+        ...Theme.typography.h2,
+        fontWeight: 'bold',
+    },
+    summaryLabel: {
+        ...Theme.typography.caption,
+        fontWeight: 'bold',
+    },
+    modalInfo: {
+        ...Theme.typography.caption,
+        color: Theme.colors.gray[400],
+        textAlign: 'center',
+        marginBottom: 32,
+    },
+    modalActions: {
+        flexDirection: 'row',
+        gap: 12,
+        width: '100%',
+    },
+    cancelBtn: {
+        flex: 1,
+        height: 52,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: Theme.colors.gray[200],
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    cancelBtnText: {
+        ...Theme.typography.body2,
+        fontWeight: 'bold',
+        color: Theme.colors.gray[600],
+    },
+    confirmBtn: {
+        flex: 2,
+        height: 52,
+        borderRadius: 14,
+        backgroundColor: Theme.colors.primary,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    confirmBtnText: {
+        ...Theme.typography.body2,
+        fontWeight: 'bold',
+        color: '#FFF',
     },
 });

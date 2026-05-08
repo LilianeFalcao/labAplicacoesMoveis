@@ -6,6 +6,7 @@ export class Child {
         public readonly name: ChildName,
         public readonly birthDate?: Date,
         public readonly classId?: string | null,
-        public readonly photoUrl?: string
+        public readonly photoUrl?: string,
+        public readonly medicalAlerts: string[] = []
     ) { }
 }

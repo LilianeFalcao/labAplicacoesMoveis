@@ -1,6 +1,7 @@
 export interface ActivityPhotoProps {
     id: string;
     classId: string;
+    monitorId: string;
     photoUri: string;
     timestamp: Date;
     caption?: string;
@@ -15,6 +16,10 @@ export class ActivityPhoto {
 
     get classId(): string {
         return this.props.classId;
+    }
+
+    get monitorId(): string {
+        return this.props.monitorId;
     }
 
     get photoUri(): string {

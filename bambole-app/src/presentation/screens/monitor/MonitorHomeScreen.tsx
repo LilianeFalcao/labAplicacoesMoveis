@@ -26,13 +26,16 @@ import { MultiClassNoticeModal } from '../../components/monitor/MultiClassNotice
 import { CameraView, Camera } from 'expo-camera';
 import { UploadActivityPhotoUseCase } from '../../../application/activity/use-cases/UploadActivityPhotoUseCase';
 import { MockActivityRepository } from '../../../infrastructure/activity/repositories/MockActivityRepository';
+import { MonitorSidebar } from '../../components/monitor/MonitorSidebar';
+import { MockAgendaRepository, ClassActivity } from '../../../infrastructure/activity/repositories/MockAgendaRepository';
 
 export const MonitorHomeScreen = () => {
     const { user, signOut } = useAuth();
     const navigation = useNavigation<any>();
     const insets = useSafeAreaInsets();
     const [isModalVisible, setIsModalVisible] = useState(false);
-    const [dynamicAgenda, setDynamicAgenda] = useState<any[]>([]);
+    const [monitorClassesData, setMonitorClassesData] = useState<any[]>([]);
+    const [todayAgenda, setTodayAgenda] = useState<ClassActivity[]>([]);
     const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
     const [avgAttendance, setAvgAttendance] = useState('N/A');
     const [isIncidentModalVisible, setIsIncidentModalVisible] = useState(false);
@@ -42,6 +45,7 @@ export const MonitorHomeScreen = () => {
     const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
     const [isPhotoSelectionVisible, setIsPhotoSelectionVisible] = useState(false);
     const [cameraFacing, setCameraFacing] = useState<'front' | 'back'>('back');
+    const [isSidebarOpen, setSidebarOpen] = useState(false);
 
     // Initialize repositories and use cases
     const notificationRepo = MockNotificationRepository.getInstance();
@@ -78,10 +82,28 @@ export const MonitorHomeScreen = () => {
                 };
             });
 
-            setDynamicAgenda(newAgendaItems);
+            setMonitorClassesData(newAgendaItems);
+
+            // Load activities for the first class (or all)
+            if (classes.length > 0) {
+                const agendaRepo = MockAgendaRepository.getInstance();
+                const activities = await agendaRepo.findByClass(classes[0].id);
+                setTodayAgenda(activities);
+            }
         } catch (error) {
             console.error('Failed to load dynamic agenda', error);
         }
+    };
+
+    const handleToggleActivity = async (id: string) => {
+        const item = todayAgenda.find(a => a.id === id);
+        if (!item) return;
+
+        const newStatus = item.status === 'completed' ? 'pending' : 'completed';
+        await MockAgendaRepository.getInstance().updateStatus(id, newStatus);
+        setTodayAgenda(prev => prev.map(a => 
+            a.id === id ? { ...a, status: newStatus } : a
+        ));
     };
 
     useFocusEffect(
@@ -197,7 +219,10 @@ export const MonitorHomeScreen = () => {
         <SafeAreaView style={styles.mainContainer} edges={['top', 'left', 'right']}>
             <View style={styles.header}>
                 <View style={styles.headerLeft}>
-                    <TouchableOpacity style={styles.headerIcon}>
+                    <TouchableOpacity 
+                        style={styles.headerIcon}
+                        onPress={() => setSidebarOpen(true)}
+                    >
                         <MaterialCommunityIcons name="menu" size={24} color={Theme.colors.onBackground} />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Bambolê</Text>
@@ -286,49 +311,100 @@ export const MonitorHomeScreen = () => {
                 <View style={styles.topSection}>
                     <View style={styles.titleRow}>
                         <View style={styles.titleGroup}>
-                            <Text style={styles.overtitle}>PAINEL DO MONITOR</Text>
-                            <Text style={styles.mainTitle}>Minhas Turmas</Text>
+                            <Text style={styles.overtitle}>BEM-VINDO</Text>
+                            <Text style={styles.mainTitle}>{user?.email.value.split('@')[0]}</Text>
                         </View>
+                        <TouchableOpacity style={styles.solicitarBtn} onPress={() => setIsModalVisible(true)}>
+                            <MaterialCommunityIcons name="shield-lock-outline" size={16} color="#FFF" />
+                            <Text style={styles.solicitarLabel}>Acesso</Text>
+                        </TouchableOpacity>
                     </View>
 
                     <View style={styles.summaryGrid}>
                         <MonitorSummaryCard
-                            label="Turmas Ativas"
-                            value={dynamicAgenda.length.toString()}
+                            label="Média Presença"
+                            value={avgAttendance}
                             icon="account-group"
                             variant="blue"
                         />
                         <MonitorSummaryCard
-                            label="Presença Média"
-                            value={avgAttendance}
-                            icon="check-decagram"
+                            label="Hoje"
+                            value={todayAgenda.length > 0 ? `${todayAgenda.filter(a => a.status === 'completed').length}/${todayAgenda.length}` : '0/0'}
+                            icon="calendar-check"
                             variant="green"
                         />
                     </View>
                 </View>
 
+                {monitorClassesData.length > 0 && (
+                    <View style={styles.classesSection}>
+                        <View style={styles.sectionHeader}>
+                            <Text style={styles.sectionTitle}>Minhas Turmas</Text>
+                        </View>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.classesHorizontalScroll}>
+                            {monitorClassesData.map(cls => (
+                                <TouchableOpacity 
+                                    key={cls.id} 
+                                    style={styles.classMiniCard}
+                                    onPress={() => navigation.navigate('ClassDashboard', { classId: cls.id, groupName: cls.name })}
+                                >
+                                    <View style={styles.classIconBox}>
+                                        <MaterialCommunityIcons name="school-outline" size={20} color={Theme.colors.primary} />
+                                    </View>
+                                    <Text style={styles.classMiniTitle} numberOfLines={1}>{cls.name}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    </View>
+                )}
+
                 <View style={styles.agendaSection}>
                     <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Agenda de Hoje</Text>
-                        <TouchableOpacity>
+                        <View>
+                            <Text style={styles.sectionTitle}>Agenda de Hoje</Text>
+                            {todayAgenda.length > 0 && (
+                                <Text style={styles.progressText}>
+                                    {Math.round((todayAgenda.filter(a => a.status === 'completed').length / todayAgenda.length) * 100)}% concluído
+                                </Text>
+                            )}
+                        </View>
+                        <TouchableOpacity onPress={() => {
+                            if (monitorClassesData.length > 0) {
+                                navigation.navigate('ClassDashboard', { 
+                                    screen: 'Agenda', 
+                                    params: { classId: monitorClassesData[0].id, groupName: monitorClassesData[0].name } 
+                                });
+                            }
+                        }}>
                             <Text style={styles.seeAllText}>Ver tudo</Text>
                         </TouchableOpacity>
                     </View>
 
-                    {dynamicAgenda.map(item => (
-                        <TurmaAgendaCard
-                            key={item.id}
-                            item={item}
-                            onAction={() => navigation.navigate('ClassDashboard', { classId: item.id, groupName: item.name })}
-                            onPress={() => navigation.navigate('ClassDashboard', { classId: item.id, groupName: item.name })}
-                        />
-                    ))}
+                    {todayAgenda.length > 0 ? (
+                        todayAgenda.slice(0, 4).map(item => (
+                            <TurmaAgendaCard
+                                key={item.id}
+                                activity={item}
+                                onToggleStatus={handleToggleActivity}
+                            />
+                        ))
+                    ) : (
+                        <View style={styles.emptyAgenda}>
+                            <MaterialCommunityIcons name="calendar-blank" size={40} color={Theme.colors.gray[200]} />
+                            <Text style={styles.emptyText}>Nenhuma atividade agendada</Text>
+                        </View>
+                    )}
                 </View>
             </ScrollView>
 
             <SpeedDial 
                 actions={speedDialActions} 
                 bottomOffset={insets.bottom + 16}
+            />
+
+            <MonitorSidebar 
+                isOpen={isSidebarOpen} 
+                onClose={() => setSidebarOpen(false)} 
             />
         </SafeAreaView>
     );
@@ -447,6 +523,56 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: Theme.colors.primary,
         fontWeight: '700',
+    },
+    classesSection: {
+        marginBottom: 32,
+    },
+    classesHorizontalScroll: {
+        paddingRight: 32,
+    },
+    classMiniCard: {
+        backgroundColor: '#FFF',
+        borderRadius: 20,
+        padding: 12,
+        marginRight: 12,
+        width: 120,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#F1F5F9',
+    },
+    classIconBox: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#F0F9FF',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    classMiniTitle: {
+        ...Theme.typography.caption,
+        fontWeight: 'bold',
+        color: Theme.colors.onBackground,
+    },
+    progressText: {
+        ...Theme.typography.caption,
+        color: Theme.colors.gray[400],
+        marginTop: 2,
+    },
+    emptyAgenda: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 32,
+        backgroundColor: '#F8FAFC',
+        borderRadius: 24,
+        borderStyle: 'dashed',
+        borderWidth: 1,
+        borderColor: Theme.colors.gray[200],
+    },
+    emptyText: {
+        ...Theme.typography.caption,
+        color: Theme.colors.gray[400],
+        marginTop: 12,
     },
     fab: {
         display: 'none',

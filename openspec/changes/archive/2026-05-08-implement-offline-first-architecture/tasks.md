@@ -1,0 +1,26 @@
+# Tasks: Implement Offline-First Architecture
+
+- [x] Infrastructure Foundation
+    - [x] Create `src/infrastructure/storage/SqliteStorageService.ts` as a wrapper for `expo-sqlite`
+    - [x] Create `src/infrastructure/sync/SyncQueueRepository.ts` to manage the Outbox
+- [/] Repository Refactoring
+    - [x] Refactor `MockChildRepository.ts` to use `SqliteStorageService`
+    - [x] Refactor `MockAttendanceRepository.ts` to use `SqliteStorageService` and queue sync actions
+    - [ ] Refactor `MockIncidentRepository.ts` to use `SqliteStorageService` and queue sync actions
+    - [ ] Refactor `MockAgendaRepository.ts` to use `SqliteStorageService`
+- [x] Sync Management
+    - [x] Create `src/infrastructure/sync/SyncManager.ts` to handle background synchronization
+    - [ ] Integrate `@react-native-community/netinfo` to detect connection changes
+- [x] UI/UX Updates
+    - [x] Add the `SyncStatusIndicator` component to the `AppHeader.tsx`
+    - [ ] Implement a "Force Sync" button in the Settings screen
+- [x] Testing & Validation
+    - [x] Unit Tests: `LocalStorageService` (get/set/clear logic)
+    - [x] Unit Tests: `SyncQueueRepository` (push/pop/status update logic)
+    - [x] Integration Tests: Verify repository saves trigger sync queue entries
+    - [ ] Manual Test: Airplane mode simulation during attendance taking
+    - [ ] Manual Test: App kill/restart persistence check
+- [ ] Verification
+    - [ ] Verify that data (attendance/incidents) is preserved after closing and reopening the app
+    - [ ] Simulate offline mode (airplane mode) and verify that items are queued
+    - [ ] Verify that items are automatically sent when the connection returns

@@ -13,6 +13,7 @@ import {
     Platform
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { Theme } from '../../styles/Theme';
 import { AppButton } from '../base/AppButton';
 import { Incident } from '../../../domain/activity/entities/Incident';
@@ -29,10 +30,49 @@ export const IncidentReportModal: React.FC<IncidentReportModalProps> = ({ visibl
     const [isEmergency, setIsEmergency] = useState(false);
     const [photos, setPhotos] = useState<string[]>([]);
 
+    const pickImage = async (useCamera: boolean) => {
+        let result;
+        
+        if (useCamera) {
+            const { status } = await ImagePicker.requestCameraPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert('Erro', 'Permissão de câmera negada.');
+                return;
+            }
+            result = await ImagePicker.launchCameraAsync({
+                allowsEditing: true,
+                aspect: [4, 3],
+                quality: 0.8,
+            });
+        } else {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert('Erro', 'Permissão de galeria negada.');
+                return;
+            }
+            result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [4, 3],
+                quality: 0.8,
+            });
+        }
+
+        if (!result.canceled) {
+            setPhotos([...photos, result.assets[0].uri]);
+        }
+    };
+
     const handleAddPhoto = () => {
-        // Mock photo addition
-        const mockUri = `https://picsum.photos/200/300?random=${Math.random()}`;
-        setPhotos([...photos, mockUri]);
+        Alert.alert(
+            'Adicionar Evidência',
+            'Como deseja capturar a foto?',
+            [
+                { text: 'Câmera', onPress: () => pickImage(true) },
+                { text: 'Galeria', onPress: () => pickImage(false) },
+                { text: 'Cancelar', style: 'cancel' },
+            ]
+        );
     };
 
     const handleSave = async () => {

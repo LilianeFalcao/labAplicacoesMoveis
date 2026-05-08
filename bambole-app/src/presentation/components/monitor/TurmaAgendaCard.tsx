@@ -8,7 +8,7 @@ export interface TurmaAgendaItem {
     id: string;
     name: string;
     category: string;
-    status: 'pending' | 'completed' | 'upcoming';
+    status: 'pending' | 'completed' | 'upcoming' | 'ongoing';
     statusLabel: string;
     ageGroup?: string;
     students?: number;
@@ -19,7 +19,9 @@ export interface TurmaAgendaItem {
 }
 
 interface TurmaAgendaCardProps {
-    item: TurmaAgendaItem;
+    item?: TurmaAgendaItem;
+    activity?: any; // To support ClassActivity without strict coupling here
+    onToggleStatus?: (id: string) => void;
     onAction?: () => void;
     onPress?: () => void;
 }
@@ -36,57 +38,91 @@ export const TurmaDetailItem = ({ icon, label, value }: { icon: any; label: stri
     </View>
 );
 
-export const TurmaAgendaCard: React.FC<TurmaAgendaCardProps> = ({ item, onAction, onPress }) => {
+export const TurmaAgendaCard: React.FC<TurmaAgendaCardProps> = ({ item: providedItem, activity, onToggleStatus, onAction, onPress }) => {
+    // Map activity to item if provided
+    const item: TurmaAgendaItem = activity ? {
+        id: activity.id,
+        name: activity.title,
+        category: activity.category,
+        status: activity.status === 'ongoing' ? 'ongoing' : (activity.status === 'completed' ? 'completed' : 'pending'),
+        statusLabel: activity.status === 'completed' ? 'Concluída' : (activity.status === 'ongoing' ? 'Em andamento' : 'Pendente'),
+        timeLabel: activity.startTime,
+        finishedAt: activity.status === 'completed' ? 'agora' : undefined,
+    } : providedItem!;
+
     const isPending = item.status === 'pending';
     const isCompleted = item.status === 'completed';
     const isUpcoming = item.status === 'upcoming';
+    const isOngoing = item.status === 'ongoing';
 
     return (
-        <TouchableOpacity activeOpacity={0.9} onPress={onPress}>
-            <AppCard style={[styles.card, isCompleted && styles.completedCard]}>
+        <TouchableOpacity activeOpacity={0.9} onPress={onPress || (activity ? () => onToggleStatus?.(item.id) : undefined)}>
+            <AppCard style={[styles.card, isCompleted && styles.completedCard, isOngoing && styles.ongoingCard]}>
                 <View style={styles.header}>
-                    <View style={styles.categoryBadge}>
-                        <Text style={styles.categoryText}>{item.category.toUpperCase()}</Text>
+                    <View style={[styles.categoryBadge, isOngoing && styles.categoryBadgeOngoing]}>
+                        <Text style={[styles.categoryText, isOngoing && styles.categoryTextOngoing]}>{item.category.toUpperCase()}</Text>
                     </View>
                     <View style={[
                         styles.statusBadge,
                         isPending && styles.statusBadgePending,
                         isCompleted && styles.statusBadgeCompleted,
-                        isUpcoming && styles.statusBadgeUpcoming
+                        isUpcoming && styles.statusBadgeUpcoming,
+                        isOngoing && styles.statusBadgeOngoing
                     ]}>
                         <MaterialCommunityIcons
-                            name={isPending ? 'alert-circle' : isCompleted ? 'check-circle' : 'clock-outline'}
+                            name={isPending ? 'alert-circle' : isCompleted ? 'check-circle' : isOngoing ? 'play-circle' : 'clock-outline'}
                             size={14}
-                            color={isPending ? Theme.colors.error : isCompleted ? '#10B981' : Theme.colors.primary}
+                            color={isPending ? Theme.colors.error : isCompleted ? '#10B981' : isOngoing ? Theme.colors.info : Theme.colors.primary}
                         />
                         <Text style={[
                             styles.statusText,
                             isPending && styles.statusTextPending,
                             isCompleted && styles.statusTextCompleted,
-                            isUpcoming && styles.statusTextUpcoming
+                            isUpcoming && styles.statusTextUpcoming,
+                            isOngoing && styles.statusTextOngoing
                         ]}>
                             {item.statusLabel}
                         </Text>
                     </View>
                 </View>
 
-                <Text style={styles.name}>{item.name}</Text>
+                <Text style={[styles.name, isOngoing && styles.nameOngoing]}>{item.name}</Text>
 
-                {isPending && (
+                {(isPending || isOngoing) && (
                     <View style={styles.detailsGrid}>
                         <View style={styles.row}>
-                            <TurmaDetailItem icon="face-man-profile" label="FAIXA ETÁRIA" value={item.ageGroup || 'N/A'} />
                             <TurmaDetailItem icon="clock-outline" label="HORÁRIO" value={item.timeLabel} />
+                            {item.ageGroup && <TurmaDetailItem icon="face-man-profile" label="FAIXA ETÁRIA" value={item.ageGroup} />}
                         </View>
-                        <View style={styles.row}>
-                            <TurmaDetailItem icon="account-group-outline" label="ALUNOS" value={`${item.students} Inscritos`} />
-                            <TurmaDetailItem icon="map-marker-outline" label="LOCAL" value={item.location || 'N/A'} />
-                        </View>
+                        {!activity && (
+                            <View style={styles.row}>
+                                <TurmaDetailItem icon="account-group-outline" label="ALUNOS" value={`${item.students} Inscritos`} />
+                                <TurmaDetailItem icon="map-marker-outline" label="LOCAL" value={item.location || 'N/A'} />
+                            </View>
+                        )}
 
-                        <TouchableOpacity style={styles.actionButton} onPress={onAction}>
-                            <Text style={styles.actionButtonText}>Acessar Turma</Text>
-                            <MaterialCommunityIcons name="arrow-right" size={18} color="#FFF" />
-                        </TouchableOpacity>
+                        {onAction && (
+                            <TouchableOpacity style={styles.actionButton} onPress={onAction}>
+                                <Text style={styles.actionButtonText}>Acessar Turma</Text>
+                                <MaterialCommunityIcons name="arrow-right" size={18} color="#FFF" />
+                            </TouchableOpacity>
+                        )}
+                        
+                        {activity && (
+                            <TouchableOpacity 
+                                style={[styles.statusToggle, isOngoing && styles.statusToggleOngoing]} 
+                                onPress={() => onToggleStatus?.(item.id)}
+                            >
+                                <Text style={styles.statusToggleText}>
+                                    {isOngoing ? 'Marcar como concluída' : 'Iniciar atividade'}
+                                </Text>
+                                <MaterialCommunityIcons 
+                                    name={isOngoing ? "check-circle-outline" : "play-circle-outline"} 
+                                    size={20} 
+                                    color="#FFF" 
+                                />
+                            </TouchableOpacity>
+                        )}
                     </View>
                 )}
 
@@ -94,7 +130,7 @@ export const TurmaAgendaCard: React.FC<TurmaAgendaCardProps> = ({ item, onAction
                     <View style={styles.completedFooter}>
                         <View style={styles.completedMeta}>
                             <MaterialCommunityIcons name="history" size={16} color={Theme.colors.gray[400]} />
-                            <Text style={styles.completedTime}>Finalizada às {item.finishedAt}</Text>
+                            <Text style={styles.completedTime}>Finalizada {item.finishedAt === 'agora' ? 'recentemente' : `às ${item.finishedAt}`}</Text>
                         </View>
                         <TouchableOpacity onPress={onPress}>
                             <Text style={styles.detailsLink}>Ver detalhes</Text>
@@ -141,6 +177,10 @@ const styles = StyleSheet.create({
         backgroundColor: '#F8FAFC',
         borderRadius: 24,
     },
+    ongoingCard: {
+        borderColor: Theme.colors.info + '30',
+        backgroundColor: Theme.colors.info + '05',
+    },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -153,11 +193,17 @@ const styles = StyleSheet.create({
         paddingVertical: 6,
         borderRadius: 12,
     },
+    categoryBadgeOngoing: {
+        backgroundColor: Theme.colors.info + '20',
+    },
     categoryText: {
         fontSize: 10,
         fontWeight: '800',
         color: Theme.colors.primary,
         letterSpacing: 0.5,
+    },
+    categoryTextOngoing: {
+        color: Theme.colors.info,
     },
     statusBadge: {
         flexDirection: 'row',
@@ -170,15 +216,20 @@ const styles = StyleSheet.create({
     statusBadgePending: { backgroundColor: '#FEF2F2' },
     statusBadgeCompleted: { backgroundColor: '#DCFCE7' },
     statusBadgeUpcoming: { backgroundColor: '#E0F2FE' },
+    statusBadgeOngoing: { backgroundColor: Theme.colors.info + '15' },
     statusText: { fontSize: 11, fontWeight: '700' },
     statusTextPending: { color: Theme.colors.error },
     statusTextCompleted: { color: '#16A34A' },
     statusTextUpcoming: { color: Theme.colors.primary },
+    statusTextOngoing: { color: Theme.colors.info },
     name: {
         ...Theme.typography.h2,
         fontSize: 28,
         color: Theme.colors.onBackground,
         marginBottom: 20,
+    },
+    nameOngoing: {
+        color: Theme.colors.info,
     },
     detailsGrid: {
         gap: 16,
@@ -227,6 +278,23 @@ const styles = StyleSheet.create({
         fontWeight: '800',
         fontSize: 16,
     },
+    statusToggle: {
+        backgroundColor: Theme.colors.primary,
+        height: 48,
+        borderRadius: 24,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 8,
+    },
+    statusToggleOngoing: {
+        backgroundColor: '#16A34A',
+    },
+    statusToggleText: {
+        color: '#FFF',
+        fontWeight: '700',
+        fontSize: 14,
+    },
     completedFooter: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -239,7 +307,7 @@ const styles = StyleSheet.create({
     },
     completedTime: {
         ...Theme.typography.caption,
-        color: Theme.colors.gray[500],
+        color: Theme.colors.gray[400],
     },
     detailsLink: {
         ...Theme.typography.caption,

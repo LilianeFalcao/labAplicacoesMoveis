@@ -10,6 +10,8 @@ interface AuthContextData {
     isLoading: boolean;
     isSimulated: boolean;
     startSimulation: (email: string, role: UserRole) => void;
+    profilePhotoUri: string | null;
+    updateProfilePhoto: (uri: string) => void;
 }
 
 const AuthContext = createContext<AuthContextData>({} as AuthContextData);
@@ -18,6 +20,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isSimulated, setIsSimulated] = useState(false);
+    const [profilePhotoUri, setProfilePhotoUri] = useState<string | null>(null);
+
+    const updateProfilePhoto = (uri: string) => {
+        setProfilePhotoUri(uri);
+    };
 
     // Temporary sign in for navigation testing
     const signIn = (email: string, role: UserRole) => {
@@ -46,7 +53,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     return (
-        <AuthContext.Provider value={{ user, signIn, signOut, isLoading, isSimulated, startSimulation }}>
+        <AuthContext.Provider value={{ 
+            user, 
+            signIn, 
+            signOut, 
+            isLoading, 
+            isSimulated, 
+            startSimulation,
+            profilePhotoUri,
+            updateProfilePhoto
+        }}>
             {children}
         </AuthContext.Provider>
     );
