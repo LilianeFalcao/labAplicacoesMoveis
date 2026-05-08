@@ -21,18 +21,19 @@ export type ParentStackParamList = {
 
 export type MonitorTabsParamList = {
     Home: undefined;
-    Attendance: undefined;
-    Photos: undefined;
-    Notices: undefined;
     Profile: undefined;
+};
+
+export type ClassDashboardTabsParamList = {
+    Agenda: { classId: string; groupName: string };
+    Attendance: { classId: string; groupName: string };
+    Photos: { classId: string; groupName: string };
+    Notices: { classId: string; groupName: string };
 };
 
 export type MonitorStackParamList = {
     MonitorRoot: NavigatorScreenParams<MonitorTabsParamList>;
-    GroupAgenda: { groupName: string };
-    Attendance: { classId: string; groupName: string };
-    PhotoCapture: undefined;
-    Observations: undefined;
+    ClassDashboard: { classId: string; groupName: string };
     Notifications: undefined;
 };
 

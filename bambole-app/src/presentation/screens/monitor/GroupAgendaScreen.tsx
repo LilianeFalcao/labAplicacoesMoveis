@@ -7,17 +7,28 @@ import { Theme } from '../../styles/Theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { MonitorStackParamList } from '../../navigation/types';
+import { ClassDashboardTabsParamList } from '../../navigation/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-type GroupAgendaRouteProp = RouteProp<MonitorStackParamList, 'GroupAgenda'>;
-type GroupAgendaNavigationProp = StackNavigationProp<MonitorStackParamList, 'GroupAgenda'>;
+type GroupAgendaRouteProp = RouteProp<ClassDashboardTabsParamList, 'Agenda'>;
+type GroupAgendaNavigationProp = StackNavigationProp<any>;
 
 export const GroupAgendaScreen = () => {
     const navigation = useNavigation<GroupAgendaNavigationProp>();
     const route = useRoute<GroupAgendaRouteProp>();
     const insets = useSafeAreaInsets();
-    const { groupName = 'Turma A1' } = route.params;
+    const { classId, groupName = 'Turma' } = route.params || {};
+
+    if (!classId) {
+        return (
+            <SafeAreaView style={styles.mainContainer} edges={['left', 'right', 'bottom']}>
+                <AppHeader title="Erro" showBack onBack={() => navigation.goBack()} />
+                <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+                    <Text>Erro: Turma não selecionada.</Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     const agendaItems = [
         { id: '1', time: '08:00', activity: 'Entrada e Acolhimento', completed: true, category: 'Rotina' },

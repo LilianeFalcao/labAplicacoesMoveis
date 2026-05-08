@@ -19,7 +19,13 @@ import { GetMonitorAverageAttendanceUseCase } from '../../../application/attenda
 import { MockNotificationRepository } from '../../../infrastructure/notification/repositories/MockNotificationRepository';
 import { MockAttendanceRepository } from '../../../infrastructure/attendance/repositories/MockAttendanceRepository';
 import { NotificationService } from '../../../infrastructure/notification/services/NotificationService';
-import { Alert } from 'react-native';
+import { Alert, Modal } from 'react-native';
+import { SpeedDial, SpeedDialAction } from '../../components/base/SpeedDial';
+import { IncidentReportModal } from '../../components/monitor/IncidentReportModal';
+import { MultiClassNoticeModal } from '../../components/monitor/MultiClassNoticeModal';
+import { CameraView, Camera } from 'expo-camera';
+import { UploadActivityPhotoUseCase } from '../../../application/activity/use-cases/UploadActivityPhotoUseCase';
+import { MockActivityRepository } from '../../../infrastructure/activity/repositories/MockActivityRepository';
 
 export const MonitorHomeScreen = () => {
     const { user, signOut } = useAuth();
@@ -29,6 +35,13 @@ export const MonitorHomeScreen = () => {
     const [dynamicAgenda, setDynamicAgenda] = useState<any[]>([]);
     const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
     const [avgAttendance, setAvgAttendance] = useState('N/A');
+    const [isIncidentModalVisible, setIsIncidentModalVisible] = useState(false);
+    const [isMultiNoticeModalVisible, setIsMultiNoticeModalVisible] = useState(false);
+    const [isCameraVisible, setIsCameraVisible] = useState(false);
+    const [monitorClasses, setMonitorClasses] = useState<any[]>([]);
+    const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
+    const [isPhotoSelectionVisible, setIsPhotoSelectionVisible] = useState(false);
+    const [cameraFacing, setCameraFacing] = useState<'front' | 'back'>('back');
 
     // Initialize repositories and use cases
     const notificationRepo = MockNotificationRepository.getInstance();
@@ -44,12 +57,13 @@ export const MonitorHomeScreen = () => {
     const loadDynamicData = async () => {
         try {
             const monitorId = user?.id || 'monitor-mock-id';
-            const monitorClasses = await getMonitorClassesUseCase.execute(monitorId);
+            const classes = await getMonitorClassesUseCase.execute(monitorId);
+            setMonitorClasses(classes);
             const avg = await getMonitorAverageAttendanceUseCase.execute(monitorId);
             
             setAvgAttendance(avg);
 
-            const newAgendaItems = monitorClasses.map((cls) => {
+            const newAgendaItems = classes.map((cls) => {
                 const isAvailable = cls.isCallAllowedNow();
                 return {
                     id: cls.id,
@@ -108,6 +122,77 @@ export const MonitorHomeScreen = () => {
         }, [user?.id])
     );
 
+    const handleSendMultiNotice = async (classIds: string[], content: string) => {
+        // Mock sending notice
+        console.log(`Sending notice to ${classIds.length} classes: ${content}`);
+        // In a real app, we would call the SendAnnouncementUseCase here
+    };
+
+    const handleQuickPhoto = async () => {
+        const { status } = await Camera.requestCameraPermissionsAsync();
+        if (status === 'granted') {
+            setIsCameraVisible(true);
+        } else {
+            Alert.alert('Erro', 'Permissão de câmera é necessária.');
+        }
+    };
+
+    const onTakePhoto = (uri: string) => {
+        setCapturedPhoto(uri);
+        setIsCameraVisible(false);
+        setIsPhotoSelectionVisible(true);
+    };
+
+    const handleSaveCapturedPhoto = async (classIds: string[]) => {
+        if (!capturedPhoto) return;
+        
+        try {
+            const repo = MockActivityRepository.getInstance();
+            const useCase = new UploadActivityPhotoUseCase(repo);
+            
+            for (const classId of classIds) {
+                await useCase.execute({
+                    classId,
+                    photoUri: capturedPhoto,
+                    caption: 'Captura rápida da Home'
+                });
+            }
+            
+            Alert.alert('Sucesso', 'Foto enviada para as turmas selecionadas!');
+            setCapturedPhoto(null);
+            setIsPhotoSelectionVisible(false);
+        } catch (error) {
+            Alert.alert('Erro', 'Falha ao enviar foto.');
+        }
+    };
+
+    const speedDialActions: SpeedDialAction[] = [
+        {
+            icon: 'alert-circle',
+            label: 'Relatar Incidente',
+            onPress: () => setIsIncidentModalVisible(true),
+            color: Theme.colors.error
+        },
+        {
+            icon: 'camera',
+            label: 'Captura Espontânea',
+            onPress: handleQuickPhoto,
+            color: Theme.colors.primary
+        },
+        {
+            icon: 'bullhorn',
+            label: 'Comunicado Global',
+            onPress: () => setIsMultiNoticeModalVisible(true),
+            color: '#0891B2'
+        },
+        {
+            icon: 'plus-box',
+            label: 'Solicitar Turma',
+            onPress: () => setIsModalVisible(true),
+            color: '#6366F1'
+        }
+    ];
+
     return (
         <SafeAreaView style={styles.mainContainer} edges={['top', 'left', 'right']}>
             <View style={styles.header}>
@@ -137,6 +222,59 @@ export const MonitorHomeScreen = () => {
                 }}
             />
 
+            <IncidentReportModal
+                visible={isIncidentModalVisible}
+                onClose={() => setIsIncidentModalVisible(false)}
+                monitorId={user?.id || 'monitor-mock-id'}
+            />
+
+            <MultiClassNoticeModal
+                visible={isMultiNoticeModalVisible}
+                onClose={() => setIsMultiNoticeModalVisible(false)}
+                classes={monitorClasses}
+                onSend={handleSendMultiNotice}
+            />
+
+            <MultiClassNoticeModal
+                visible={isPhotoSelectionVisible}
+                onClose={() => setIsPhotoSelectionVisible(false)}
+                classes={monitorClasses}
+                onSend={async (ids) => handleSaveCapturedPhoto(ids)}
+            />
+
+            <Modal visible={isCameraVisible} animationType="slide">
+                <CameraView 
+                    style={StyleSheet.absoluteFill}
+                    facing={cameraFacing}
+                >
+                    <View style={styles.cameraOverlay}>
+                        <TouchableOpacity 
+                            style={styles.closeCamera}
+                            onPress={() => setIsCameraVisible(false)}
+                        >
+                            <MaterialCommunityIcons name="close" size={30} color="#FFF" />
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                            style={styles.flipCamera}
+                            onPress={() => setCameraFacing(prev => prev === 'back' ? 'front' : 'back')}
+                        >
+                            <MaterialCommunityIcons name="camera-flip" size={30} color="#FFF" />
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                            style={styles.captureBtn}
+                            onPress={async () => {
+                                // Since CameraView ref is needed for takePictureAsync, 
+                                // and we are using a simplified version for mock, 
+                                // we'll just simulate a capture here for the demo
+                                onTakePhoto('https://picsum.photos/400/600');
+                            }}
+                        >
+                            <View style={styles.captureBtnInner} />
+                        </TouchableOpacity>
+                    </View>
+                </CameraView>
+            </Modal>
+
             <ScrollView
                 style={styles.container}
                 contentContainerStyle={[
@@ -151,13 +289,6 @@ export const MonitorHomeScreen = () => {
                             <Text style={styles.overtitle}>PAINEL DO MONITOR</Text>
                             <Text style={styles.mainTitle}>Minhas Turmas</Text>
                         </View>
-                        <TouchableOpacity
-                            style={styles.solicitarBtn}
-                            onPress={() => setIsModalVisible(true)}
-                        >
-                            <MaterialCommunityIcons name="plus" size={16} color="#FFF" />
-                            <Text style={styles.solicitarLabel}>Solicitar</Text>
-                        </TouchableOpacity>
                     </View>
 
                     <View style={styles.summaryGrid}>
@@ -188,19 +319,17 @@ export const MonitorHomeScreen = () => {
                         <TurmaAgendaCard
                             key={item.id}
                             item={item}
-                            onAction={() => navigation.navigate('Attendance', { classId: item.id, groupName: item.name })}
-                            onPress={() => navigation.navigate('GroupAgenda', { groupName: item.name })}
+                            onAction={() => navigation.navigate('ClassDashboard', { classId: item.id, groupName: item.name })}
+                            onPress={() => navigation.navigate('ClassDashboard', { classId: item.id, groupName: item.name })}
                         />
                     ))}
                 </View>
             </ScrollView>
 
-            <TouchableOpacity
-                style={[styles.fab, { bottom: Math.max(24, insets.bottom + 16) }]}
-                activeOpacity={0.8}
-            >
-                <MaterialCommunityIcons name="plus" size={32} color="#FFF" />
-            </TouchableOpacity>
+            <SpeedDial 
+                actions={speedDialActions} 
+                bottomOffset={insets.bottom + 16}
+            />
         </SafeAreaView>
     );
 };
@@ -320,19 +449,39 @@ const styles = StyleSheet.create({
         fontWeight: '700',
     },
     fab: {
+        display: 'none',
+    },
+    cameraOverlay: {
+        flex: 1,
+        backgroundColor: 'transparent',
+        justifyContent: 'flex-end',
+        alignItems: 'center',
+        paddingBottom: 40,
+    },
+    closeCamera: {
         position: 'absolute',
-        bottom: 24,
-        right: 24,
-        width: 64,
-        height: 64,
-        borderRadius: 32,
-        backgroundColor: Theme.colors.primary,
+        top: 40,
+        right: 20,
+        zIndex: 10,
+    },
+    flipCamera: {
+        position: 'absolute',
+        top: 40,
+        left: 20,
+        zIndex: 10,
+    },
+    captureBtn: {
+        width: 70,
+        height: 70,
+        borderRadius: 35,
+        backgroundColor: 'rgba(255,255,255,0.3)',
         justifyContent: 'center',
         alignItems: 'center',
-        elevation: 8,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 10,
+    },
+    captureBtnInner: {
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        backgroundColor: '#FFF',
     },
 });

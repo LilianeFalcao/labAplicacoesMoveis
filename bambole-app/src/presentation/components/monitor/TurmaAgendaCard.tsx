@@ -84,7 +84,7 @@ export const TurmaAgendaCard: React.FC<TurmaAgendaCardProps> = ({ item, onAction
                         </View>
 
                         <TouchableOpacity style={styles.actionButton} onPress={onAction}>
-                            <Text style={styles.actionButtonText}>Realizar Chamada</Text>
+                            <Text style={styles.actionButtonText}>Acessar Turma</Text>
                             <MaterialCommunityIcons name="arrow-right" size={18} color="#FFF" />
                         </TouchableOpacity>
                     </View>

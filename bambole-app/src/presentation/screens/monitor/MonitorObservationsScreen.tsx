@@ -4,13 +4,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../../components/base/AppHeader';
 import { AppButton } from '../../components/base/AppButton';
 import { Theme } from '../../styles/Theme';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ClassDashboardTabsParamList } from '../../navigation/types';
 
 export const MonitorObservationsScreen = () => {
     const navigation = useNavigation();
     const insets = useSafeAreaInsets();
+    const route = useRoute<RouteProp<ClassDashboardTabsParamList, 'Notices'>>();
+    const { classId } = route.params || {};
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
     const [category, setCategory] = useState('Geral');
@@ -26,6 +29,17 @@ export const MonitorObservationsScreen = () => {
             { text: 'OK', onPress: () => navigation.goBack() }
         ]);
     };
+
+    if (!classId) {
+        return (
+            <SafeAreaView style={styles.mainContainer} edges={['left', 'right', 'bottom']}>
+                <AppHeader title="Erro" showBack onBack={() => navigation.goBack()} />
+                <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+                    <Text>Erro: Turma não selecionada.</Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={styles.mainContainer} edges={['left', 'right', 'bottom']}>

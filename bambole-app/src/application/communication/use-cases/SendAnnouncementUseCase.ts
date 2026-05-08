@@ -15,28 +15,30 @@ export class SendAnnouncementUseCase {
         authorId: string,
         content: string,
         audienceType: AudienceType,
-        classId?: string
+        classIds?: string[]
     ): Promise<void> {
         const annContent = AnnouncementContent.create(content);
-        const audience = audienceType === 'class' ? Audience.forClass(classId!) : Audience.forAll();
 
-        const announcement = new Announcement(undefined, authorId, annContent, audience, new Date());
-        await this.announceRepo.save(announcement);
+        if (audienceType === 'class' && classIds && classIds.length > 0) {
+            for (const classId of classIds) {
+                const audience = Audience.forClass(classId);
+                const announcement = new Announcement(undefined, authorId, annContent, audience, new Date());
+                await this.announceRepo.save(announcement);
 
-        let tokens: string[] = [];
-        let title = 'Bambolê: ';
+                const tokens = await this.userRepo.findTokensByClass(classId);
+                if (tokens.length > 0) {
+                    await this.pushService.send(tokens, 'Bambolê: Novo Aviso', annContent.value);
+                }
+            }
+        } else if (audienceType === 'all') {
+            const audience = Audience.forAll();
+            const announcement = new Announcement(undefined, authorId, annContent, audience, new Date());
+            await this.announceRepo.save(announcement);
 
-        if (audience.type === 'class') {
-            if (!audience.classId) throw new Error('Class ID is required for class audience');
-            tokens = await this.userRepo.findTokensByClass(audience.classId);
-            title += 'Novo Aviso';
-        } else {
-            tokens = await this.userRepo.findAllParentTokens();
-            title += 'Comunicado Geral';
-        }
-
-        if (tokens.length > 0) {
-            await this.pushService.send(tokens, title, annContent.value);
+            const tokens = await this.userRepo.findAllParentTokens();
+            if (tokens.length > 0) {
+                await this.pushService.send(tokens, 'Bambolê: Comunicado Geral', annContent.value);
+            }
         }
     }
 }

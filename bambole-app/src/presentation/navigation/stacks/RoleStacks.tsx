@@ -8,10 +8,7 @@ import { AttendanceHistoryScreen } from '../../screens/parent/AttendanceHistoryS
 
 // Monitor Screens
 import { MonitorHomeScreen } from '@/presentation/screens/monitor/MonitorHomeScreen';
-import { GroupAgendaScreen } from '@/presentation/screens/monitor/GroupAgendaScreen';
-import { AttendanceScreen } from '@/presentation/screens/monitor/AttendanceScreen';
-import { PhotoCaptureScreen } from '@/presentation/screens/monitor/PhotoCaptureScreen';
-import { MonitorObservationsScreen } from '@/presentation/screens/monitor/MonitorObservationsScreen';
+import { ClassDashboardTabs } from '../tabs/ClassDashboardTabs';
 import { NotificationsScreen } from '../../screens/monitor/NotificationsScreen';
 
 // Admin Screens
@@ -38,10 +35,7 @@ export const ParentStack = () => (
 export const MonitorStack = () => (
     <MonitorStackCreator.Navigator screenOptions={{ headerShown: false }}>
         <MonitorStackCreator.Screen name="MonitorRoot" component={MonitorTabs} />
-        <MonitorStackCreator.Screen name="GroupAgenda" component={GroupAgendaScreen} />
-        <MonitorStackCreator.Screen name="Attendance" component={AttendanceScreen} />
-        <MonitorStackCreator.Screen name="PhotoCapture" component={PhotoCaptureScreen} />
-        <MonitorStackCreator.Screen name="Observations" component={MonitorObservationsScreen} />
+        <MonitorStackCreator.Screen name="ClassDashboard" component={ClassDashboardTabs} />
         <MonitorStackCreator.Screen name="Notifications" component={NotificationsScreen} />
     </MonitorStackCreator.Navigator>
 );

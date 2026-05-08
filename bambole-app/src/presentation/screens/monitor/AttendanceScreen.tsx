@@ -10,15 +10,15 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { MonitorStackParamList } from '../../navigation/types';
+import { ClassDashboardTabsParamList } from '../../navigation/types';
 import { MockChildRepository } from '@/infrastructure/enrollment/repositories/MockChildRepository';
 import { TakeAttendanceUseCase } from '@/application/attendance/use-cases/TakeAttendanceUseCase';
 import { MockAttendanceRepository } from '@/infrastructure/attendance/repositories/MockAttendanceRepository';
 import { MockClassRepository } from '@/infrastructure/activity/repositories/MockClassRepository';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-type AttendanceRouteProp = RouteProp<MonitorStackParamList, 'Attendance'>;
-type AttendanceNavigationProp = StackNavigationProp<MonitorStackParamList, 'Attendance'>;
+type AttendanceRouteProp = RouteProp<ClassDashboardTabsParamList, 'Attendance'>;
+type AttendanceNavigationProp = StackNavigationProp<any>; // Using any for navigation to avoid circular stack/tab types
 
 export const AttendanceScreen = () => {
     const { user } = useAuth();
@@ -26,8 +26,8 @@ export const AttendanceScreen = () => {
     const route = useRoute<AttendanceRouteProp>();
     const insets = useSafeAreaInsets();
 
-    const classId = route.params?.classId || 'DEMO_CLASS_01';
-    const groupName = route.params?.groupName || 'Turma A1';
+    const classId = route.params?.classId;
+    const groupName = route.params?.groupName || 'Turma';
 
     const [students, setStudents] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -98,6 +98,17 @@ export const AttendanceScreen = () => {
             setSubmitting(false);
         }
     };
+
+    if (!classId) {
+        return (
+            <SafeAreaView style={styles.mainContainer} edges={['left', 'right', 'bottom']}>
+                <AppHeader title="Erro" showBack onBack={() => navigation.goBack()} />
+                <View style={styles.center}>
+                    <Text>Erro: Turma não selecionada ou contexto perdido.</Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     if (loading) {
         return (

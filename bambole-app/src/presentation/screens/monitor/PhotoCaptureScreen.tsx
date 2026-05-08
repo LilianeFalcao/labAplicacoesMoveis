@@ -11,41 +11,29 @@ import { CameraView } from "expo-camera";
 import { ExpoCameraService } from "../../../infrastructure/camera/ExpoCameraService";
 import { MockActivityRepository } from "../../../infrastructure/activity/repositories/MockActivityRepository";
 import { UploadActivityPhotoUseCase } from "../../../application/activity/use-cases/UploadActivityPhotoUseCase";
-import { GetMonitorClassesUseCase, MonitorClass } from "../../../application/activity/use-cases/GetMonitorClassesUseCase";
 import { MockClassRepository } from "../../../infrastructure/activity/repositories/MockClassRepository";
 import { MockAccessRequestRepository } from "../../../infrastructure/activity/repositories/MockAccessRequestRepository";
+import { RouteProp, useRoute } from "@react-navigation/native";
+import { ClassDashboardTabsParamList } from "../../navigation/types";
 
 export const PhotoCaptureScreen = () => {
     const navigation = useNavigation();
+    const route = useRoute<RouteProp<ClassDashboardTabsParamList, 'Photos'>>();
+    const { classId } = route.params || {};
     const { user } = useAuth();
     const [image, setImage] = useState<string | null>(null);
     const [hasPermission, setHasPermission] = useState<boolean | null>(null);
     const [cameraVisible, setCameraVisible] = useState(false);
-    const [classes, setClasses] = useState<MonitorClass[]>([]);
-    const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
     const [caption, setCaption] = useState("Atividade registrada pelo monitor");
+    const [facing, setFacing] = useState<'front' | 'back'>('back');
 
     const cameraRef = useRef<CameraView>(null);
     const cameraService = new ExpoCameraService();
 
     useFocusEffect(
         useCallback(() => {
-            const fetchClasses = async () => {
-                const classRepo = MockClassRepository.getInstance();
-                const accessRequestRepo = MockAccessRequestRepository.getInstance();
-                const useCase = new GetMonitorClassesUseCase(classRepo, accessRequestRepo);
-                
-                const monitorId = user?.id || 'monitor-mock-id';
-                const data = await useCase.execute(monitorId);
-                setClasses(data);
-                
-                // Keep selection if it's still valid, otherwise select the first one
-                if (data.length > 0 && (!selectedClassId || !data.some(c => c.id === selectedClassId))) {
-                    setSelectedClassId(data[0].id);
-                }
-            };
-            fetchClasses();
-        }, [user?.id, selectedClassId])
+            // Context is now provided by parent navigation
+        }, [])
     );
 
     const handleStartCapture = async () => {
@@ -74,8 +62,8 @@ export const PhotoCaptureScreen = () => {
             return;
         }
 
-        if (!selectedClassId) {
-            Alert.alert("Erro", "Selecione uma turma.");
+        if (!classId) {
+            Alert.alert("Erro", "Turma não identificada.");
             return;
         }
 
@@ -84,7 +72,7 @@ export const PhotoCaptureScreen = () => {
             const useCase = new UploadActivityPhotoUseCase(repository);
 
             await useCase.execute({
-                classId: selectedClassId,
+                classId: classId,
                 photoUri: image,
                 caption: caption,
             });
@@ -106,27 +94,33 @@ export const PhotoCaptureScreen = () => {
         }
     };
 
-    const renderClassItem = ({ item }: { item: MonitorClass }) => (
-        <TouchableOpacity
-            style={[styles.classChip, selectedClassId === item.id && styles.classChipSelected]}
-            onPress={() => setSelectedClassId(item.id)}
-        >
-            <Text style={[styles.classChipText, selectedClassId === item.id && styles.classChipTextSelected]}>
-                {item.name}
-            </Text>
-        </TouchableOpacity>
-    );
+    if (!classId) {
+        return (
+            <SafeAreaView style={styles.mainContainer} edges={["left", "right", "bottom"]}>
+                <AppHeader title="Erro" showBack onBack={() => navigation.goBack()} />
+                <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+                    <Text>Erro: Turma não selecionada.</Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     if (cameraVisible) {
         return (
             <View style={styles.cameraContainer}>
-                <CameraView style={styles.camera} ref={cameraRef}>
+                <CameraView style={styles.camera} ref={cameraRef} facing={facing}>
                     <View style={styles.cameraOverlay}>
                         <TouchableOpacity style={styles.captureButton} onPress={handleCapture}>
                             <View style={styles.captureButtonInner} />
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.closeButton} onPress={() => setCameraVisible(false)}>
                             <MaterialCommunityIcons name="close" size={30} color="#FFF" />
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                            style={styles.flipButton} 
+                            onPress={() => setFacing(prev => prev === 'back' ? 'front' : 'back')}
+                        >
+                            <MaterialCommunityIcons name="camera-flip" size={30} color="#FFF" />
                         </TouchableOpacity>
                     </View>
                 </CameraView>
@@ -139,20 +133,9 @@ export const PhotoCaptureScreen = () => {
             <AppHeader title="Capturar Momento" showBack onBack={() => navigation.goBack()} />
 
             <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>1. Selecione a Turma</Text>
-                    <FlatList
-                        data={classes}
-                        renderItem={renderClassItem}
-                        keyExtractor={(item) => item.id}
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.classesList}
-                    />
-                </View>
 
                 <View style={[styles.section, styles.captureSection]}>
-                    <Text style={styles.sectionTitle}>2. Registre a Atividade</Text>
+                    <Text style={styles.sectionTitle}>1. Registre a Atividade</Text>
                     <TouchableOpacity style={[styles.photoCard, !image && styles.photoCardEmpty]} onPress={handleStartCapture} activeOpacity={0.9}>
                         {image ? (
                             <>
@@ -176,7 +159,7 @@ export const PhotoCaptureScreen = () => {
 
                 {image && (
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>3. Legenda (Opcional)</Text>
+                        <Text style={styles.sectionTitle}>2. Legenda (Opcional)</Text>
                         <TextInput
                             style={styles.captionInput}
                             placeholder="Escreva algo sobre este momento..."
@@ -187,7 +170,7 @@ export const PhotoCaptureScreen = () => {
                     </View>
                 )}
 
-                <AppButton title="Enviar para os Pais" onPress={handleSave} disabled={!image || !selectedClassId} style={styles.button} />
+                <AppButton title="Enviar para os Pais" onPress={handleSave} disabled={!image || !classId} style={styles.button} />
             </ScrollView>
         </SafeAreaView>
     );
@@ -202,6 +185,7 @@ const styles = StyleSheet.create({
     captureButton: { width: 70, height: 70, borderRadius: 35, backgroundColor: "rgba(255, 255, 255, 0.3)", justifyContent: "center", alignItems: "center" },
     captureButtonInner: { width: 60, height: 60, borderRadius: 30, backgroundColor: "#FFF" },
     closeButton: { position: "absolute", top: 40, right: 20 },
+    flipButton: { position: "absolute", top: 40, left: 20 },
     scrollContent: { padding: Theme.spacing.md },
     section: { marginBottom: Theme.spacing.xl },
     sectionTitle: { ...Theme.typography.h3, color: Theme.colors.onBackground, marginBottom: Theme.spacing.sm },
