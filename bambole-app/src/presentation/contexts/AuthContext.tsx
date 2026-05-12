@@ -1,55 +1,91 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '@/infrastructure/supabase/client';
 import { User } from '@/domain/identity/entities/User';
 import { Role, UserRole } from '@/domain/identity/value-objects/Role';
 import { Email } from '@/domain/identity/value-objects/Email';
+import { SupabaseUserRepository } from '@/infrastructure/identity/repositories/SupabaseUserRepository';
+import { SupabaseAuthService } from '@/infrastructure/identity/services/SupabaseAuthService';
+import { SignInUseCase } from '@/application/identity/use-cases/SignInUseCase';
 
 interface AuthContextData {
     user: User | null;
-    signIn: (email: string, role: UserRole) => void;
-    signOut: () => void;
+    signIn: (email: string, password: string) => Promise<void>;
+    signOut: () => Promise<void>;
     isLoading: boolean;
-    isSimulated: boolean;
-    startSimulation: (email: string, role: UserRole) => void;
-    profilePhotoUri: string | null;
-    updateProfilePhoto: (uri: string) => void;
+    refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextData>({} as AuthContextData);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [isSimulated, setIsSimulated] = useState(false);
-    const [profilePhotoUri, setProfilePhotoUri] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
 
-    const updateProfilePhoto = (uri: string) => {
-        setProfilePhotoUri(uri);
+    // Dependencies
+    const userRepository = new SupabaseUserRepository();
+    const authService = new SupabaseAuthService();
+    const signInUseCase = new SignInUseCase(authService, userRepository);
+
+    const loadUserProfile = async (userId: string) => {
+        try {
+            const profile = await userRepository.findById(userId);
+            setUser(profile);
+        } catch (error) {
+            console.error('Error loading profile:', error);
+            setUser(null);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
-    // Temporary sign in for navigation testing
-    const signIn = (email: string, role: UserRole) => {
-        const mockUser = new User(
-            email, // Deterministic ID for mock
-            Email.create(email),
-            Role.create(role)
-        );
-        setUser(mockUser);
-        setIsSimulated(false);
+    const refreshUser = async () => {
+        if (!user) return;
+        const profile = await userRepository.findById(user.id);
+        setUser(profile);
     };
 
-    const startSimulation = (email: string, role: UserRole) => {
-        const mockUser = new User(
-            email, // Deterministic ID for mock
-            Email.create(email),
-            Role.create(role)
-        );
-        setUser(mockUser);
-        setIsSimulated(true);
+    useEffect(() => {
+        // Check active sessions and sets up the listener
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            if (session) {
+                loadUserProfile(session.user.id);
+            } else {
+                setIsLoading(false);
+            }
+        });
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            if (session) {
+                loadUserProfile(session.user.id);
+            } else {
+                setUser(null);
+                setIsLoading(false);
+            }
+        });
+
+        return () => subscription.unsubscribe();
+    }, []);
+
+    const signIn = async (email: string, password: string) => {
+        setIsLoading(true);
+        try {
+            await signInUseCase.execute(email, password);
+            // Profiling is handled by onAuthStateChange
+        } catch (error) {
+            setIsLoading(false);
+            throw error;
+        }
     };
 
-    const signOut = () => {
-        setUser(null);
-        setIsSimulated(false);
+    const signOut = async () => {
+        setIsLoading(true);
+        try {
+            await supabase.auth.signOut();
+        } catch (error) {
+            console.error('Error signing out:', error);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -57,11 +93,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             user, 
             signIn, 
             signOut, 
-            isLoading, 
-            isSimulated, 
-            startSimulation,
-            profilePhotoUri,
-            updateProfilePhoto
+            isLoading,
+            refreshUser
         }}>
             {children}
         </AuthContext.Provider>

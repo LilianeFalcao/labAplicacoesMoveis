@@ -12,12 +12,15 @@ export class SignInUseCase {
     async execute(emailStr: string, password: string): Promise<User> {
         const email = Email.create(emailStr);
 
-        const user = await this.userRepo.findByEmail(email);
-        if (!user) {
-            throw new Error('User not found');
-        }
+        // 1. Authenticate first via Supabase Auth
+        const authData = await this.authService.signIn(emailStr, password);
 
-        await this.authService.signIn(emailStr, password);
+        // 2. Fetch the associated profile from public.users
+        const user = await this.userRepo.findById(authData.id);
+        
+        if (!user) {
+            throw new Error('Perfil de usuário não encontrado. Verifique se o cadastro foi concluído no banco de dados.');
+        }
 
         return user;
     }

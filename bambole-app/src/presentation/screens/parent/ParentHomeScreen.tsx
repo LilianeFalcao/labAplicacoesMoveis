@@ -2,13 +2,19 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, ScrollView, RefreshControl, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
-import { OfflineSyncService } from '@/infrastructure/offline/OfflineSyncService';
 import { AppCard } from '../../components/base/AppCard';
 import { Theme } from '../../styles/Theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { StatusBadge } from '../../components/base/StatusBadge';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+// Implementation imports
+import { SupabaseChildRepository } from '@/infrastructure/enrollment/repositories/SupabaseChildRepository';
+import { SupabaseGuardianRepository } from '@/infrastructure/enrollment/repositories/SupabaseGuardianRepository';
+import { SupabaseAttendanceRepository } from '@/infrastructure/attendance/repositories/SupabaseAttendanceRepository';
+import { SupabaseAnnouncementRepository } from '@/infrastructure/communication/repositories/SupabaseAnnouncementRepository';
+import { GetParentDashboardDataUseCase } from '@/application/enrollment/use-cases/GetParentDashboardDataUseCase';
 
 export const ParentHomeScreen = () => {
     const { user } = useAuth();
@@ -19,27 +25,27 @@ export const ParentHomeScreen = () => {
     const [refreshing, setRefreshing] = useState(false);
     const [loading, setLoading] = useState(true);
 
-    const syncService = new OfflineSyncService();
+    // Repositories & Use Case (Ideally these should be provided via DI/Context)
+    const childRepo = new SupabaseChildRepository();
+    const guardianRepo = new SupabaseGuardianRepository();
+    const attendanceRepo = new SupabaseAttendanceRepository();
+    const announcementRepo = new SupabaseAnnouncementRepository();
+    const getDashboardData = new GetParentDashboardDataUseCase(
+        childRepo, 
+        guardianRepo, 
+        attendanceRepo,
+        announcementRepo
+    );
 
     const loadData = useCallback(async () => {
+        if (!user) return;
+        
         try {
-            await syncService.syncDown(user!.id).catch(err => console.log('Offline mode or sync failed', err));
-            // Mocking more detailed data for the redesign demonstration
-            const cachedChildren = syncService.getCachedChildren();
-            const enrichedChildren = cachedChildren.length > 0 ? cachedChildren : [
-                { id: '1', name: 'Lucas Ferreira', activity: 'Futebol', schedule: 'Seg/Qua/Sex • 14h-17h', status: 'present', label: 'Presente' },
-                { id: '2', name: 'Ana Souza', activity: 'Dança', schedule: 'Ter/Qui • 13h-16h', status: 'pending', label: 'Sem chamada' }
-            ];
-
-            setChildren(enrichedChildren);
-
-            const cachedAnn = syncService.getCachedAnnouncements();
-            setAnnouncements(cachedAnn.length > 0 ? cachedAnn : [
-                { id: '1', title: 'Uniforme de natação obrigatório para a aula de amanhã.', type: 'alert', date: 'HOJE, 09:30', icon: 'bullhorn-variant' },
-                { id: '2', title: 'Reunião de pais e mestres agendada para sábado, 09:00.', type: 'pending', date: 'ONTEM', icon: 'calendar-text' }
-            ]);
+            const data = await getDashboardData.execute(user.id);
+            setChildren(data.children);
+            setAnnouncements(data.announcements);
         } catch (err) {
-            console.error(err);
+            console.error('Error loading parent dashboard data:', err);
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -72,9 +78,9 @@ export const ParentHomeScreen = () => {
                     </View>
                     <Text style={styles.headerBrand}>Bambolê</Text>
                 </View>
-                <TouchableOpacity style={styles.notificationButton}>
+                <TouchableOpacity style={styles.notificationButton} onPress={() => navigation.navigate('Notices')}>
                     <MaterialCommunityIcons name="bell" size={24} color={Theme.colors.onBackground} />
-                    <View style={styles.notificationBadge} />
+                    {announcements.length > 0 && <View style={styles.notificationBadge} />}
                 </TouchableOpacity>
             </View>
 
@@ -85,7 +91,7 @@ export const ParentHomeScreen = () => {
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />}
             >
                 <View style={styles.welcomeSection}>
-                    <Text style={styles.userName}>Olá, Linn!</Text>
+                    <Text style={styles.userName}>Olá!</Text>
                     <Text style={styles.welcomeSub}>Acompanhe as atividades de hoje.</Text>
                 </View>
 
@@ -94,35 +100,42 @@ export const ParentHomeScreen = () => {
                         <Text style={styles.sectionTitle}>MEUS FILHOS</Text>
                     </View>
 
-                    <FlatList
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        data={children}
-                        keyExtractor={item => item.id}
-                        renderItem={({ item }) => (
-                            <TouchableOpacity
-                                activeOpacity={0.7}
-                                onPress={() => navigation.navigate('ParentStack', { screen: 'ChildDetails', params: { childName: item.name, class_id: item.class_id || '1' } })}
-                            >
-                                <AppCard style={styles.childCard}>
-                                    <View style={styles.childCardHeader}>
-                                        <View style={[styles.childAvatar, { backgroundColor: item.status === 'present' ? '#E0E7FF' : '#FFE4E6' }]}>
-                                            <Text style={styles.avatarText}>{item.name.split(' ').map((n: string) => n[0]).join('')}</Text>
+                    {children.length === 0 ? (
+                        <AppCard style={styles.emptyCard}>
+                            <MaterialCommunityIcons name="account-search-outline" size={48} color={Theme.colors.gray[300]} />
+                            <Text style={styles.emptyText}>Nenhum filho vinculado ainda.</Text>
+                            <Text style={styles.emptySub}>Entre em contato com a secretaria para vincular seus filhos.</Text>
+                        </AppCard>
+                    ) : (
+                        <FlatList
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            data={children}
+                            keyExtractor={item => item.id}
+                            renderItem={({ item }) => (
+                                <TouchableOpacity
+                                    activeOpacity={0.7}
+                                    onPress={() => navigation.navigate('ParentStack', { screen: 'ChildDetails', params: { childId: item.id, childName: item.name } })}
+                                >
+                                    <AppCard style={styles.childCard}>
+                                        <View style={styles.childCardHeader}>
+                                            <View style={[styles.childAvatar, { backgroundColor: item.status === 'present' ? '#E0E7FF' : '#FEE2E2' }]}>
+                                                <Text style={styles.avatarText}>{item.name.split(' ').map((n: string) => n[0]).join('')}</Text>
+                                            </View>
+                                            <View style={styles.childInfo}>
+                                                <Text style={styles.childNameText}>{item.name}</Text>
+                                                <Text style={styles.childActivityText}>Turma: {item.classId ? 'Ativa' : 'Sem Turma'}</Text>
+                                            </View>
                                         </View>
-                                        <View style={styles.childInfo}>
-                                            <Text style={styles.childNameText}>{item.name}</Text>
-                                            <Text style={styles.childActivityText}>{item.activity || 'Atividade'} —</Text>
-                                            <Text style={styles.childScheduleText}>{item.schedule || 'Schedules'}</Text>
+                                        <View style={styles.childCardFooter}>
+                                            <StatusBadge type={item.status as any} label={item.label} />
                                         </View>
-                                    </View>
-                                    <View style={styles.childCardFooter}>
-                                        <StatusBadge type={item.status as any} label={item.label} />
-                                    </View>
-                                </AppCard>
-                            </TouchableOpacity>
-                        )}
-                        contentContainerStyle={styles.childrenList}
-                    />
+                                    </AppCard>
+                                </TouchableOpacity>
+                            )}
+                            contentContainerStyle={styles.childrenList}
+                        />
+                    )}
                 </View>
 
                 <View style={styles.section}>
@@ -136,21 +149,25 @@ export const ParentHomeScreen = () => {
                         </TouchableOpacity>
                     </View>
 
-                    {announcements.map(ann => (
-                        <AppCard key={ann.id} style={styles.annCard}>
-                            <View style={[styles.annIconContainer, { backgroundColor: ann.type === 'alert' ? '#FFEDD5' : '#DBEAFE' }]}>
-                                <MaterialCommunityIcons
-                                    name={ann.icon as any}
-                                    size={20}
-                                    color={ann.type === 'alert' ? '#92400E' : '#1E40AF'}
-                                />
-                            </View>
-                            <View style={styles.annContent}>
-                                <Text style={styles.annTitle}>{ann.title}</Text>
-                                <Text style={styles.annDate}>{ann.date}</Text>
-                            </View>
-                        </AppCard>
-                    ))}
+                    {announcements.length === 0 ? (
+                        <Text style={styles.noAnnouncements}>Não há avisos recentes para você.</Text>
+                    ) : (
+                        announcements.map(ann => (
+                            <AppCard key={ann.id} style={styles.annCard}>
+                                <View style={[styles.annIconContainer, { backgroundColor: ann.type === 'alert' ? '#FFEDD5' : '#DBEAFE' }]}>
+                                    <MaterialCommunityIcons
+                                        name={ann.icon as any}
+                                        size={20}
+                                        color={ann.type === 'alert' ? '#92400E' : '#1E40AF'}
+                                    />
+                                </View>
+                                <View style={styles.annContent}>
+                                    <Text style={styles.annTitle}>{ann.title}</Text>
+                                    <Text style={styles.annDate}>{ann.date}</Text>
+                                </View>
+                            </AppCard>
+                        ))
+                    )}
                 </View>
 
             </ScrollView>
@@ -210,7 +227,6 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     scrollContent: {
-        paddingHorizontal: Theme.spacing.lg,
         paddingBottom: Theme.spacing.xl,
     },
     center: {
@@ -222,6 +238,7 @@ const styles = StyleSheet.create({
     welcomeSection: {
         marginTop: Theme.spacing.md,
         marginBottom: Theme.spacing.xl,
+        paddingHorizontal: Theme.spacing.lg,
     },
     userName: {
         ...Theme.typography.h1,
@@ -241,6 +258,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: Theme.spacing.md,
+        paddingHorizontal: Theme.spacing.lg,
     },
     sectionTitle: {
         ...Theme.typography.caption,
@@ -259,7 +277,8 @@ const styles = StyleSheet.create({
         marginRight: 4,
     },
     childrenList: {
-        paddingRight: Theme.spacing.lg,
+        paddingHorizontal: Theme.spacing.lg,
+        paddingBottom: 10, // Espaço para a sombra não ser cortada em baixo
     },
     childCard: {
         width: 280,
@@ -310,6 +329,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         padding: Theme.spacing.md,
         marginBottom: Theme.spacing.md,
+        marginHorizontal: Theme.spacing.lg,
         backgroundColor: '#EFF6FF',
         borderRadius: 20,
         alignItems: 'center',
@@ -335,5 +355,34 @@ const styles = StyleSheet.create({
         ...Theme.typography.caption,
         color: Theme.colors.gray[500],
         marginTop: 4,
+    },
+    emptyCard: {
+        marginHorizontal: Theme.spacing.lg,
+        padding: Theme.spacing.xl,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#F8FAFC',
+        borderRadius: 24,
+        borderStyle: 'dashed',
+        borderWidth: 2,
+        borderColor: Theme.colors.gray[200],
+    },
+    emptyText: {
+        ...Theme.typography.body1,
+        fontWeight: 'bold',
+        color: Theme.colors.gray[500],
+        marginTop: 16,
+    },
+    emptySub: {
+        ...Theme.typography.caption,
+        color: Theme.colors.gray[400],
+        textAlign: 'center',
+        marginTop: 8,
+    },
+    noAnnouncements: {
+        ...Theme.typography.body2,
+        color: Theme.colors.gray[400],
+        textAlign: 'center',
+        padding: Theme.spacing.md,
     },
 });

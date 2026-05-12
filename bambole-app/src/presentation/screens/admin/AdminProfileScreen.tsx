@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme } from '../../styles/Theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -7,12 +7,63 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppCard } from '../../components/base/AppCard';
 import { ProfilePhotoCaptureModal } from '../../components/shared/ProfilePhotoCaptureModal';
+import { supabase } from '../../../infrastructure/supabase/client';
+import { SupabaseUserRepository } from '../../../infrastructure/identity/repositories/SupabaseUserRepository';
+import * as FileSystem from 'expo-file-system/legacy';
+import { decode } from '../../../infrastructure/utils/base64';
 
 export const AdminProfileScreen = () => {
-    const { user, signOut } = useAuth();
+    const { user, signOut, refreshUser } = useAuth();
     const insets = useSafeAreaInsets();
     const [isCaptureModalVisible, setCaptureModalVisible] = useState(false);
-    const [avatarUri, setAvatarUri] = useState<string | null>(null);
+    const [uploading, setUploading] = useState(false);
+    
+    const userRepo = new SupabaseUserRepository();
+
+    const handlePhotoCaptured = async (uri: string) => {
+        if (!user) return;
+        
+        setUploading(true);
+        try {
+            // 1. Prepare file for upload
+            const fileName = `avatar_${user.id}_${Date.now()}.jpg`;
+            const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
+            
+            // 2. Upload to Supabase Storage
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('avatars')
+                .upload(fileName, decode(base64), {
+                    contentType: 'image/jpeg',
+                    upsert: true
+                });
+
+            if (uploadError) throw uploadError;
+
+            // 3. Get Public URL
+            const { data: { publicUrl } } = supabase.storage
+                .from('avatars')
+                .getPublicUrl(fileName);
+
+            // 4. Update User Profile in Database
+            const updatedUser = {
+                ...user,
+                avatarUrl: publicUrl
+            };
+            
+            await userRepo.save(updatedUser as any);
+            
+            // 5. Refresh local auth state
+            await refreshUser();
+            
+            Alert.alert('Sucesso', 'Foto de perfil atualizada!');
+        } catch (error: any) {
+            console.error('Error uploading avatar:', error);
+            Alert.alert('Erro', 'Não foi possível salvar a foto: ' + error.message);
+        } finally {
+            setUploading(false);
+            setCaptureModalVisible(false);
+        }
+    };
 
     const adminOptions = [
         { id: '1', title: 'Gestão da Escola', icon: 'school-outline', color: Theme.colors.primary },
@@ -34,8 +85,10 @@ export const AdminProfileScreen = () => {
                 <View style={styles.adminHero}>
                     <View style={styles.imageBox}>
                         <View style={styles.mainAvatar}>
-                            {avatarUri ? (
-                                <Image source={{ uri: avatarUri }} style={styles.img} />
+                            {uploading ? (
+                                <ActivityIndicator size="large" color="#FFF" />
+                            ) : user?.avatarUrl ? (
+                                <Image source={{ uri: user.avatarUrl }} style={styles.img} />
                             ) : (
                                 <MaterialCommunityIcons name="shield-account" size={56} color="#FFF" />
                             )}
@@ -43,11 +96,12 @@ export const AdminProfileScreen = () => {
                         <TouchableOpacity
                             style={styles.cameraBtn}
                             onPress={() => setCaptureModalVisible(true)}
+                            disabled={uploading}
                         >
                             <MaterialCommunityIcons name="camera" size={16} color="#FFF" />
                         </TouchableOpacity>
                     </View>
-                    <Text style={styles.adminName}>Admin Master</Text>
+                    <Text style={styles.adminName}>{user?.fullName || 'Administrador'}</Text>
                     <Text style={styles.adminEmail}>{user?.email.value}</Text>
                 </View>
 
@@ -76,7 +130,7 @@ export const AdminProfileScreen = () => {
             <ProfilePhotoCaptureModal
                 isVisible={isCaptureModalVisible}
                 onClose={() => setCaptureModalVisible(false)}
-                onCapture={(uri) => setAvatarUri(uri)}
+                onCapture={handlePhotoCaptured}
             />
         </SafeAreaView>
     );

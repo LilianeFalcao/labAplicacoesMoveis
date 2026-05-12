@@ -6,5 +6,7 @@ export class User {
         public readonly id: string,
         public readonly email: Email,
         public readonly role: Role,
+        public readonly fullName?: string,
+        public readonly avatarUrl?: string,
     ) { }
 }

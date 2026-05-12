@@ -17,7 +17,9 @@ export class SupabaseUserRepository implements IUserRepository {
         return new User(
             data.id,
             Email.create(data.email),
-            Role.create(data.role as UserRole)
+            Role.create(data.role as UserRole),
+            data.full_name || undefined,
+            data.avatar_url || undefined
         );
     }
 
@@ -33,18 +35,22 @@ export class SupabaseUserRepository implements IUserRepository {
         return new User(
             data.id,
             Email.create(data.email),
-            Role.create(data.role as UserRole)
+            Role.create(data.role as UserRole),
+            data.full_name || undefined,
+            data.avatar_url || undefined
         );
     }
 
     async save(user: User): Promise<void> {
         const { error } = await supabase
             .from('users')
-            .upsert({
-                id: user.id,
+            .update({
                 email: user.email.value,
                 role: user.role.value,
-            });
+                full_name: user.fullName,
+                avatar_url: user.avatarUrl
+            })
+            .eq('id', user.id);
 
         if (error) throw error;
     }

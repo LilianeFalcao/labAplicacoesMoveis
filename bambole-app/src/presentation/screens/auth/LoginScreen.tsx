@@ -29,17 +29,11 @@ export const LoginScreen = () => {
             return;
         }
 
-        if (password !== '123456') {
-            Alert.alert('Erro', "Por favor, use a senha de demonstração '123456'.");
-            return;
-        }
-
         setLoading(true);
         try {
-            // Simulated login using the typed email and selected role
-            signIn(email, selectedRole);
+            await signIn(email, password);
         } catch (error: any) {
-            Alert.alert('Erro', error.message);
+            Alert.alert('Erro', error.message || 'Falha ao autenticar.');
         } finally {
             setLoading(false);
         }
@@ -89,7 +83,6 @@ export const LoginScreen = () => {
                                 style={[styles.roleCard, selectedRole === 'parent' && styles.roleCardActive]}
                                 onPress={() => {
                                     setSelectedRole('parent');
-                                    if (!email.trim()) setEmail('ana.parent@bambole.app');
                                 }}
                             >
                                 <MaterialCommunityIcons
@@ -104,7 +97,6 @@ export const LoginScreen = () => {
                                 style={[styles.roleCard, selectedRole === 'monitor' && styles.roleCardActive]}
                                 onPress={() => {
                                     setSelectedRole('monitor');
-                                    if (!email.trim()) setEmail('pedro.monitor@bambole.app');
                                 }}
                             >
                                 <MaterialCommunityIcons
@@ -119,7 +111,6 @@ export const LoginScreen = () => {
                                 style={[styles.roleCard, selectedRole === 'admin' && styles.roleCardActive]}
                                 onPress={() => {
                                     setSelectedRole('admin');
-                                    if (!email.trim()) setEmail('diretoria@bambole.app');
                                 }}
                             >
                                 <MaterialCommunityIcons

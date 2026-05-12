@@ -21,11 +21,46 @@ export class SupabaseChildRepository implements IChildRepository {
         );
     }
 
-    async findByClassId(classId: string): Promise<Child[]> {
+    async findByClass(classId: string): Promise<Child[]> {
         const { data, error } = await supabase
             .from('children')
             .select('*')
             .eq('class_id', classId);
+
+        if (error || !data) return [];
+
+        return data.map(item => new Child(
+            item.id,
+            ChildName.create(item.name),
+            item.class_id,
+            item.photo_url
+        ));
+    }
+
+    async findByGuardianId(guardianId: string): Promise<Child[]> {
+        const { data, error } = await supabase
+            .from('children')
+            .select(`
+                *,
+                guardian_children!inner(guardian_id)
+            `)
+            .eq('guardian_children.guardian_id', guardianId);
+
+        if (error || !data) return [];
+
+        return data.map(item => new Child(
+            item.id,
+            ChildName.create(item.name),
+            item.class_id,
+            item.photo_url
+        ));
+    }
+
+    async findAll(): Promise<Child[]> {
+        const { data, error } = await supabase
+            .from('children')
+            .select('*')
+            .order('name', { ascending: true });
 
         if (error || !data) return [];
 
@@ -46,21 +81,5 @@ export class SupabaseChildRepository implements IChildRepository {
         });
 
         if (error) throw new Error(`Error saving child: ${error.message}`);
-    }
-
-    async findByClass(classId: string): Promise<Child[]> {
-        const { data, error } = await supabase
-            .from('children')
-            .select('*')
-            .eq('class_id', classId);
-
-        if (error) throw error;
-
-        return (data || []).map(row => new Child(
-            row.id,
-            ChildName.create(row.name),
-            row.birth_date ? new Date(row.birth_date) : undefined,
-            row.class_id
-        ));
     }
 }

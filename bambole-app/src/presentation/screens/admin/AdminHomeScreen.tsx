@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, RefreshControl, ActivityIndicator, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { AppHeader } from '../../components/base/AppHeader';
@@ -7,33 +7,54 @@ import { AppCard } from '../../components/base/AppCard';
 import { Theme } from '../../styles/Theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 
-import { MockAccessRequestRepository } from '../../../infrastructure/activity/repositories/MockAccessRequestRepository';
-import { MockClassRepository } from '../../../infrastructure/activity/repositories/MockClassRepository';
+// Implementation imports
+import { SupabaseAccessRequestRepository } from '../../../infrastructure/activity/repositories/SupabaseAccessRequestRepository';
+import { SupabaseClassRepository } from '../../../infrastructure/activity/repositories/SupabaseClassRepository';
+import { GetAdminDashboardStatsUseCase } from '../../../application/admin/use-cases/GetAdminDashboardStatsUseCase';
 import { PendingRequestsModal } from '../../components/admin/PendingRequestsModal';
 
 export const AdminHomeScreen = ({ navigation }: any) => {
-    const { signOut } = useAuth();
+    const { user, signOut } = useAuth();
     const insets = useSafeAreaInsets();
-    const [pendingCount, setPendingCount] = React.useState(0);
-    const [isModalVisible, setIsModalVisible] = React.useState(false);
+    const [stats, setStats] = useState({
+        totalStudents: 0,
+        presentToday: 0,
+        activeClasses: 0,
+        pendingAccessRequests: 0
+    });
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [isModalVisible, setIsModalVisible] = useState(false);
 
-    // Mocks
-    const accessRepo = MockAccessRequestRepository.getInstance();
-    const classRepo = MockClassRepository.getInstance();
+    // Repositories & Use Case
+    const statsUseCase = new GetAdminDashboardStatsUseCase();
+    const accessRepo = new SupabaseAccessRequestRepository();
+    const classRepo = new SupabaseClassRepository();
 
-    const updatePendingCount = async () => {
-        const pending = await accessRepo.findPending();
-        setPendingCount(pending.length);
-    };
-
-    React.useEffect(() => {
-        updatePendingCount();
-        const unsubscribe = accessRepo.subscribe(() => {
-            updatePendingCount();
-        });
-        return unsubscribe;
+    const loadData = useCallback(async () => {
+        try {
+            const data = await statsUseCase.execute();
+            setStats(data);
+        } catch (error) {
+            console.error('Error loading admin dashboard stats:', error);
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
     }, []);
+
+    useFocusEffect(
+        useCallback(() => {
+            loadData();
+        }, [loadData])
+    );
+
+    const onRefresh = () => {
+        setRefreshing(true);
+        loadData();
+    };
 
     const ActionItem = ({ title, icon, onPress, color, description, badgeCount = 0 }: any) => (
         <TouchableOpacity style={styles.actionItem} onPress={onPress} activeOpacity={0.7}>
@@ -55,6 +76,14 @@ export const AdminHomeScreen = ({ navigation }: any) => {
         </TouchableOpacity>
     );
 
+    if (loading && !refreshing) {
+        return (
+            <View style={styles.center}>
+                <ActivityIndicator size="large" color={Theme.colors.primary} />
+            </View>
+        );
+    }
+
     return (
         <SafeAreaView style={styles.mainContainer} edges={['left', 'right', 'bottom']}>
             <AppHeader
@@ -67,7 +96,10 @@ export const AdminHomeScreen = ({ navigation }: any) => {
 
             <PendingRequestsModal
                 isVisible={isModalVisible}
-                onClose={() => setIsModalVisible(false)}
+                onClose={() => {
+                    setIsModalVisible(false);
+                    loadData();
+                }}
                 accessRepo={accessRepo}
                 classRepo={classRepo}
             />
@@ -76,14 +108,19 @@ export const AdminHomeScreen = ({ navigation }: any) => {
                 style={styles.container}
                 contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 80 }]}
                 showsVerticalScrollIndicator={false}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />}
             >
                 <View style={styles.headerSection}>
                     <View>
-                        <Text style={styles.welcome}>Olá, Administrador 👋</Text>
-                        <Text style={styles.dateText}>Terça-feira, 31 de Março</Text>
+                        <Text style={styles.welcome}>Olá, {user?.fullName || 'Administrador'} 👋</Text>
+                        <Text style={styles.dateText}>{new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}</Text>
                     </View>
                     <View style={styles.avatarPlaceholder}>
-                        <MaterialCommunityIcons name="shield-account" size={32} color={Theme.colors.primary} />
+                        {user?.avatarUrl ? (
+                            <Image source={{ uri: user.avatarUrl }} style={{ width: 56, height: 56, borderRadius: 28 }} />
+                        ) : (
+                            <MaterialCommunityIcons name="shield-account" size={32} color={Theme.colors.primary} />
+                        )}
                     </View>
                 </View>
 
@@ -92,7 +129,7 @@ export const AdminHomeScreen = ({ navigation }: any) => {
                         <View style={[styles.statIconCircle, { backgroundColor: '#E0F2FE' }]}>
                             <MaterialCommunityIcons name="account-group" size={20} color={Theme.colors.primary} />
                         </View>
-                        <Text style={styles.statValue}>42</Text>
+                        <Text style={styles.statValue}>{stats.totalStudents}</Text>
                         <Text style={styles.statLabel}>Alunos</Text>
                     </AppCard>
 
@@ -100,7 +137,7 @@ export const AdminHomeScreen = ({ navigation }: any) => {
                         <View style={[styles.statIconCircle, { backgroundColor: '#DCFCE7' }]}>
                             <MaterialCommunityIcons name="check-circle" size={20} color="#059669" />
                         </View>
-                        <Text style={styles.statValue}>38</Text>
+                        <Text style={styles.statValue}>{stats.presentToday}</Text>
                         <Text style={styles.statLabel}>Presentes</Text>
                     </AppCard>
 
@@ -108,7 +145,7 @@ export const AdminHomeScreen = ({ navigation }: any) => {
                         <View style={[styles.statIconCircle, { backgroundColor: '#FEF3C7' }]}>
                             <MaterialCommunityIcons name="school" size={20} color="#D97706" />
                         </View>
-                        <Text style={styles.statValue}>08</Text>
+                        <Text style={styles.statValue}>{stats.activeClasses}</Text>
                         <Text style={styles.statLabel}>Turmas</Text>
                     </AppCard>
                 </View>
@@ -159,7 +196,7 @@ export const AdminHomeScreen = ({ navigation }: any) => {
                         icon="account-key-outline"
                         color={Theme.colors.error}
                         onPress={() => setIsModalVisible(true)}
-                        badgeCount={pendingCount}
+                        badgeCount={stats.pendingAccessRequests}
                     />
                 </View>
 
@@ -207,6 +244,7 @@ const styles = StyleSheet.create({
         ...Theme.typography.body2,
         color: Theme.colors.gray[500],
         marginTop: 2,
+        textTransform: 'capitalize',
     },
     avatarPlaceholder: {
         width: 56,
@@ -346,5 +384,11 @@ const styles = StyleSheet.create({
         ...Theme.typography.caption,
         color: Theme.colors.gray[700],
         fontWeight: '700',
+    },
+    center: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: Theme.colors.background,
     },
 });

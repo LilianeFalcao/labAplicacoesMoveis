@@ -31,18 +31,7 @@ export class SupabaseAttendanceRepository implements IAttendanceRepository {
             .single();
 
         if (error || !data) return null;
-
-        return new AttendanceRecord(
-            data.id,
-            data.child_id,
-            data.class_id,
-            data.monitor_id,
-            new Date(data.date),
-            AttendanceStatus.create(data.status as any),
-            data.lat && data.lng ? { lat: data.lat, lng: data.lng } : undefined,
-            data.justification_note || undefined,
-            data.justified_at ? new Date(data.justified_at) : undefined
-        );
+        return this.mapToEntity(data);
     }
 
     async findByChildAndDate(childId: string, date: string): Promise<AttendanceRecord | null> {
@@ -54,18 +43,41 @@ export class SupabaseAttendanceRepository implements IAttendanceRepository {
             .single();
 
         if (error || !data) return null;
-        return this.findById(data.id);
+        return this.mapToEntity(data);
     }
 
     async findByClassAndDate(classId: string, date: string): Promise<AttendanceRecord[]> {
         const { data, error } = await supabase
             .from('attendance_records')
-            .select('id')
+            .select('*')
             .eq('class_id', classId)
             .eq('date', date);
 
         if (error) throw error;
-        const records = await Promise.all((data || []).map(r => this.findById(r.id)));
-        return records.filter(r => r !== null) as AttendanceRecord[];
+        return (data || []).map(item => this.mapToEntity(item));
+    }
+
+    async findByClassId(classId: string): Promise<AttendanceRecord[]> {
+        const { data, error } = await supabase
+            .from('attendance_records')
+            .select('*')
+            .eq('class_id', classId);
+
+        if (error) throw error;
+        return (data || []).map(item => this.mapToEntity(item));
+    }
+
+    private mapToEntity(data: any): AttendanceRecord {
+        return new AttendanceRecord(
+            data.id,
+            data.child_id,
+            data.class_id,
+            data.monitor_id,
+            new Date(data.date),
+            AttendanceStatus.create(data.status as any),
+            data.lat && data.lng ? { lat: data.lat, lng: data.lng } : undefined,
+            data.justification_note || undefined,
+            data.justified_at ? new Date(data.justified_at) : undefined
+        );
     }
 }
