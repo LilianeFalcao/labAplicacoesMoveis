@@ -31,6 +31,7 @@ export class SqliteStorageService {
                 CREATE TABLE IF NOT EXISTS children (
                     id TEXT PRIMARY KEY,
                     name TEXT NOT NULL,
+                    class_id TEXT,
                     age_group TEXT,
                     medical_alerts TEXT,
                     photo_uri TEXT
@@ -38,10 +39,18 @@ export class SqliteStorageService {
 
                 CREATE TABLE IF NOT EXISTS attendance (
                     id TEXT PRIMARY KEY,
+                    child_id TEXT NOT NULL,
                     class_id TEXT NOT NULL,
                     date TEXT NOT NULL,
-                    student_ids TEXT NOT NULL,
-                    status TEXT DEFAULT 'pending'
+                    status TEXT DEFAULT 'present',
+                    synced INTEGER DEFAULT 1
+                );
+
+                CREATE TABLE IF NOT EXISTS announcements (
+                    id TEXT PRIMARY KEY,
+                    content TEXT,
+                    published_at TEXT,
+                    audience_type TEXT
                 );
 
                 CREATE TABLE IF NOT EXISTS sync_queue (
@@ -75,6 +84,7 @@ export class SqliteStorageService {
         await this.db!.execAsync(`
             DELETE FROM children;
             DELETE FROM attendance;
+            DELETE FROM announcements;
             DELETE FROM sync_queue;
         `);
     }

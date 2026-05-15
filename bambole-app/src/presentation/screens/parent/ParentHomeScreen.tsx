@@ -15,6 +15,7 @@ import { SupabaseGuardianRepository } from '@/infrastructure/enrollment/reposito
 import { SupabaseAttendanceRepository } from '@/infrastructure/attendance/repositories/SupabaseAttendanceRepository';
 import { SupabaseAnnouncementRepository } from '@/infrastructure/communication/repositories/SupabaseAnnouncementRepository';
 import { GetParentDashboardDataUseCase } from '@/application/enrollment/use-cases/GetParentDashboardDataUseCase';
+import { ConnectivityService, ConnectivityStatus } from '@/infrastructure/network/ConnectivityService';
 
 export const ParentHomeScreen = () => {
     const { user } = useAuth();
@@ -24,6 +25,7 @@ export const ParentHomeScreen = () => {
     const [announcements, setAnnouncements] = useState<any[]>([]);
     const [refreshing, setRefreshing] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [connectionStatus, setConnectionStatus] = useState<ConnectivityStatus>('online');
 
     // Repositories & Use Case (Ideally these should be provided via DI/Context)
     const childRepo = new SupabaseChildRepository();
@@ -53,12 +55,32 @@ export const ParentHomeScreen = () => {
     }, [user]);
 
     useEffect(() => {
+        const connectivity = ConnectivityService.getInstance();
+        const listener = (status: ConnectivityStatus) => setConnectionStatus(status);
+        connectivity.addListener(listener);
+        
         loadData();
+
+        return () => connectivity.removeListener(listener);
     }, [loadData]);
 
     const onRefresh = () => {
+        if (connectionStatus === 'offline') {
+            setRefreshing(false);
+            return;
+        }
         setRefreshing(true);
         loadData();
+    };
+
+    const OfflineBadge = () => {
+        if (connectionStatus === 'online') return null;
+        return (
+            <View style={styles.offlineBadge}>
+                <MaterialCommunityIcons name="wifi-off" size={14} color="#B45309" />
+                <Text style={styles.offlineBadgeText}>Offline</Text>
+            </View>
+        );
     };
 
     if (loading) {
@@ -77,6 +99,7 @@ export const ParentHomeScreen = () => {
                         <MaterialCommunityIcons name="emoticon-happy-outline" size={20} color={Theme.colors.primary} />
                     </View>
                     <Text style={styles.headerBrand}>Bambolê</Text>
+                    <OfflineBadge />
                 </View>
                 <TouchableOpacity style={styles.notificationButton} onPress={() => navigation.navigate('Notices')}>
                     <MaterialCommunityIcons name="bell" size={24} color={Theme.colors.onBackground} />
@@ -205,6 +228,23 @@ const styles = StyleSheet.create({
         ...Theme.typography.h3,
         fontSize: 18,
         color: Theme.colors.onBackground,
+    },
+    offlineBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FEF3C7',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 12,
+        marginLeft: 8,
+        gap: 4,
+        borderWidth: 1,
+        borderColor: '#FDE68A',
+    },
+    offlineBadgeText: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: '#B45309',
     },
     notificationButton: {
         width: 40,

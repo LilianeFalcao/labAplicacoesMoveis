@@ -1,22 +1,22 @@
 import { supabase } from '../supabase/client';
-import { getDatabase } from './SQLiteDatabase';
+import { SqliteStorageService } from '../storage/SqliteStorageService';
 
 export class OfflineSyncService {
-    private db = getDatabase();
+    private storage = SqliteStorageService.getInstance();
 
     async syncDown(parentUserId: string): Promise<void> {
         // 1. Fetch children related to parent
         const { data: children, error: childrenError } = await supabase
             .from('users')
             .select(`
-        guardians!inner (
-          guardian_children!inner (
-            children!inner (
-              id, name, class_id
-            )
-          )
-        )
-      `)
+                guardians!inner (
+                    guardian_children!inner (
+                        children!inner (
+                            id, name, class_id
+                        )
+                    )
+                )
+            `)
             .eq('id', parentUserId)
             .single();
 
@@ -26,21 +26,18 @@ export class OfflineSyncService {
             g.guardian_children.flatMap((gc: any) => Array.isArray(gc.children) ? gc.children : [gc.children])
         );
 
-        // Filter by unique ID to avoid primary key violations
         const uniqueChildren = Array.from(
             new Map(flattenedChildren.map(c => [c.id, c])).values()
         );
 
         // Update SQLite cache
-        this.db.withTransactionSync(() => {
-            this.db.runSync('DELETE FROM cache_children');
-            for (const child of uniqueChildren) {
-                this.db.runSync(
-                    'INSERT INTO cache_children (id, name, class_id) VALUES (?, ?, ?)',
-                    [child.id, child.name, child.class_id]
-                );
-            }
-        });
+        await this.storage.run('DELETE FROM children');
+        for (const child of uniqueChildren) {
+            await this.storage.run(
+                'INSERT INTO children (id, name, class_id) VALUES (?, ?, ?)',
+                [child.id, child.name, child.class_id]
+            );
+        }
 
         // 2. Fetch recent announcements (last 7 days)
         const { data: announcements, error: annError } = await supabase
@@ -51,48 +48,80 @@ export class OfflineSyncService {
 
         if (annError) throw annError;
 
-        this.db.withTransactionSync(() => {
-            this.db.runSync('DELETE FROM cache_announcements');
-            for (const ann of announcements) {
-                this.db.runSync(
-                    'INSERT INTO cache_announcements (id, content, published_at, audience_type) VALUES (?, ?, ?, ?)',
-                    [ann.id, ann.content, ann.published_at, ann.audience_type]
-                );
-            }
-        });
+        await this.storage.run('DELETE FROM announcements');
+        for (const ann of announcements) {
+            await this.storage.run(
+                'INSERT INTO announcements (id, content, published_at, audience_type) VALUES (?, ?, ?, ?)',
+                [ann.id, ann.content, ann.published_at, ann.audience_type]
+            );
+        }
     }
 
     async syncUp(): Promise<void> {
-        // Implement logic to upload local attendance marks if any unsynced
-        // (Crucial for monitors)
-        const unsynced = this.db.getAllSync<any>(
-            'SELECT * FROM cache_attendance WHERE synced = 0'
+        // Process sync_queue sequentially
+        const queue = await this.storage.query<any>(
+            "SELECT * FROM sync_queue WHERE status = 'pending' ORDER BY timestamp ASC"
         );
 
-        for (const record of unsynced) {
+        for (const item of queue) {
+            try {
+                const payload = JSON.parse(item.payload);
+                let success = false;
+
+                if (item.action_type === 'MARK_ATTENDANCE') {
+                    const { error } = await supabase
+                        .from('attendance_records')
+                        .upsert(payload);
+                    
+                    if (!error) success = true;
+                }
+
+                if (success) {
+                    await this.storage.run(
+                        "UPDATE sync_queue SET status = 'completed' WHERE id = ?",
+                        [item.id]
+                    );
+                } else {
+                    await this.storage.run(
+                        "UPDATE sync_queue SET retry_count = retry_count + 1 WHERE id = ?",
+                        [item.id]
+                    );
+                }
+            } catch (error) {
+                console.error(`Failed to sync item ${item.id}`, error);
+            }
+        }
+
+        // Also sync legacy cache_attendance if any (optional cleanup)
+        const unsyncedAttendance = await this.storage.query<any>(
+            'SELECT * FROM attendance WHERE synced = 0'
+        );
+
+        for (const record of unsyncedAttendance) {
             const { error } = await supabase
                 .from('attendance_records')
-                .insert({
+                .upsert({
                     id: record.id,
                     child_id: record.child_id,
+                    class_id: record.class_id,
                     date: record.date,
                     status: record.status
                 });
 
             if (!error) {
-                this.db.runSync(
-                    'UPDATE cache_attendance SET synced = 1 WHERE id = ?',
+                await this.storage.run(
+                    'UPDATE attendance SET synced = 1 WHERE id = ?',
                     [record.id]
                 );
             }
         }
     }
 
-    getCachedChildren() {
-        return this.db.getAllSync('SELECT * FROM cache_children');
+    async getCachedChildren() {
+        return await this.storage.query('SELECT * FROM children');
     }
 
-    getCachedAnnouncements() {
-        return this.db.getAllSync('SELECT * FROM cache_announcements');
+    async getCachedAnnouncements() {
+        return await this.storage.query('SELECT * FROM announcements ORDER BY published_at DESC');
     }
 }

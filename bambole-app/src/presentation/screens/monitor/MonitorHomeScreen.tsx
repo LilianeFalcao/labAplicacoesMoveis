@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme } from '../../styles/Theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -19,7 +19,6 @@ import { GetMonitorAverageAttendanceUseCase } from '../../../application/attenda
 import { MockNotificationRepository } from '../../../infrastructure/notification/repositories/MockNotificationRepository';
 import { MockAttendanceRepository } from '../../../infrastructure/attendance/repositories/MockAttendanceRepository';
 import { NotificationService } from '../../../infrastructure/notification/services/NotificationService';
-import { Alert, Modal } from 'react-native';
 import { SpeedDial, SpeedDialAction } from '../../components/base/SpeedDial';
 import { IncidentReportModal } from '../../components/monitor/IncidentReportModal';
 import { MultiClassNoticeModal } from '../../components/monitor/MultiClassNoticeModal';
@@ -28,6 +27,10 @@ import { UploadActivityPhotoUseCase } from '../../../application/activity/use-ca
 import { MockActivityRepository } from '../../../infrastructure/activity/repositories/MockActivityRepository';
 import { MonitorSidebar } from '../../components/monitor/MonitorSidebar';
 import { MockAgendaRepository, ClassActivity } from '../../../infrastructure/activity/repositories/MockAgendaRepository';
+
+import { SqliteStorageService } from '../../../infrastructure/storage/SqliteStorageService';
+import { OfflineSyncService } from '../../../infrastructure/offline/OfflineSyncService';
+import { ConnectivityService, ConnectivityStatus } from '../../../infrastructure/network/ConnectivityService';
 
 export const MonitorHomeScreen = () => {
     const { user, signOut } = useAuth();
@@ -46,6 +49,37 @@ export const MonitorHomeScreen = () => {
     const [isPhotoSelectionVisible, setIsPhotoSelectionVisible] = useState(false);
     const [cameraFacing, setCameraFacing] = useState<'front' | 'back'>('back');
     const [isSidebarOpen, setSidebarOpen] = useState(false);
+    const [pendingSyncCount, setPendingSyncCount] = useState(0);
+    const [syncing, setSyncing] = useState(false);
+    const [connectionStatus, setConnectionStatus] = useState<ConnectivityStatus>('online');
+
+    const storage = SqliteStorageService.getInstance();
+    const syncService = new OfflineSyncService();
+
+    const checkPendingSync = async () => {
+        try {
+            const count = await storage.query<any>("SELECT COUNT(*) as total FROM sync_queue WHERE status = 'pending'");
+            setPendingSyncCount(count[0]?.total || 0);
+        } catch (error) {
+            console.error('Failed to check pending sync', error);
+        }
+    };
+
+    const handleSyncNow = async () => {
+        if (syncing) return;
+        setSyncing(true);
+        try {
+            await syncService.syncUp();
+            await checkPendingSync();
+            if (pendingSyncCount === 0) {
+                Alert.alert('Sucesso', 'Todos os dados foram sincronizados!');
+            }
+        } catch (error) {
+            Alert.alert('Aviso', 'Alguns itens ainda não puderam ser sincronizados. Tentaremos novamente em breve.');
+        } finally {
+            setSyncing(false);
+        }
+    };
 
     // Initialize repositories and use cases
     const notificationRepo = MockNotificationRepository.getInstance();
@@ -109,6 +143,18 @@ export const MonitorHomeScreen = () => {
     useFocusEffect(
         useCallback(() => {
             loadDynamicData();
+            checkPendingSync();
+            
+            const connectivity = ConnectivityService.getInstance();
+            const connListener = (status: ConnectivityStatus) => {
+                setConnectionStatus(status);
+                if (status === 'online') handleSyncNow();
+            };
+            connectivity.addListener(connListener);
+
+            // Poll for pending sync every 10 seconds
+            const pollInterval = setInterval(checkPendingSync, 10000);
+
             // Request push permissions
             notificationService.requestPermissions();
 
@@ -134,15 +180,55 @@ export const MonitorHomeScreen = () => {
             // Subscribe to changes in attendance (updates stats card)
             const unsubscribeAttendance = attendanceRepo.subscribe(() => {
                 loadDynamicData();
+                checkPendingSync();
             });
 
             return () => {
+                connectivity.removeListener(connListener);
+                clearInterval(pollInterval);
                 unsubscribeRequests();
                 unsubscribeNotifications();
                 unsubscribeAttendance();
             };
         }, [user?.id])
     );
+
+    const SyncStatusIndicator = () => {
+        if (pendingSyncCount === 0) return null;
+
+        return (
+            <TouchableOpacity 
+                style={[styles.syncCard, connectionStatus === 'offline' && styles.syncCardOffline]}
+                onPress={handleSyncNow}
+                disabled={syncing || connectionStatus === 'offline'}
+            >
+                <View style={styles.syncIconBox}>
+                    {syncing ? (
+                        <ActivityIndicator size="small" color={Theme.colors.primary} />
+                    ) : (
+                        <MaterialCommunityIcons 
+                            name={connectionStatus === 'online' ? "cloud-sync" : "cloud-off-outline"} 
+                            size={24} 
+                            color={connectionStatus === 'online' ? Theme.colors.primary : Theme.colors.gray[400]} 
+                        />
+                    )}
+                </View>
+                <View style={styles.syncTextBox}>
+                    <Text style={styles.syncTitle}>
+                        {pendingSyncCount} {pendingSyncCount === 1 ? 'item pendente' : 'itens pendentes'}
+                    </Text>
+                    <Text style={styles.syncSub}>
+                        {connectionStatus === 'online' 
+                            ? 'Toque para sincronizar agora' 
+                            : 'Aguardando conexão para sincronizar'}
+                    </Text>
+                </View>
+                {connectionStatus === 'online' && !syncing && (
+                    <MaterialCommunityIcons name="chevron-right" size={20} color={Theme.colors.gray[300]} />
+                )}
+            </TouchableOpacity>
+        );
+    };
 
     const handleSendMultiNotice = async (classIds: string[], content: string) => {
         // Mock sending notice
@@ -308,6 +394,8 @@ export const MonitorHomeScreen = () => {
                 ]}
                 showsVerticalScrollIndicator={false}
             >
+                <SyncStatusIndicator />
+
                 <View style={styles.topSection}>
                     <View style={styles.titleRow}>
                         <View style={styles.titleGroup}>
@@ -504,6 +592,46 @@ const styles = StyleSheet.create({
     summaryGrid: {
         flexDirection: 'row',
         gap: Theme.spacing.md,
+    },
+    syncCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FFF',
+        borderRadius: 24,
+        padding: 16,
+        marginBottom: 24,
+        borderWidth: 1,
+        borderColor: Theme.colors.primary + '15',
+        elevation: 3,
+        shadowColor: Theme.colors.primary,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+    },
+    syncCardOffline: {
+        borderColor: '#FEF3C7',
+        backgroundColor: '#FFFBEB',
+    },
+    syncIconBox: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: '#F0F9FF',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
+    },
+    syncTextBox: {
+        flex: 1,
+    },
+    syncTitle: {
+        ...Theme.typography.body1,
+        fontWeight: 'bold',
+        color: Theme.colors.onBackground,
+    },
+    syncSub: {
+        ...Theme.typography.caption,
+        color: Theme.colors.gray[500],
     },
     agendaSection: {
         flex: 1,

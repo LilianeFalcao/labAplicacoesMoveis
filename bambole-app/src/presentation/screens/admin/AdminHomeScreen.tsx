@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 
 // Implementation imports
+import { SupabaseAdminRepository } from '../../../infrastructure/admin/repositories/SupabaseAdminRepository';
 import { SupabaseAccessRequestRepository } from '../../../infrastructure/activity/repositories/SupabaseAccessRequestRepository';
 import { SupabaseClassRepository } from '../../../infrastructure/activity/repositories/SupabaseClassRepository';
 import { GetAdminDashboardStatsUseCase } from '../../../application/admin/use-cases/GetAdminDashboardStatsUseCase';
@@ -29,9 +30,10 @@ export const AdminHomeScreen = ({ navigation }: any) => {
     const [isModalVisible, setIsModalVisible] = useState(false);
 
     // Repositories & Use Case
-    const statsUseCase = new GetAdminDashboardStatsUseCase();
+    const adminRepo = new SupabaseAdminRepository();
     const accessRepo = new SupabaseAccessRequestRepository();
     const classRepo = new SupabaseClassRepository();
+    const statsUseCase = new GetAdminDashboardStatsUseCase(adminRepo);
 
     const loadData = useCallback(async () => {
         try {
@@ -112,7 +114,7 @@ export const AdminHomeScreen = ({ navigation }: any) => {
             >
                 <View style={styles.headerSection}>
                     <View>
-                        <Text style={styles.welcome}>Olá, {user?.fullName || 'Administrador'} 👋</Text>
+                        <Text style={styles.welcome}>Olá, {user?.fullName || 'Administrador'}</Text>
                         <Text style={styles.dateText}>{new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}</Text>
                     </View>
                     <View style={styles.avatarPlaceholder}>

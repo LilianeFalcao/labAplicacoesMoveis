@@ -5,6 +5,7 @@ export interface IUserRepository {
     findById(id: string): Promise<User | null>;
     findByEmail(email: Email): Promise<User | null>;
     save(user: User): Promise<void>;
+    create(user: User): Promise<void>;
     findTokensByClass(classId: string): Promise<string[]>;
     findAllParentTokens(): Promise<string[]>;
 }

@@ -11,14 +11,15 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { ClassDashboardTabsParamList } from '../../navigation/types';
-import { MockChildRepository } from '@/infrastructure/enrollment/repositories/MockChildRepository';
+import { SupabaseChildRepository } from '@/infrastructure/enrollment/repositories/SupabaseChildRepository';
 import { TakeAttendanceUseCase } from '@/application/attendance/use-cases/TakeAttendanceUseCase';
-import { MockAttendanceRepository } from '@/infrastructure/attendance/repositories/MockAttendanceRepository';
+import { SupabaseAttendanceRepository } from '@/infrastructure/attendance/repositories/SupabaseAttendanceRepository';
 import { MockClassRepository } from '@/infrastructure/activity/repositories/MockClassRepository';
+import { ConnectivityService, ConnectivityStatus } from '@/infrastructure/network/ConnectivityService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type AttendanceRouteProp = RouteProp<ClassDashboardTabsParamList, 'Attendance'>;
-type AttendanceNavigationProp = StackNavigationProp<any>; // Using any for navigation to avoid circular stack/tab types
+type AttendanceNavigationProp = StackNavigationProp<any>;
 
 export const AttendanceScreen = () => {
     const { user } = useAuth();
@@ -33,23 +34,30 @@ export const AttendanceScreen = () => {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [isSummaryModalVisible, setIsSummaryModalVisible] = useState(false);
+    const [connectionStatus, setConnectionStatus] = useState<ConnectivityStatus>('online');
 
     useEffect(() => {
+        const connectivity = ConnectivityService.getInstance();
+        const listener = (status: ConnectivityStatus) => setConnectionStatus(status);
+        connectivity.addListener(listener);
+        
         loadStudents();
+
+        return () => connectivity.removeListener(listener);
     }, [classId]);
 
     const loadStudents = async () => {
         try {
-            const repo = MockChildRepository.getInstance();
+            const repo = new SupabaseChildRepository();
             const list = await repo.findByClass(classId);
-            setStudents(list.map(s => ({ ...s, status: 'present' })));
+            setStudents(list.map(s => ({ 
+                id: s.id, 
+                name: s.name, 
+                status: 'present',
+                medicalAlerts: (s as any).medicalAlerts 
+            })));
         } catch (err) {
-            setStudents([
-                { id: '1', name: { value: 'Alice Silva' }, status: 'present', medicalAlerts: ['Alergia a Amendoim'] },
-                { id: '2', name: { value: 'Bruno Costa' }, status: 'present' },
-                { id: '3', name: { value: 'Carla Dias' }, status: 'present', medicalAlerts: ['Asma'] },
-                { id: '4', name: { value: 'Daniel Souza' }, status: 'absent' },
-            ]);
+            console.error('Failed to load students', err);
         } finally {
             setLoading(false);
         }
@@ -79,18 +87,19 @@ export const AttendanceScreen = () => {
         setIsSummaryModalVisible(false);
         setSubmitting(true);
         try {
-            let { status } = await Location.requestForegroundPermissionsAsync();
-            if (status !== 'granted') {
-                Alert.alert('Acesso negado', 'Precisamos da geolocalização para confirmar a presença.');
-                setSubmitting(false);
-                return;
+            let geo = undefined;
+            
+            // Only try location if online to avoid timeout issues in deep offline
+            if (connectionStatus === 'online') {
+                const { status } = await Location.requestForegroundPermissionsAsync();
+                if (status === 'granted') {
+                    const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+                    geo = { lat: location.coords.latitude, lng: location.coords.longitude };
+                }
             }
 
-            const location = await Location.getCurrentPositionAsync({});
-            const geo = { lat: location.coords.latitude, lng: location.coords.longitude };
-
             const useCase = new TakeAttendanceUseCase(
-                MockAttendanceRepository.getInstance(),
+                new SupabaseAttendanceRepository(),
                 MockClassRepository.getInstance()
             );
 
@@ -105,14 +114,28 @@ export const AttendanceScreen = () => {
                 }))
             );
 
-            Alert.alert('Sucesso', 'Chamada realizada com sucesso!', [
-                { text: 'OK', onPress: () => navigation.goBack() }
-            ]);
+            Alert.alert(
+                connectionStatus === 'online' ? 'Sucesso' : 'Salvo Localmente',
+                connectionStatus === 'online' 
+                    ? 'Chamada realizada com sucesso!' 
+                    : 'Você está offline. A chamada foi salva e será sincronizada assim que a conexão voltar.',
+                [{ text: 'OK', onPress: () => navigation.goBack() }]
+            );
         } catch (err: any) {
             Alert.alert('Erro', err.message || 'Falha ao realizar chamada.');
         } finally {
             setSubmitting(false);
         }
+    };
+
+    const OfflineBadge = () => {
+        if (connectionStatus === 'online') return null;
+        return (
+            <View style={styles.offlineBadge}>
+                <MaterialCommunityIcons name="wifi-off" size={14} color="#B45309" />
+                <Text style={styles.offlineBadgeText}>Modo Offline</Text>
+            </View>
+        );
     };
 
     if (!classId) {
@@ -148,7 +171,10 @@ export const AttendanceScreen = () => {
             <View style={styles.flex1}>
                 <View style={styles.headerInfo}>
                     <View>
-                        <Text style={styles.groupName}>{groupName}</Text>
+                        <View style={styles.titleRow}>
+                            <Text style={styles.groupName}>{groupName}</Text>
+                            <OfflineBadge />
+                        </View>
                         <Text style={styles.subtext}>Selecione a presença de cada aluno</Text>
                     </View>
                     <TouchableOpacity style={styles.bulkActionBtn} onPress={markAllPresent}>
@@ -322,9 +348,30 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: Theme.colors.gray[100],
     },
+    titleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
     groupName: {
         ...Theme.typography.h2,
         color: Theme.colors.onBackground,
+    },
+    offlineBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FEF3C7',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 12,
+        gap: 4,
+        borderWidth: 1,
+        borderColor: '#FDE68A',
+    },
+    offlineBadgeText: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: '#B45309',
     },
     subtext: {
         ...Theme.typography.caption,

@@ -2,8 +2,11 @@ import { supabase } from '../../supabase/client';
 import { IAnnouncementRepository } from '@/domain/communication/repositories/IAnnouncementRepository';
 import { Announcement } from '@/domain/communication/entities/Announcement';
 import { AnnouncementContent, Audience } from '@/domain/communication/value-objects/CommunicationVOs';
+import { SqliteStorageService } from '../../storage/SqliteStorageService';
 
 export class SupabaseAnnouncementRepository implements IAnnouncementRepository {
+    private storage = SqliteStorageService.getInstance();
+
     async save(ann: Announcement): Promise<void> {
         const { error } = await supabase
             .from('announcements')
@@ -17,10 +20,15 @@ export class SupabaseAnnouncementRepository implements IAnnouncementRepository {
             });
 
         if (error) throw error;
+
+        // Update cache
+        await this.storage.run(
+            'INSERT OR REPLACE INTO announcements (id, content, published_at, audience_type) VALUES (?, ?, ?, ?)',
+            [ann.id, ann.content.value, ann.publishedAt.toISOString(), ann.audience.type]
+        );
     }
 
     async findRelevantForClasses(classIds: string[]): Promise<Announcement[]> {
-        // Build query: audience_type = 'all' OR (audience_type = 'class' AND class_id IN (...classIds))
         let query = supabase
             .from('announcements')
             .select('*')
@@ -33,10 +41,29 @@ export class SupabaseAnnouncementRepository implements IAnnouncementRepository {
             query = query.eq('audience_type', 'all');
         }
 
-        const { data, error } = await query;
+        try {
+            const { data, error } = await query;
+            
+            if (error) throw error;
 
-        if (error) throw error;
-        return (data || []).map(d => this.mapToDomain(d));
+            const results = (data || []).map(d => this.mapToDomain(d));
+
+            // Populate cache
+            for (const ann of results) {
+                await this.storage.run(
+                    'INSERT OR REPLACE INTO announcements (id, content, published_at, audience_type) VALUES (?, ?, ?, ?)',
+                    [ann.id, ann.content.value, ann.publishedAt.toISOString(), ann.audience.type]
+                );
+            }
+
+            return results;
+        } catch (error) {
+            console.warn('Announcement fetch failed, using local cache', error);
+            const local = await this.storage.query<any>(
+                'SELECT * FROM announcements ORDER BY published_at DESC'
+            );
+            return local.map(item => this.mapFromCache(item));
+        }
     }
 
     private mapToDomain(data: any): Announcement {
@@ -45,6 +72,16 @@ export class SupabaseAnnouncementRepository implements IAnnouncementRepository {
             data.author_id,
             AnnouncementContent.create(data.content),
             data.audience_type === 'class' ? Audience.forClass(data.class_id!) : Audience.forAll(),
+            new Date(data.published_at)
+        );
+    }
+
+    private mapFromCache(data: any): Announcement {
+        return new Announcement(
+            data.id,
+            '',
+            AnnouncementContent.create(data.content),
+            data.audience_type === 'class' ? Audience.forClass('') : Audience.forAll(), // Simplified
             new Date(data.published_at)
         );
     }

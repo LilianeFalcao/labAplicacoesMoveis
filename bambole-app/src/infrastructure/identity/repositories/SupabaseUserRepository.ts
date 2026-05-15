@@ -55,6 +55,20 @@ export class SupabaseUserRepository implements IUserRepository {
         if (error) throw error;
     }
 
+    async create(user: User): Promise<void> {
+        const { error } = await supabase
+            .from('users')
+            .insert({
+                id: user.id,
+                email: user.email.value,
+                role: user.role.value,
+                full_name: user.fullName,
+                avatar_url: user.avatarUrl
+            });
+
+        if (error) throw error;
+    }
+
     async findTokensByClass(classId: string): Promise<string[]> {
         const { data: joinedData, error: joinedError } = await supabase
             .from('users')

@@ -39,6 +39,48 @@ export const LoginScreen = () => {
         }
     };
 
+
+
+    const RoleFooter = () => {
+        if (selectedRole === 'monitor') {
+            return (
+                <View style={styles.footer}>
+                    <View style={styles.infoCard}>
+                        <MaterialCommunityIcons name="account-tie-voice" size={24} color={Theme.colors.primary} />
+                        <Text style={styles.infoCardText}>
+                            Acessos de <Text style={{ fontWeight: 'bold' }}>Monitor</Text> são provisionados pela administração. Verifique seu convite no e-mail ou fale com o gestor.
+                        </Text>
+                    </View>
+                </View>
+            );
+        }
+
+        if (selectedRole === 'admin') {
+            return (
+                <View style={styles.footer}>
+                    <View style={[styles.infoCard, { borderColor: Theme.colors.gray[200] }]}>
+                        <MaterialCommunityIcons name="shield-lock" size={24} color={Theme.colors.gray[500]} />
+                        <Text style={[styles.infoCardText, { color: Theme.colors.gray[600] }]}>
+                            Acesso administrativo restrito à coordenação. O provisionamento é realizado via Dashboard Web.
+                        </Text>
+                    </View>
+                </View>
+            );
+        }
+
+        return (
+            <View style={styles.footer}>
+                <Text style={styles.footerText}>Ainda não faz parte da comunidade?</Text>
+                <AppButton
+                    title="Criar conta de Família"
+                    variant="outline"
+                    onPress={() => navigation.navigate('SignUp')}
+                    style={styles.signUpButton}
+                />
+            </View>
+        );
+    };
+
     return (
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.header}>
@@ -130,15 +172,7 @@ export const LoginScreen = () => {
                         />
                     </View>
 
-                    <View style={styles.footer}>
-                        <Text style={styles.footerText}>Ainda não faz parte da comunidade?</Text>
-                        <AppButton
-                            title="Criar conta"
-                            variant="outline"
-                            onPress={() => navigation.navigate('SignUp')}
-                            style={styles.signUpButton}
-                        />
-                    </View>
+                    <RoleFooter />
                 </View>
             </ScrollView>
         </SafeAreaView>
@@ -249,8 +283,25 @@ const styles = StyleSheet.create({
         color: Theme.colors.gray[600],
         marginBottom: Theme.spacing.sm,
     },
+    infoCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Theme.colors.surface,
+        borderRadius: 16,
+        padding: Theme.spacing.md,
+        borderWidth: 1,
+        borderColor: Theme.colors.primary + '30',
+        gap: Theme.spacing.md,
+        width: '100%',
+    },
+    infoCardText: {
+        flex: 1,
+        ...Theme.typography.caption,
+        color: Theme.colors.onBackground,
+        lineHeight: 18,
+    },
     signUpButton: {
         width: '100%',
-        borderRadius: 30, // More rounded as in design
+        borderRadius: 30,
     },
 });

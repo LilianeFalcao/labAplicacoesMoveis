@@ -6,10 +6,13 @@ import { Email } from '@/domain/identity/value-objects/Email';
 import { SupabaseUserRepository } from '@/infrastructure/identity/repositories/SupabaseUserRepository';
 import { SupabaseAuthService } from '@/infrastructure/identity/services/SupabaseAuthService';
 import { SignInUseCase } from '@/application/identity/use-cases/SignInUseCase';
+import { SignUpParentUseCase } from '@/application/identity/use-cases/SignUpParentUseCase';
+import { SupabaseGuardianRepository } from '@/infrastructure/enrollment/repositories/SupabaseGuardianRepository';
 
 interface AuthContextData {
     user: User | null;
     signIn: (email: string, password: string) => Promise<void>;
+    signUp: (fullName: string, email: string, password: string) => Promise<void>;
     signOut: () => Promise<void>;
     isLoading: boolean;
     refreshUser: () => Promise<void>;
@@ -24,7 +27,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Dependencies
     const userRepository = new SupabaseUserRepository();
     const authService = new SupabaseAuthService();
+    const guardianRepository = new SupabaseGuardianRepository();
     const signInUseCase = new SignInUseCase(authService, userRepository);
+    const signUpUseCase = new SignUpParentUseCase(authService, userRepository, guardianRepository);
 
     const loadUserProfile = async (userId: string) => {
         try {
@@ -77,6 +82,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
+    const signUp = async (fullName: string, email: string, password: string) => {
+        setIsLoading(true);
+        try {
+            await signUpUseCase.execute(fullName, email, password);
+            // Profiling will be triggered by onAuthStateChange in Supabase 
+            // after the session is created
+        } catch (error) {
+            setIsLoading(false);
+            throw error;
+        }
+    };
+
     const signOut = async () => {
         setIsLoading(true);
         try {
@@ -92,6 +109,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         <AuthContext.Provider value={{ 
             user, 
             signIn, 
+            signUp,
             signOut, 
             isLoading,
             refreshUser

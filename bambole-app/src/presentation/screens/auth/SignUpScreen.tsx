@@ -4,6 +4,7 @@ import { AppInput } from '../../components/base/AppInput';
 import { AppButton } from '../../components/base/AppButton';
 import { Theme } from '../../styles/Theme';
 import { useNavigation } from '@react-navigation/native';
+import { useAuth } from '../../contexts/AuthContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -12,30 +13,45 @@ export const SignUpScreen = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [loading, setLoading] = useState(false);
+    const { signUp, isLoading } = useAuth();
     const navigation = useNavigation<any>();
     const insets = useSafeAreaInsets();
 
+    const validateEmail = (email: string) => {
+        return /\S+@\S+\.\S+/.test(email);
+    };
+
     const handleSignUp = async () => {
-        if (!name || !email || !password || !confirmPassword) {
-            Alert.alert('Erro', 'Preencha todos os campos');
+        // Validation logic
+        if (!name.trim()) {
+            Alert.alert('Campo Obrigatório', 'Por favor, informe seu nome completo.');
+            return;
+        }
+
+        if (!validateEmail(email)) {
+            Alert.alert('Email Inválido', 'Por favor, informe um endereço de e-mail válido.');
+            return;
+        }
+
+        if (password.length < 8) {
+            Alert.alert('Senha Fraca', 'A senha deve ter pelo menos 8 caracteres.');
             return;
         }
 
         if (password !== confirmPassword) {
-            Alert.alert('Erro', 'As senhas não coincidem');
+            Alert.alert('Senhas Diferentes', 'As senhas informadas não coincidem.');
             return;
         }
 
-        setLoading(true);
         try {
-            Alert.alert('Sucesso', 'Conta criada com sucesso! Verifique seu e-mail.', [
-                { text: 'OK', onPress: () => navigation.goBack() }
-            ]);
+            await signUp(name, email, password);
+            Alert.alert(
+                'Boas-vindas!', 
+                'Sua conta foi criada com sucesso. Verifique seu e-mail para confirmar o cadastro.',
+                [{ text: 'Entendido', onPress: () => navigation.replace('ParentHome') }]
+            );
         } catch (error: any) {
-            Alert.alert('Erro', error.message);
-        } finally {
-            setLoading(false);
+            Alert.alert('Erro no Cadastro', error.message || 'Ocorreu um erro ao criar sua conta. Tente novamente.');
         }
     };
 
@@ -50,8 +66,22 @@ export const SignUpScreen = () => {
             </View>
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                 <View style={styles.intro}>
-                    <Text style={styles.title}>Criar Conta</Text>
-                    <Text style={styles.subtitle}>Comece a jornada do seu filho em nosso centro recreativo hoje mesmo.</Text>
+                    <View style={styles.familyBadge}>
+                        <MaterialCommunityIcons name="account-group" size={16} color={Theme.colors.primary} />
+                        <Text style={styles.familyBadgeText}>PORTAL DA FAMÍLIA</Text>
+                    </View>
+                    <Text style={styles.title}>Cadastro de Responsável</Text>
+                    <Text style={styles.subtitle}>Crie sua conta para acompanhar a jornada do seu filho no Centro Bambolê.</Text>
+                </View>
+
+                <View style={styles.linkWarning}>
+                    <MaterialCommunityIcons name="email-check-outline" size={24} color="#0369A1" />
+                    <View style={styles.linkWarningContent}>
+                        <Text style={styles.linkWarningTitle}>Vínculo Escolar Automático</Text>
+                        <Text style={styles.linkWarningText}>
+                            Utilize o <Text style={{ fontWeight: 'bold' }}>mesmo e-mail</Text> fornecido à secretaria da escola para que seus filhos apareçam automaticamente no seu feed.
+                        </Text>
+                    </View>
                 </View>
 
                 <View style={styles.form}>
@@ -85,10 +115,10 @@ export const SignUpScreen = () => {
                     />
 
                     <AppButton
-                        title="Cadastrar"
+                        title="Finalizar Cadastro"
                         onPress={handleSignUp}
-                        loading={loading}
-                        icon="arrow-right"
+                        loading={isLoading}
+                        icon="check-circle-outline"
                         style={styles.button}
                     />
                 </View>
@@ -160,13 +190,30 @@ const styles = StyleSheet.create({
         fontWeight: '900',
     },
     intro: {
-        marginBottom: Theme.spacing.xl,
+        marginBottom: Theme.spacing.lg,
         alignItems: 'center',
+    },
+    familyBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Theme.colors.primary + '15',
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+        borderRadius: 20,
+        marginBottom: Theme.spacing.sm,
+        gap: 6,
+    },
+    familyBadgeText: {
+        ...Theme.typography.caption,
+        color: Theme.colors.primary,
+        fontWeight: 'bold',
+        letterSpacing: 1,
     },
     title: {
         ...Theme.typography.h1,
         color: Theme.colors.onBackground,
-        fontSize: 36,
+        fontSize: 28,
+        textAlign: 'center',
     },
     subtitle: {
         ...Theme.typography.body2,
@@ -174,6 +221,30 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginTop: Theme.spacing.xs,
         lineHeight: 22,
+    },
+    linkWarning: {
+        flexDirection: 'row',
+        backgroundColor: '#F0F9FF',
+        borderRadius: 16,
+        padding: Theme.spacing.md,
+        marginBottom: Theme.spacing.xl,
+        borderWidth: 1,
+        borderColor: '#BAE6FD',
+        gap: Theme.spacing.md,
+    },
+    linkWarningContent: {
+        flex: 1,
+    },
+    linkWarningTitle: {
+        ...Theme.typography.body2,
+        fontWeight: 'bold',
+        color: '#0369A1',
+        marginBottom: 2,
+    },
+    linkWarningText: {
+        ...Theme.typography.caption,
+        color: '#075985',
+        lineHeight: 18,
     },
     form: {
         flex: 1,
