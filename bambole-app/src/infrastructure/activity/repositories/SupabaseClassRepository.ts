@@ -12,17 +12,52 @@ export class SupabaseClassRepository implements IClassRepository {
 
         if (error || !data) return null;
 
-        return new Class(
-            data.id,
-            data.name,
-            new WeeklySchedule(
-                (data.weekly_schedule as any).days,
-                (data.weekly_schedule as any).startTime,
-                (data.weekly_schedule as any).endTime
-            ),
-            data.description || undefined,
-            data.age_range || undefined
-        );
+        return this.mapFromDb(data);
+    }
+
+    async findByIds(ids: string[]): Promise<Class[]> {
+        if (!ids || ids.length === 0) return [];
+        const { data, error } = await supabase
+            .from('classes')
+            .select('*')
+            .in('id', ids);
+
+        if (error || !data) return [];
+        return data.map(item => this.mapFromDb(item));
+    }
+
+    async findByMonitorId(monitorId: string): Promise<Class[]> {
+        const { data: relations, error: relError } = await supabase
+            .from('monitor_activities')
+            .select('class_id')
+            .eq('monitor_id', monitorId);
+
+        if (relError || !relations || relations.length === 0) return [];
+        const classIds = relations.map(r => r.class_id);
+        return this.findByIds(classIds);
+    }
+
+    async findAllWithoutMonitor(): Promise<Class[]> {
+        const classes = await this.findAll();
+        
+        const { data: assignments, error } = await supabase
+            .from('monitor_activities')
+            .select('class_id');
+
+        if (error || !assignments) return classes;
+
+        const assignedIds = assignments.map(a => a.class_id);
+        return classes.filter(cls => !assignedIds.includes(cls.id));
+    }
+
+    async findAll(): Promise<Class[]> {
+        const { data, error } = await supabase
+            .from('classes')
+            .select('*')
+            .order('name', { ascending: true });
+
+        if (error || !data) return [];
+        return data.map(item => this.mapFromDb(item));
     }
 
     async save(cls: Class): Promise<void> {
@@ -41,5 +76,20 @@ export class SupabaseClassRepository implements IClassRepository {
             });
 
         if (error) throw error;
+    }
+
+    private mapFromDb(data: any): Class {
+        const scheduleData = data.weekly_schedule || {};
+        return new Class(
+            data.id,
+            data.name,
+            new WeeklySchedule(
+                scheduleData.days || [],
+                scheduleData.startTime || '08:00',
+                scheduleData.endTime || '12:00'
+            ),
+            data.description || undefined,
+            data.age_range || undefined
+        );
     }
 }

@@ -5,5 +5,6 @@ export interface IClassRepository {
     findByIds(ids: string[]): Promise<Class[]>;
     findByMonitorId(monitorId: string): Promise<Class[]>;
     findAllWithoutMonitor(): Promise<Class[]>;
+    findAll(): Promise<Class[]>;
     save(cls: Class): Promise<void>;
 }

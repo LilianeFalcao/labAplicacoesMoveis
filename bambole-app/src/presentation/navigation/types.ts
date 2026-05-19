@@ -52,6 +52,7 @@ export type AdminStackParamList = {
     AdminRoot: NavigatorScreenParams<AdminTabsParamList>;
     MonitorManagement: undefined;
     GroupManagement: undefined;
+    StudentManagement: undefined;
     StudentMonitorLinking: undefined;
     CreateAnnouncement: undefined;
     AdminIncidentList: undefined;

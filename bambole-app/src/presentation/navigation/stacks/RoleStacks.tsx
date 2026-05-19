@@ -20,6 +20,7 @@ import { MonitorSecurityScreen } from '../../screens/monitor/MonitorSecurityScre
 import { AdminHomeScreen } from '../../screens/admin/AdminHomeScreen';
 import { MonitorManagementScreen } from '../../screens/admin/MonitorManagementScreen';
 import { GroupManagementScreen } from '../../screens/admin/GroupManagementScreen';
+import { StudentManagementScreen } from '../../screens/admin/StudentManagementScreen';
 import { StudentMonitorLinkingScreen } from '../../screens/admin/StudentMonitorLinkingScreen';
 import { CreateAnnouncementScreen } from '../../screens/admin/CreateAnnouncementScreen';
 import { AdminIncidentListScreen } from '../../screens/admin/AdminIncidentListScreen';
@@ -56,6 +57,7 @@ export const AdminStack = () => (
         <AdminStackCreator.Screen name="AdminRoot" component={AdminTabs} />
         <AdminStackCreator.Screen name="MonitorManagement" component={MonitorManagementScreen} />
         <AdminStackCreator.Screen name="GroupManagement" component={GroupManagementScreen} />
+        <AdminStackCreator.Screen name="StudentManagement" component={StudentManagementScreen} />
         <AdminStackCreator.Screen name="StudentMonitorLinking" component={StudentMonitorLinkingScreen} />
         <AdminStackCreator.Screen name="CreateAnnouncement" component={CreateAnnouncementScreen} />
         <AdminStackCreator.Screen name="AdminIncidentList" component={AdminIncidentListScreen} />

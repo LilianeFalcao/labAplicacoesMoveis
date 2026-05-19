@@ -62,6 +62,19 @@ export class SqliteStorageService {
                     status TEXT DEFAULT 'pending'
                 );
             `);
+
+            // Migration for older schema versions (dynamically add missing columns)
+            try {
+                await this.db.execAsync('ALTER TABLE children ADD COLUMN class_id TEXT;');
+            } catch (e) {
+                // Ignore if column already exists
+            }
+            try {
+                await this.db.execAsync('ALTER TABLE children ADD COLUMN photo_uri TEXT;');
+            } catch (e) {
+                // Ignore if column already exists
+            }
+
             console.log('Offline database initialized successfully');
         } catch (error) {
             console.error('Failed to initialize offline database', error);
@@ -71,12 +84,14 @@ export class SqliteStorageService {
 
     public async query<T>(sql: string, params: any[] = []): Promise<T[]> {
         if (!this.db) await this.init();
-        return await this.db!.getAllAsync<T>(sql, params);
+        const normalizedParams = params.map(p => p === undefined ? null : p);
+        return await this.db!.getAllAsync<T>(sql, normalizedParams);
     }
 
     public async run(sql: string, params: any[] = []): Promise<void> {
         if (!this.db) await this.init();
-        await this.db!.runAsync(sql, params);
+        const normalizedParams = params.map(p => p === undefined ? null : p);
+        await this.db!.runAsync(sql, normalizedParams);
     }
 
     public async clearAll(): Promise<void> {

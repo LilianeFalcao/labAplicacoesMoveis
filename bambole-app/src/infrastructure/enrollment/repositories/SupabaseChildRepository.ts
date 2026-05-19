@@ -23,6 +23,7 @@ export class SupabaseChildRepository implements IChildRepository {
         const child = new Child(
             data.id,
             ChildName.create(data.name),
+            data.birth_date ? new Date(data.birth_date) : undefined,
             data.class_id,
             data.photo_url
         );
@@ -51,6 +52,7 @@ export class SupabaseChildRepository implements IChildRepository {
         const results = data.map(item => new Child(
             item.id,
             ChildName.create(item.name),
+            item.birth_date ? new Date(item.birth_date) : undefined,
             item.class_id,
             item.photo_url
         ));
@@ -84,6 +86,7 @@ export class SupabaseChildRepository implements IChildRepository {
         return data.map(item => new Child(
             item.id,
             ChildName.create(item.name),
+            item.birth_date ? new Date(item.birth_date) : undefined,
             item.class_id,
             item.photo_url
         ));
@@ -103,6 +106,7 @@ export class SupabaseChildRepository implements IChildRepository {
         const results = data.map(item => new Child(
             item.id,
             ChildName.create(item.name),
+            item.birth_date ? new Date(item.birth_date) : undefined,
             item.class_id,
             item.photo_url
         ));
@@ -120,13 +124,14 @@ export class SupabaseChildRepository implements IChildRepository {
         const { error } = await supabase.from('children').upsert({
             id: child.id,
             name: child.name.value,
+            birth_date: child.birthDate ? child.birthDate.toISOString().split('T')[0] : null,
             class_id: child.classId,
             photo_url: child.photoUrl
         });
 
         if (error) {
-            console.warn('Online save failed, using local cache', error);
-            // In a real scenario, we'd add to sync_queue here too if we allowed child creation offline
+            console.error('Online save failed', error);
+            throw error;
         }
     }
 
@@ -134,6 +139,7 @@ export class SupabaseChildRepository implements IChildRepository {
         return new Child(
             data.id,
             ChildName.create(data.name),
+            undefined,
             data.class_id,
             data.photo_uri
         );

@@ -29,7 +29,7 @@ describe('SignInUseCase', () => {
         const userId = 'uuid-123';
         const mockUser = new User(userId, Email.create(emailStr), Role.create('parent'));
 
-        mockUserRepo.findByEmail.mockResolvedValue(mockUser);
+        mockUserRepo.findById.mockResolvedValue(mockUser);
         mockAuthService.signIn.mockResolvedValue({ id: userId, email: emailStr });
 
         const result = await useCase.execute(emailStr, password);
@@ -39,7 +39,8 @@ describe('SignInUseCase', () => {
     });
 
     it('should throw error if user not found in database', async () => {
-        mockUserRepo.findByEmail.mockResolvedValue(null);
-        await expect(useCase.execute('none@test.com', 'pw')).rejects.toThrow('User not found');
+        mockAuthService.signIn.mockResolvedValue({ id: 'uuid-123', email: 'none@test.com' });
+        mockUserRepo.findById.mockResolvedValue(null);
+        await expect(useCase.execute('none@test.com', 'pw')).rejects.toThrow('Perfil de usuário não encontrado');
     });
 });

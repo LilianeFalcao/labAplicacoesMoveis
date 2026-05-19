@@ -42,6 +42,10 @@ export class MockClassRepository implements IClassRepository {
         return this.classes.filter(c => !c.monitorId);
     }
 
+    async findAll(): Promise<Class[]> {
+        return this.classes;
+    }
+
     async save(cls: Class): Promise<void> {
         const index = this.classes.findIndex(c => c.id === cls.id);
         if (index >= 0) {

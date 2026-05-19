@@ -13,7 +13,7 @@ import { SupabaseChildRepository } from '../../../infrastructure/enrollment/repo
 import { SupabaseGuardianRepository } from '../../../infrastructure/enrollment/repositories/SupabaseGuardianRepository';
 import { LinkChildToGuardianUseCase } from '../../../application/enrollment/use-cases/LinkChildToGuardianUseCase';
 import { supabase } from '../../../infrastructure/supabase/client';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from '../../../infrastructure/utils/base64';
 
 export const StudentMonitorLinkingScreen = () => {
@@ -101,6 +101,7 @@ export const StudentMonitorLinkingScreen = () => {
                 const updatedChild = new (child.constructor as any)(
                     child.id,
                     child.name,
+                    child.birthDate,
                     child.classId,
                     publicUrl
                 );

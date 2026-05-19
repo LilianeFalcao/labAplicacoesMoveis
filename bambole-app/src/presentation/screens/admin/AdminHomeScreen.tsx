@@ -165,6 +165,13 @@ export const AdminHomeScreen = ({ navigation }: any) => {
                         onPress={() => navigation.navigate('CreateAnnouncement')}
                     />
                     <ActionItem
+                        title="Gestão de Alunos"
+                        description="Matricular, editar e excluir crianças"
+                        icon="face-recognition"
+                        color="#EC4899"
+                        onPress={() => navigation.navigate('StudentManagement')}
+                    />
+                    <ActionItem
                         title="Gestão de Turmas"
                         description="Horários, capacidades e atividades"
                         icon="domain"

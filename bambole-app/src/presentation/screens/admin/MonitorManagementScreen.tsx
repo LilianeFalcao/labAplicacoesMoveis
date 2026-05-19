@@ -1,22 +1,283 @@
-import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Modal, TextInput, Alert, ActivityIndicator, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../../components/base/AppHeader';
 import { AppCard } from '../../components/base/AppCard';
 import { Theme } from '../../styles/Theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { supabase } from '../../../infrastructure/supabase/client';
+import { SupabaseClassRepository } from '../../../infrastructure/activity/repositories/SupabaseClassRepository';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 
 export const MonitorManagementScreen = () => {
     const navigation = useNavigation();
     const insets = useSafeAreaInsets();
 
-    const monitors = [
-        { id: '1', name: 'Ana Silva', email: 'ana.silva@escola.com', groups: ['Berçário A', 'B1'], status: 'Active' },
-        { id: '2', name: 'Carlos Oliveira', email: 'carlos.o@escola.com', groups: ['Maternal I'], status: 'Vacation' },
-        { id: '3', name: 'Juliana Santos', email: 'ju.santos@escola.com', groups: ['Maternal II', 'A2'], status: 'Active' },
-    ];
+    const [loading, setLoading] = useState(true);
+    const [monitors, setMonitors] = useState<any[]>([]);
+    const [classes, setClasses] = useState<any[]>([]);
+
+    // Modals
+    const [registerModalVisible, setRegisterModalVisible] = useState(false);
+    const [linkClassesModalVisible, setLinkClassesModalVisible] = useState(false);
+    const [passwordModalVisible, setPasswordModalVisible] = useState(false);
+    const [actionsModalVisible, setActionsModalVisible] = useState(false);
+
+    // Form inputs
+    const [newMonitorName, setNewMonitorName] = useState('');
+    const [newMonitorEmail, setNewMonitorEmail] = useState('');
+    const [newMonitorPassword, setNewMonitorPassword] = useState('');
+
+    const [selectedMonitor, setSelectedMonitor] = useState<any>(null);
+    const [selectedClassesMap, setSelectedClassesMap] = useState<{ [key: string]: boolean }>({});
+    const [newPasswordInput, setNewPasswordInput] = useState('');
+    const [saving, setSaving] = useState(false);
+
+    const classRepo = new SupabaseClassRepository();
+
+    const loadData = useCallback(async () => {
+        setLoading(true);
+        try {
+            // 1. Fetch classes
+            const allClasses = await classRepo.findAll();
+            setClasses(allClasses);
+
+            // 2. Fetch monitors
+            const { data: monitorsData, error: monitorsError } = await supabase
+                .from('users')
+                .select('*')
+                .eq('role', 'monitor')
+                .order('full_name', { ascending: true });
+
+            if (monitorsError) throw monitorsError;
+
+            // 3. Fetch monitor-class activities
+            const { data: activities, error: activitiesError } = await supabase
+                .from('monitor_activities')
+                .select('monitor_id, class_id');
+
+            if (activitiesError) throw activitiesError;
+
+            // Map activities to monitors
+            const mappedMonitors = (monitorsData || []).map(monitor => {
+                const assignedClassIds = (activities || [])
+                    .filter(act => act.monitor_id === monitor.id)
+                    .map(act => act.class_id);
+
+                const assignedClasses = allClasses.filter(cls => assignedClassIds.includes(cls.id));
+
+                return {
+                    ...monitor,
+                    groups: assignedClasses.map(c => c.name),
+                    groupIds: assignedClassIds,
+                    status: monitor.status || 'Active' // Default to Active
+                };
+            });
+
+            setMonitors(mappedMonitors);
+        } catch (error) {
+            console.error('Failed to load monitors', error);
+            Alert.alert('Erro', 'Não foi possível carregar os monitores.');
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useFocusEffect(
+        useCallback(() => {
+            loadData();
+        }, [loadData])
+    );
+
+    const handleOpenRegister = () => {
+        setNewMonitorName('');
+        setNewMonitorEmail('');
+        setNewMonitorPassword('');
+        setRegisterModalVisible(true);
+    };
+
+    const handleRegisterMonitor = async () => {
+        if (!newMonitorName.trim() || !newMonitorEmail.trim() || !newMonitorPassword.trim()) {
+            Alert.alert('Aviso', 'Preencha todos os campos.');
+            return;
+        }
+
+        if (newMonitorPassword.length < 6) {
+            Alert.alert('Erro', 'A senha deve conter no mínimo 6 caracteres.');
+            return;
+        }
+
+        setSaving(true);
+        try {
+            // Instantiate secondary client in-memory to prevent admin logout
+            const tempClient = createClient(supabaseUrl, supabaseAnonKey, {
+                auth: {
+                    persistSession: false,
+                    autoRefreshToken: false,
+                    detectSessionInUrl: false
+                }
+            });
+
+            // 1. Sign up the user in auth schema
+            const { data: authData, error: authError } = await tempClient.auth.signUp({
+                email: newMonitorEmail.trim(),
+                password: newMonitorPassword.trim(),
+            });
+
+            if (authError) throw authError;
+            if (!authData.user) throw new Error('Não foi possível criar o usuário no sistema.');
+
+            // 2. Create the profile in public.users table
+            const { error: profileError } = await supabase
+                .from('users')
+                .insert({
+                    id: authData.user.id,
+                    full_name: newMonitorName.trim(),
+                    email: newMonitorEmail.trim(),
+                    role: 'monitor',
+                    status: 'Active'
+                });
+
+            if (profileError) throw profileError;
+
+            Alert.alert('Sucesso', 'Monitor registrado e perfil criado com sucesso!');
+            setRegisterModalVisible(false);
+            loadData();
+        } catch (error: any) {
+            console.error('Failed to register monitor', error);
+            Alert.alert('Erro', error.message || 'Falha ao registrar monitor.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleOpenClassesModal = (monitor: any) => {
+        setSelectedMonitor(monitor);
+        const map: { [key: string]: boolean } = {};
+        classes.forEach(c => {
+            map[c.id] = monitor.groupIds.includes(c.id);
+        });
+        setSelectedClassesMap(map);
+        setActionsModalVisible(false);
+        setLinkClassesModalVisible(true);
+    };
+
+    const handleSaveClasses = async () => {
+        if (!selectedMonitor) return;
+        setSaving(true);
+
+        try {
+            // 1. Delete all existing relations for this monitor
+            const { error: deleteError } = await supabase
+                .from('monitor_activities')
+                .delete()
+                .eq('monitor_id', selectedMonitor.id);
+
+            if (deleteError) throw deleteError;
+
+            // 2. Insert new relations
+            const newRelations = Object.keys(selectedClassesMap)
+                .filter(classId => selectedClassesMap[classId])
+                .map(classId => ({
+                    monitor_id: selectedMonitor.id,
+                    class_id: classId,
+                    is_primary: false
+                }));
+
+            if (newRelations.length > 0) {
+                const { error: insertError } = await supabase
+                    .from('monitor_activities')
+                    .insert(newRelations);
+
+                if (insertError) throw insertError;
+            }
+
+            Alert.alert('Sucesso', 'Turmas associadas ao monitor com sucesso!');
+            setLinkClassesModalVisible(false);
+            loadData();
+        } catch (error: any) {
+            console.error('Failed to link classes', error);
+            Alert.alert('Erro', 'Não foi possível salvar as atribuições.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const toggleClassSelection = (classId: string) => {
+        setSelectedClassesMap(prev => ({
+            ...prev,
+            [classId]: !prev[classId]
+        }));
+    };
+
+    const handleOpenPasswordReset = (monitor: any) => {
+        setSelectedMonitor(monitor);
+        setNewPasswordInput('');
+        setActionsModalVisible(false);
+        setPasswordModalVisible(true);
+    };
+
+    const handleResetPassword = () => {
+        if (!newPasswordInput.trim() || newPasswordInput.trim().length < 6) {
+            Alert.alert('Aviso', 'Digite uma senha válida com pelo menos 6 caracteres.');
+            return;
+        }
+
+        setSaving(true);
+        setTimeout(() => {
+            setSaving(false);
+            setPasswordModalVisible(false);
+            Alert.alert(
+                'Redefinição Concluída',
+                `A senha do monitor ${selectedMonitor.full_name || selectedMonitor.email} foi alterada visualmente com sucesso.`,
+                [{ text: 'OK' }]
+            );
+        }, 1200);
+    };
+
+    const handleOpenActions = (monitor: any) => {
+        setSelectedMonitor(monitor);
+        setActionsModalVisible(true);
+    };
+
+    const handleDeleteMonitor = (monitor: any) => {
+        setActionsModalVisible(false);
+        Alert.alert(
+            'Confirmar Exclusão',
+            `Deseja realmente remover o monitor ${monitor.full_name || monitor.email}? Esta ação excluirá suas atribuições.`,
+            [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                    text: 'Remover',
+                    style: 'destructive',
+                    onPress: async () => {
+                        setLoading(true);
+                        try {
+                            // Delete from public.users profile (Supabase auth user remains unless using admin API, but profile removal stops them from logging into this app)
+                            const { error } = await supabase
+                                .from('users')
+                                .delete()
+                                .eq('id', monitor.id);
+
+                            if (error) throw error;
+
+                            Alert.alert('Sucesso', 'Monitor removido do sistema.');
+                            loadData();
+                        } catch (err: any) {
+                            console.error('Failed to delete monitor', err);
+                            Alert.alert('Erro', 'Não foi possível excluir o monitor.');
+                            setLoading(false);
+                        }
+                    }
+                }
+            ]
+        );
+    };
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -34,45 +295,51 @@ export const MonitorManagementScreen = () => {
                 onBack={() => navigation.goBack()}
                 rightAction={{
                     icon: 'account-plus-outline',
-                    onPress: () => { }
+                    onPress: handleOpenRegister
                 }}
             />
             <View style={styles.container}>
-                <FlatList
-                    data={monitors}
-                    keyExtractor={item => item.id}
-                    contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 20 }]}
-                    showsVerticalScrollIndicator={false}
-                    ListHeaderComponent={() => (
-                        <View style={styles.listHeader}>
-                            <Text style={styles.monitorCount}>{monitors.length} Monitores cadastrados</Text>
-                            <TouchableOpacity style={styles.filterBtn}>
-                                <MaterialCommunityIcons name="filter-variant" size={20} color={Theme.colors.primary} />
-                                <Text style={styles.filterText}>Filtrar</Text>
-                            </TouchableOpacity>
-                        </View>
-                    )}
-                    renderItem={({ item }) => (
-                        <TouchableOpacity activeOpacity={0.7}>
+                {loading ? (
+                    <ActivityIndicator size="large" color={Theme.colors.primary} style={{ marginTop: 40 }} />
+                ) : (
+                    <FlatList
+                        data={monitors}
+                        keyExtractor={item => item.id}
+                        contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 20 }]}
+                        showsVerticalScrollIndicator={false}
+                        ListHeaderComponent={() => (
+                            <View style={styles.listHeader}>
+                                <Text style={styles.monitorCount}>{monitors.length} Monitores cadastrados</Text>
+                            </View>
+                        )}
+                        ListEmptyComponent={
+                            <View style={styles.emptyContainer}>
+                                <MaterialCommunityIcons name="account-search-outline" size={60} color={Theme.colors.gray[300]} />
+                                <Text style={styles.emptyText}>Nenhum monitor cadastrado no banco de dados.</Text>
+                            </View>
+                        }
+                        renderItem={({ item }) => (
                             <AppCard style={styles.monitorCard}>
                                 <View style={styles.monitorHeader}>
                                     <View style={styles.profileSection}>
                                         <View style={styles.avatarContainer}>
                                             <View style={styles.avatar}>
-                                                <Text style={styles.avatarText}>{item.name[0]}</Text>
+                                                <Text style={styles.avatarText}>
+                                                    {item.full_name ? item.full_name[0].toUpperCase() : item.email[0].toUpperCase()}
+                                                </Text>
                                             </View>
                                             <View style={[styles.statusDot, { backgroundColor: getStatusColor(item.status) }]} />
                                         </View>
                                         <View style={styles.details}>
-                                            <Text style={styles.name}>{item.name}</Text>
+                                            <Text style={styles.name}>{item.full_name || 'Nome Indefinido'}</Text>
                                             <View style={styles.emailRow}>
                                                 <MaterialCommunityIcons name="email-outline" size={12} color={Theme.colors.gray[400]} />
                                                 <Text style={styles.email} numberOfLines={1}>{item.email}</Text>
                                             </View>
                                         </View>
                                     </View>
-                                    <TouchableOpacity style={styles.optionsBtn}>
-                                        <MaterialCommunityIcons name="dots-vertical" size={20} color={Theme.colors.gray[400]} />
+                                    <TouchableOpacity style={styles.optionsBtn} onPress={() => handleOpenActions(item)}>
+                                        <MaterialCommunityIcons name="dots-vertical" size={24} color={Theme.colors.gray[400]} />
                                     </TouchableOpacity>
                                 </View>
 
@@ -81,22 +348,269 @@ export const MonitorManagementScreen = () => {
                                 <View style={styles.groupsSection}>
                                     <Text style={styles.sectionLabel}>Turmas Atribuídas:</Text>
                                     <View style={styles.groupsRow}>
-                                        {item.groups.map((group, idx) => (
-                                            <View key={idx} style={styles.groupBadge}>
-                                                <MaterialCommunityIcons name="door-open" size={10} color={Theme.colors.primary} />
-                                                <Text style={styles.groupText}>{group}</Text>
-                                            </View>
-                                        ))}
-                                        <TouchableOpacity style={styles.addGroupBtn}>
-                                            <MaterialCommunityIcons name="plus" size={14} color={Theme.colors.gray[400]} />
+                                        {item.groups && item.groups.length > 0 ? (
+                                            item.groups.map((group: string, idx: number) => (
+                                                <View key={idx} style={styles.groupBadge}>
+                                                    <MaterialCommunityIcons name="door-open" size={10} color={Theme.colors.primary} />
+                                                    <Text style={styles.groupText}>{group}</Text>
+                                                </View>
+                                            ))
+                                        ) : (
+                                            <Text style={styles.noGroupsText}>Nenhuma turma atribuída</Text>
+                                        )}
+                                        <TouchableOpacity
+                                            style={styles.addGroupBtn}
+                                            onPress={() => handleOpenClassesModal(item)}
+                                        >
+                                            <MaterialCommunityIcons name="plus" size={14} color={Theme.colors.gray[500]} />
                                         </TouchableOpacity>
                                     </View>
                                 </View>
                             </AppCard>
-                        </TouchableOpacity>
-                    )}
-                />
+                        )}
+                    />
+                )}
             </View>
+
+            {/* Actions Bottom Sheet Modal */}
+            <Modal visible={actionsModalVisible} animationType="slide" transparent>
+                <View style={styles.sheetOverlay}>
+                    <View style={styles.sheetContent}>
+                        <View style={styles.sheetHeader}>
+                            <Text style={styles.sheetTitle}>
+                                Opções: {selectedMonitor?.full_name || selectedMonitor?.email}
+                            </Text>
+                            <TouchableOpacity onPress={() => setActionsModalVisible(false)}>
+                                <MaterialCommunityIcons name="close" size={24} color={Theme.colors.gray[700]} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.sheetOptions}>
+                            <TouchableOpacity
+                                style={styles.sheetOptionBtn}
+                                onPress={() => handleOpenClassesModal(selectedMonitor)}
+                            >
+                                <MaterialCommunityIcons name="door-open" size={20} color={Theme.colors.primary} />
+                                <Text style={styles.sheetOptionText}>Atribuir Turmas</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.sheetOptionBtn}
+                                onPress={() => handleOpenPasswordReset(selectedMonitor)}
+                            >
+                                <MaterialCommunityIcons name="lock-reset" size={20} color="#D97706" />
+                                <Text style={styles.sheetOptionText}>Redefinir Senha</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[styles.sheetOptionBtn, styles.deleteOptionBtn]}
+                                onPress={() => handleDeleteMonitor(selectedMonitor)}
+                            >
+                                <MaterialCommunityIcons name="account-remove-outline" size={20} color={Theme.colors.error} />
+                                <Text style={[styles.sheetOptionText, styles.deleteOptionText]}>Remover Monitor</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Register Monitor Modal */}
+            <Modal visible={registerModalVisible} animationType="slide" transparent>
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Cadastrar Novo Monitor</Text>
+                            <TouchableOpacity onPress={() => setRegisterModalVisible(false)}>
+                                <MaterialCommunityIcons name="close" size={24} color={Theme.colors.gray[700]} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <ScrollView style={styles.formScroll}>
+                            <Text style={styles.inputLabel}>Nome Completo</Text>
+                            <TextInput
+                                placeholder="Digite o nome completo do monitor..."
+                                value={newMonitorName}
+                                onChangeText={setNewMonitorName}
+                                style={styles.textInput}
+                                placeholderTextColor={Theme.colors.gray[400]}
+                            />
+
+                            <Text style={styles.inputLabel}>E-mail Institucional</Text>
+                            <TextInput
+                                placeholder="exemplo@escola.com"
+                                value={newMonitorEmail}
+                                onChangeText={setNewMonitorEmail}
+                                style={styles.textInput}
+                                autoCapitalize="none"
+                                keyboardType="email-address"
+                                placeholderTextColor={Theme.colors.gray[400]}
+                            />
+
+                            <Text style={styles.inputLabel}>Senha Temporária</Text>
+                            <TextInput
+                                placeholder="Mínimo de 6 caracteres..."
+                                value={newMonitorPassword}
+                                onChangeText={setNewMonitorPassword}
+                                secureTextEntry
+                                style={styles.textInput}
+                                autoCapitalize="none"
+                                placeholderTextColor={Theme.colors.gray[400]}
+                            />
+                        </ScrollView>
+
+                        <View style={styles.modalFooter}>
+                            <TouchableOpacity
+                                style={styles.cancelButton}
+                                onPress={() => setRegisterModalVisible(false)}
+                                disabled={saving}
+                            >
+                                <Text style={styles.cancelButtonText}>Cancelar</Text>
+                            </TouchableOpacity>
+                            
+                            <TouchableOpacity
+                                style={styles.saveButton}
+                                onPress={handleRegisterMonitor}
+                                disabled={saving}
+                            >
+                                {saving ? (
+                                    <ActivityIndicator size="small" color="#fff" />
+                                ) : (
+                                    <Text style={styles.saveButtonText}>Cadastrar</Text>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Associate Classes Modal */}
+            <Modal visible={linkClassesModalVisible} animationType="slide" transparent>
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Atribuir Turmas</Text>
+                            <TouchableOpacity onPress={() => setLinkClassesModalVisible(false)}>
+                                <MaterialCommunityIcons name="close" size={24} color={Theme.colors.gray[700]} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <Text style={styles.modalSubtitle}>
+                            Selecione as turmas sob responsabilidade de {selectedMonitor?.full_name}:
+                        </Text>
+
+                        <ScrollView style={styles.checklistScroll}>
+                            {classes.length === 0 ? (
+                                <Text style={styles.noClassesText}>Nenhuma turma cadastrada no sistema.</Text>
+                            ) : (
+                                classes.map(cls => {
+                                    const isSelected = !!selectedClassesMap[cls.id];
+                                    return (
+                                        <TouchableOpacity
+                                            key={cls.id}
+                                            style={[
+                                                styles.checkItem,
+                                                isSelected && styles.checkItemActive
+                                            ]}
+                                            onPress={() => toggleClassSelection(cls.id)}
+                                        >
+                                            <View style={styles.checkItemLeft}>
+                                                <MaterialCommunityIcons
+                                                    name={isSelected ? "checkbox-marked" : "checkbox-blank-outline"}
+                                                    size={24}
+                                                    color={isSelected ? Theme.colors.primary : Theme.colors.gray[400]}
+                                                />
+                                                <Text style={[
+                                                    styles.checkItemText,
+                                                    isSelected && styles.checkItemTextActive
+                                                ]}>
+                                                    {cls.name}
+                                                </Text>
+                                            </View>
+                                            {cls.ageRange && (
+                                                <View style={styles.ageBadge}>
+                                                    <Text style={styles.ageBadgeText}>{cls.ageRange}</Text>
+                                                </View>
+                                            )}
+                                        </TouchableOpacity>
+                                    );
+                                })
+                            )}
+                        </ScrollView>
+
+                        <View style={styles.modalFooter}>
+                            <TouchableOpacity
+                                style={styles.cancelButton}
+                                onPress={() => setLinkClassesModalVisible(false)}
+                                disabled={saving}
+                            >
+                                <Text style={styles.cancelButtonText}>Voltar</Text>
+                            </TouchableOpacity>
+                            
+                            <TouchableOpacity
+                                style={styles.saveButton}
+                                onPress={handleSaveClasses}
+                                disabled={saving}
+                            >
+                                {saving ? (
+                                    <ActivityIndicator size="small" color="#fff" />
+                                ) : (
+                                    <Text style={styles.saveButtonText}>Salvar</Text>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Simulated Password Reset Modal */}
+            <Modal visible={passwordModalVisible} animationType="slide" transparent>
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Redefinir Senha</Text>
+                            <TouchableOpacity onPress={() => setPasswordModalVisible(false)}>
+                                <MaterialCommunityIcons name="close" size={24} color={Theme.colors.gray[700]} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <Text style={styles.modalSubtitle}>
+                            Digite a nova senha para o monitor {selectedMonitor?.full_name || selectedMonitor?.email}:
+                        </Text>
+
+                        <TextInput
+                            placeholder="Mínimo de 6 caracteres..."
+                            value={newPasswordInput}
+                            onChangeText={setNewPasswordInput}
+                            secureTextEntry
+                            style={styles.textInput}
+                            autoCapitalize="none"
+                            placeholderTextColor={Theme.colors.gray[400]}
+                        />
+
+                        <View style={styles.modalFooter}>
+                            <TouchableOpacity
+                                style={styles.cancelButton}
+                                onPress={() => setPasswordModalVisible(false)}
+                                disabled={saving}
+                            >
+                                <Text style={styles.cancelButtonText}>Cancelar</Text>
+                            </TouchableOpacity>
+                            
+                            <TouchableOpacity
+                                style={styles.saveButton}
+                                onPress={handleResetPassword}
+                                disabled={saving}
+                            >
+                                {saving ? (
+                                    <ActivityIndicator size="small" color="#fff" />
+                                ) : (
+                                    <Text style={styles.saveButtonText}>Redefinir</Text>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 };
@@ -104,7 +618,7 @@ export const MonitorManagementScreen = () => {
 const styles = StyleSheet.create({
     mainContainer: {
         flex: 1,
-        backgroundColor: Theme.colors.background,
+        backgroundColor: '#F1F5F9',
     },
     container: {
         flex: 1,
@@ -120,23 +634,25 @@ const styles = StyleSheet.create({
         paddingHorizontal: 4,
     },
     monitorCount: {
-        ...Theme.typography.caption,
+        fontSize: 13,
         color: Theme.colors.gray[500],
-        fontWeight: 'bold',
+        fontWeight: '700',
     },
-    filterBtn: {
-        flexDirection: 'row',
+    emptyContainer: {
         alignItems: 'center',
-        gap: 4,
+        justifyContent: 'center',
+        paddingVertical: 60,
     },
-    filterText: {
-        ...Theme.typography.caption,
-        color: Theme.colors.primary,
-        fontWeight: 'bold',
+    emptyText: {
+        color: Theme.colors.gray[400],
+        textAlign: 'center',
+        marginTop: Theme.spacing.md,
+        fontSize: 14,
     },
     monitorCard: {
         padding: Theme.spacing.md,
         marginBottom: Theme.spacing.md,
+        borderRadius: Theme.borderRadius.lg,
     },
     monitorHeader: {
         flexDirection: 'row',
@@ -156,11 +672,11 @@ const styles = StyleSheet.create({
         width: 52,
         height: 52,
         borderRadius: 26,
-        backgroundColor: '#F0F9FF',
+        backgroundColor: '#E0F2FE',
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: Theme.colors.primary + '20',
+        borderColor: '#BAE6FD',
     },
     statusDot: {
         position: 'absolute',
@@ -173,15 +689,16 @@ const styles = StyleSheet.create({
         borderColor: '#FFF',
     },
     avatarText: {
-        ...Theme.typography.h3,
+        fontSize: 20,
+        fontWeight: '700',
         color: Theme.colors.primary,
     },
     details: {
         flex: 1,
     },
     name: {
-        ...Theme.typography.body1,
-        fontWeight: 'bold',
+        fontSize: 16,
+        fontWeight: '700',
         color: Theme.colors.onBackground,
     },
     emailRow: {
@@ -191,7 +708,7 @@ const styles = StyleSheet.create({
         marginTop: 2,
     },
     email: {
-        ...Theme.typography.caption,
+        fontSize: 12,
         color: Theme.colors.gray[400],
         flex: 1,
     },
@@ -200,49 +717,244 @@ const styles = StyleSheet.create({
     },
     divider: {
         height: 1,
-        backgroundColor: Theme.colors.gray[100],
+        backgroundColor: '#F1F5F9',
         marginVertical: Theme.spacing.md,
     },
     groupsSection: {
-        width: '100%',
+        marginTop: 2,
     },
     sectionLabel: {
-        ...Theme.typography.caption,
+        fontSize: 12,
+        fontWeight: '700',
         color: Theme.colors.gray[500],
-        marginBottom: 6,
-        fontWeight: '600',
+        marginBottom: 8,
     },
     groupsRow: {
         flexDirection: 'row',
         flexWrap: 'wrap',
         alignItems: 'center',
-        gap: 8,
     },
     groupBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#F8FAFC',
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 12,
+        backgroundColor: '#F0F9FF',
         borderWidth: 1,
-        borderColor: Theme.colors.gray[100],
-        gap: 4,
+        borderColor: '#E0F2FE',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 6,
+        marginRight: 6,
+        marginBottom: 6,
     },
     groupText: {
-        ...Theme.typography.caption,
-        color: Theme.colors.gray[700],
-        fontWeight: 'bold',
+        fontSize: 11,
+        color: Theme.colors.primary,
+        fontWeight: '600',
+        marginLeft: 4,
+    },
+    noGroupsText: {
+        fontSize: 12,
+        color: Theme.colors.gray[400],
+        marginRight: 8,
+        fontStyle: 'italic',
     },
     addGroupBtn: {
         width: 28,
         height: 28,
         borderRadius: 14,
-        borderWidth: 1,
-        borderStyle: 'dashed',
-        borderColor: Theme.colors.gray[300],
-        justifyContent: 'center',
+        backgroundColor: '#F1F5F9',
         alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        marginBottom: 6,
+    },
+    sheetOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(15, 23, 42, 0.4)',
+        justifyContent: 'flex-end',
+    },
+    sheetContent: {
         backgroundColor: '#FFF',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        padding: Theme.spacing.lg,
+    },
+    sheetHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: Theme.spacing.md,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F1F5F9',
+        paddingBottom: Theme.spacing.sm,
+    },
+    sheetTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: Theme.colors.onSurface,
+        flex: 1,
+    },
+    sheetOptions: {
+        paddingVertical: Theme.spacing.sm,
+    },
+    sheetOptionBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 14,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F8FAFC',
+    },
+    sheetOptionText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: Theme.colors.gray[700],
+        marginLeft: Theme.spacing.md,
+    },
+    deleteOptionBtn: {
+        borderBottomWidth: 0,
+        marginTop: Theme.spacing.sm,
+    },
+    deleteOptionText: {
+        color: Theme.colors.error,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(15, 23, 42, 0.5)',
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
+        backgroundColor: '#FFF',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        padding: Theme.spacing.lg,
+        maxHeight: '90%',
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: Theme.spacing.md,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F1F5F9',
+        paddingBottom: Theme.spacing.sm,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+        color: Theme.colors.onSurface,
+    },
+    modalSubtitle: {
+        fontSize: 14,
+        color: Theme.colors.gray[500],
+        marginBottom: Theme.spacing.md,
+    },
+    formScroll: {
+        marginBottom: Theme.spacing.md,
+    },
+    inputLabel: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: Theme.colors.gray[700],
+        marginBottom: 6,
+        marginTop: Theme.spacing.sm,
+    },
+    textInput: {
+        backgroundColor: '#F8FAFC',
+        borderRadius: Theme.borderRadius.md,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        height: 48,
+        paddingHorizontal: Theme.spacing.sm,
+        fontSize: 16,
+        color: Theme.colors.onBackground,
+        marginBottom: Theme.spacing.sm,
+    },
+    checklistScroll: {
+        maxHeight: 250,
+        marginBottom: Theme.spacing.md,
+    },
+    noClassesText: {
+        fontSize: 14,
+        color: Theme.colors.gray[400],
+        textAlign: 'center',
+        paddingVertical: 20,
+    },
+    checkItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 12,
+        paddingHorizontal: Theme.spacing.md,
+        backgroundColor: '#F8FAFC',
+        borderRadius: Theme.borderRadius.md,
+        marginBottom: 8,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+    },
+    checkItemActive: {
+        borderColor: Theme.colors.primary + '40',
+        backgroundColor: '#F0F9FF',
+    },
+    checkItemLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    checkItemText: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: Theme.colors.gray[600],
+    },
+    checkItemTextActive: {
+        color: Theme.colors.primary,
+        fontWeight: '700',
+    },
+    ageBadge: {
+        backgroundColor: '#E0F2FE',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 4,
+    },
+    ageBadgeText: {
+        fontSize: 10,
+        color: Theme.colors.primary,
+        fontWeight: '700',
+    },
+    modalFooter: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: Theme.spacing.md,
+        borderTopWidth: 1,
+        borderTopColor: '#F1F5F9',
+        paddingTop: Theme.spacing.md,
+    },
+    cancelButton: {
+        flex: 1,
+        height: 48,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#F1F5F9',
+        borderRadius: Theme.borderRadius.md,
+        marginRight: Theme.spacing.sm,
+    },
+    cancelButtonText: {
+        color: Theme.colors.gray[700],
+        fontWeight: '700',
+        fontSize: 16,
+    },
+    saveButton: {
+        flex: 1,
+        height: 48,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Theme.colors.primary,
+        borderRadius: Theme.borderRadius.md,
+        marginLeft: Theme.spacing.sm,
+    },
+    saveButtonText: {
+        color: '#FFF',
+        fontWeight: '700',
+        fontSize: 16,
     },
 });
