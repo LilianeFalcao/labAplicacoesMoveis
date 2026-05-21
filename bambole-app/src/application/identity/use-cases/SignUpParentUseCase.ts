@@ -5,6 +5,7 @@ import { User } from '@/domain/identity/entities/User';
 import { Email } from '@/domain/identity/value-objects/Email';
 import { Role } from '@/domain/identity/value-objects/Role';
 import { Guardian } from '@/domain/enrollment/entities/Guardian';
+import { generateUUID } from '@/infrastructure/utils/uuid';
 
 export class SignUpParentUseCase {
     constructor(
@@ -29,7 +30,7 @@ export class SignUpParentUseCase {
 
             // 3. Create Guardian Record
             const guardian = new Guardian(
-                crypto.randomUUID(),
+                generateUUID(),
                 authResult.id,
                 false // Default image consent
             );

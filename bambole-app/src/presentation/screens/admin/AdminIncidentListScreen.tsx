@@ -14,7 +14,7 @@ import { Theme } from '../../styles/Theme';
 import { AppHeader } from '../../components/base/AppHeader';
 import { AppCard } from '../../components/base/AppCard';
 import { Incident } from '../../../domain/activity/entities/Incident';
-import { MockIncidentRepository } from '../../../infrastructure/activity/repositories/MockIncidentRepository';
+import { SupabaseIncidentRepository } from '../../../infrastructure/activity/repositories/SupabaseIncidentRepository';
 
 export const AdminIncidentListScreen = () => {
     const [incidents, setIncidents] = useState<Incident[]>([]);
@@ -23,8 +23,8 @@ export const AdminIncidentListScreen = () => {
     const loadIncidents = async () => {
         setRefreshing(true);
         try {
-            const repository = MockIncidentRepository.getInstance();
-            const data = await repository.getAll();
+            const repository = new SupabaseIncidentRepository();
+            const data = await repository.findAll();
             setIncidents(data);
         } catch (error) {
             console.error("Failed to load incidents", error);

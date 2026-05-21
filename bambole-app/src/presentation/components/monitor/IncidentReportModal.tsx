@@ -17,7 +17,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Theme } from '../../styles/Theme';
 import { AppButton } from '../base/AppButton';
 import { Incident } from '../../../domain/activity/entities/Incident';
-import { MockIncidentRepository } from '../../../infrastructure/activity/repositories/MockIncidentRepository';
+import { SupabaseIncidentRepository } from '../../../infrastructure/activity/repositories/SupabaseIncidentRepository';
 
 interface IncidentReportModalProps {
     visible: boolean;
@@ -90,7 +90,7 @@ export const IncidentReportModal: React.FC<IncidentReportModalProps> = ({ visibl
                 monitorId,
             });
 
-            await MockIncidentRepository.getInstance().save(incident);
+            await new SupabaseIncidentRepository().save(incident);
 
             Alert.alert('Sucesso', 'Relatório enviado com sucesso!');
             resetAndClose();

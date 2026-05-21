@@ -74,6 +74,19 @@ export class OfflineSyncService {
                         .upsert(payload);
                     
                     if (!error) success = true;
+                } else if (item.action_type === 'ADD_ACTIVITY') {
+                    const { error } = await supabase
+                        .from('class_activities')
+                        .upsert(payload);
+                    
+                    if (!error) success = true;
+                } else if (item.action_type === 'UPDATE_ACTIVITY_STATUS') {
+                    const { error } = await supabase
+                        .from('class_activities')
+                        .update({ status: payload.status })
+                        .eq('id', payload.id);
+                    
+                    if (!error) success = true;
                 }
 
                 if (success) {
@@ -81,6 +94,14 @@ export class OfflineSyncService {
                         "UPDATE sync_queue SET status = 'completed' WHERE id = ?",
                         [item.id]
                     );
+
+                    // Mark local cached activity as synced = 1
+                    if (item.action_type === 'ADD_ACTIVITY' || item.action_type === 'UPDATE_ACTIVITY_STATUS') {
+                        await this.storage.run(
+                            'UPDATE class_activities SET synced = 1 WHERE id = ?',
+                            [payload.id]
+                        );
+                    }
                 } else {
                     await this.storage.run(
                         "UPDATE sync_queue SET retry_count = retry_count + 1 WHERE id = ?",
@@ -112,6 +133,33 @@ export class OfflineSyncService {
                 await this.storage.run(
                     'UPDATE attendance SET synced = 1 WHERE id = ?',
                     [record.id]
+                );
+            }
+        }
+
+        // Also sync unsynced class_activities if any
+        const unsyncedActivities = await this.storage.query<any>(
+            'SELECT * FROM class_activities WHERE synced = 0'
+        );
+
+        for (const activity of unsyncedActivities) {
+            const { error } = await supabase
+                .from('class_activities')
+                .upsert({
+                    id: activity.id,
+                    class_id: activity.class_id,
+                    start_time: activity.start_time,
+                    end_time: activity.end_time,
+                    title: activity.title,
+                    description: activity.description,
+                    status: activity.status,
+                    category: activity.category
+                });
+
+            if (!error) {
+                await this.storage.run(
+                    'UPDATE class_activities SET synced = 1 WHERE id = ?',
+                    [activity.id]
                 );
             }
         }

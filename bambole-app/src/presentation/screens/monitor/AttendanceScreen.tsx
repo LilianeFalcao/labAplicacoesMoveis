@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { AppHeader } from '../../components/base/AppHeader';
@@ -14,9 +14,12 @@ import { ClassDashboardTabsParamList } from '../../navigation/types';
 import { SupabaseChildRepository } from '@/infrastructure/enrollment/repositories/SupabaseChildRepository';
 import { TakeAttendanceUseCase } from '@/application/attendance/use-cases/TakeAttendanceUseCase';
 import { SupabaseAttendanceRepository } from '@/infrastructure/attendance/repositories/SupabaseAttendanceRepository';
-import { MockClassRepository } from '@/infrastructure/activity/repositories/MockClassRepository';
+import { SupabaseClassRepository } from '@/infrastructure/activity/repositories/SupabaseClassRepository';
+import { MockAgendaRepository, ClassActivity } from '@/infrastructure/activity/repositories/MockAgendaRepository';
 import { ConnectivityService, ConnectivityStatus } from '@/infrastructure/network/ConnectivityService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { RECREATION_CENTER_LOCATION, MAX_ALLOWED_DISTANCE_METERS } from '@/infrastructure/location/config';
+import { getDistanceHaversine } from '@/infrastructure/location/distance';
 
 type AttendanceRouteProp = RouteProp<ClassDashboardTabsParamList, 'Attendance'>;
 type AttendanceNavigationProp = StackNavigationProp<any>;
@@ -35,6 +38,50 @@ export const AttendanceScreen = () => {
     const [submitting, setSubmitting] = useState(false);
     const [isSummaryModalVisible, setIsSummaryModalVisible] = useState(false);
     const [connectionStatus, setConnectionStatus] = useState<ConnectivityStatus>('online');
+    const [activities, setActivities] = useState<ClassActivity[]>([]);
+    const [selectedActivity, setSelectedActivity] = useState<ClassActivity | null>(null);
+    const [loadingActivities, setLoadingActivities] = useState(true);
+
+    const detectOngoingActivity = (activitiesList: ClassActivity[]): ClassActivity | null => {
+        const now = new Date();
+        const currentH = now.getHours();
+        const currentM = now.getMinutes();
+        const currentTotal = currentH * 60 + currentM;
+
+        for (const act of activitiesList) {
+            const [sh, sm] = act.startTime.split(':').map(Number);
+            const [eh, em] = act.endTime.split(':').map(Number);
+            const startTotal = sh * 60 + sm;
+            const endTotal = eh * 60 + em;
+
+            if (currentTotal >= startTotal && currentTotal <= endTotal) {
+                return act;
+            }
+        }
+        
+        const ongoing = activitiesList.find(a => a.status === 'ongoing');
+        if (ongoing) return ongoing;
+
+        return null;
+    };
+
+    const loadActivities = async () => {
+        try {
+            setLoadingActivities(true);
+            const repo = MockAgendaRepository.getInstance();
+            const list = await repo.findByClass(classId);
+            
+            const sorted = list.sort((a, b) => a.startTime.localeCompare(b.startTime));
+            setActivities(sorted);
+
+            const ongoing = detectOngoingActivity(sorted);
+            setSelectedActivity(ongoing);
+        } catch (err) {
+            console.error('Failed to load activities', err);
+        } finally {
+            setLoadingActivities(false);
+        }
+    };
 
     useEffect(() => {
         const connectivity = ConnectivityService.getInstance();
@@ -42,6 +89,7 @@ export const AttendanceScreen = () => {
         connectivity.addListener(listener);
         
         loadStudents();
+        loadActivities();
 
         return () => connectivity.removeListener(listener);
     }, [classId]);
@@ -54,7 +102,9 @@ export const AttendanceScreen = () => {
                 id: s.id, 
                 name: s.name, 
                 status: 'present',
-                medicalAlerts: (s as any).medicalAlerts 
+                medicalAlerts: (s as any).medicalAlerts,
+                hasImageConsent: s.hasImageConsent,
+                photoUrl: s.photoUrl
             })));
         } catch (err) {
             console.error('Failed to load students', err);
@@ -87,20 +137,44 @@ export const AttendanceScreen = () => {
         setIsSummaryModalVisible(false);
         setSubmitting(true);
         try {
-            let geo = undefined;
-            
-            // Only try location if online to avoid timeout issues in deep offline
-            if (connectionStatus === 'online') {
-                const { status } = await Location.requestForegroundPermissionsAsync();
-                if (status === 'granted') {
-                    const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-                    geo = { lat: location.coords.latitude, lng: location.coords.longitude };
-                }
+            if (connectionStatus !== 'online') {
+                Alert.alert(
+                    'Indisponível',
+                    'Você precisa estar conectado à internet (Online) e no Centro Recreativo para realizar a chamada.'
+                );
+                setSubmitting(false);
+                return;
+            }
+
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert('Erro', 'Permissão de localização é necessária para realizar a chamada.');
+                setSubmitting(false);
+                return;
+            }
+
+            const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+            const geo = { lat: location.coords.latitude, lng: location.coords.longitude };
+
+            const distance = getDistanceHaversine(
+                geo.lat,
+                geo.lng,
+                RECREATION_CENTER_LOCATION.latitude,
+                RECREATION_CENTER_LOCATION.longitude
+            );
+
+            if (distance > MAX_ALLOWED_DISTANCE_METERS) {
+                Alert.alert(
+                    'Fora do Limite',
+                    `Você está a ${Math.round(distance)}m do Centro Recreativo. A chamada só pode ser realizada de dentro do limite físico (200m).`
+                );
+                setSubmitting(false);
+                return;
             }
 
             const useCase = new TakeAttendanceUseCase(
                 new SupabaseAttendanceRepository(),
-                MockClassRepository.getInstance()
+                new SupabaseClassRepository()
             );
 
             await useCase.execute(
@@ -111,14 +185,13 @@ export const AttendanceScreen = () => {
                     childId: s.id,
                     status: s.status,
                     geolocation: s.status === 'present' ? geo : undefined
-                }))
+                })),
+                selectedActivity?.id
             );
 
             Alert.alert(
-                connectionStatus === 'online' ? 'Sucesso' : 'Salvo Localmente',
-                connectionStatus === 'online' 
-                    ? 'Chamada realizada com sucesso!' 
-                    : 'Você está offline. A chamada foi salva e será sincronizada assim que a conexão voltar.',
+                'Sucesso',
+                'Chamada realizada com sucesso!',
                 [{ text: 'OK', onPress: () => navigation.goBack() }]
             );
         } catch (err: any) {
@@ -140,7 +213,7 @@ export const AttendanceScreen = () => {
 
     if (!classId) {
         return (
-            <SafeAreaView style={styles.mainContainer} edges={['left', 'right', 'bottom']}>
+            <SafeAreaView style={styles.mainContainer} edges={['left', 'right']}>
                 <AppHeader title="Erro" showBack onBack={() => navigation.goBack()} />
                 <View style={styles.center}>
                     <Text>Erro: Turma não selecionada ou contexto perdido.</Text>
@@ -161,7 +234,7 @@ export const AttendanceScreen = () => {
     const absentCount = students.length - presentCount;
 
     return (
-        <SafeAreaView style={styles.mainContainer} edges={['left', 'right', 'bottom']}>
+        <SafeAreaView style={styles.mainContainer} edges={['left', 'right']}>
             <AppHeader
                 title="Chamada da Turma"
                 showBack
@@ -183,18 +256,122 @@ export const AttendanceScreen = () => {
                     </TouchableOpacity>
                 </View>
 
+                {/* Dynamic Agenda Activities Carousel */}
+                <View style={styles.carouselContainer}>
+                    <Text style={styles.carouselTitle}>Vincular Chamada a Atividade de Hoje</Text>
+                    <FlatList
+                        horizontal
+                        data={[{ id: 'default', title: 'Padrão / Geral', category: 'general' } as any, ...activities]}
+                        keyExtractor={item => item.id}
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.carouselScroll}
+                        renderItem={({ item }) => {
+                            const isSelected = item.id === 'default' ? selectedActivity === null : selectedActivity?.id === item.id;
+                            const isOngoing = item.status === 'ongoing';
+                            
+                            let bgActive = '#E0F2FE'; 
+                            let textActive = '#0369A1';
+                            let iconName: any = 'calendar';
+
+                            if (item.category === 'activity') {
+                                bgActive = '#E0F2FE'; 
+                                textActive = '#0369A1';
+                                iconName = 'calendar-clock';
+                            } else if (item.category === 'meal') {
+                                bgActive = '#FEF3C7'; 
+                                textActive = '#D97706';
+                                iconName = 'food-fork-drink';
+                            } else if (item.category === 'break') {
+                                bgActive = '#F3E8FF'; 
+                                textActive = '#7C3AED';
+                                iconName = 'coffee';
+                            }
+
+                            return (
+                                <TouchableOpacity
+                                    activeOpacity={0.8}
+                                    onPress={() => setSelectedActivity(item.id === 'default' ? null : item)}
+                                    style={[
+                                        styles.carouselCard,
+                                        isSelected && {
+                                            borderColor: textActive,
+                                            backgroundColor: bgActive,
+                                            shadowColor: textActive,
+                                            shadowOffset: { width: 0, height: 4 },
+                                            shadowOpacity: 0.15,
+                                            shadowRadius: 6,
+                                            elevation: 3
+                                        },
+                                        isOngoing && !isSelected && {
+                                            borderStyle: 'dashed',
+                                            borderColor: Theme.colors.primary,
+                                        }
+                                    ]}
+                                >
+                                    <View style={styles.carouselCardHeader}>
+                                        <View style={[
+                                            styles.iconContainer,
+                                            { backgroundColor: isSelected ? '#FFF' : Theme.colors.gray[100] }
+                                        ]}>
+                                            <MaterialCommunityIcons
+                                                name={iconName}
+                                                size={16}
+                                                color={isSelected ? textActive : Theme.colors.gray[500]}
+                                            />
+                                        </View>
+                                        {isOngoing && (
+                                            <View style={styles.ongoingBadge}>
+                                                <Text style={styles.ongoingBadgeText}>AGORA</Text>
+                                            </View>
+                                        )}
+                                    </View>
+                                    <Text 
+                                        style={[
+                                            styles.activityTitle,
+                                            isSelected && { color: textActive, fontWeight: '700' }
+                                        ]}
+                                        numberOfLines={1}
+                                    >
+                                        {item.title}
+                                    </Text>
+                                    <Text 
+                                        style={[
+                                            styles.activityTime,
+                                            isSelected && { color: textActive }
+                                        ]}
+                                    >
+                                        {item.id === 'default' ? 'Horário Padrão' : `${item.startTime} - ${item.endTime}`}
+                                    </Text>
+                                </TouchableOpacity>
+                            );
+                        }}
+                    />
+                </View>
+
+                {/* List Header Section */}
+                <View style={styles.listHeaderSection}>
+                    <Text style={styles.listHeaderTitle}>Alunos da Turma</Text>
+                    <View style={styles.countBadge}>
+                        <Text style={styles.countBadgeText}>{students.length} Total</Text>
+                    </View>
+                </View>
+
                 <FlatList
                     data={students}
                     keyExtractor={item => item.id}
-                    contentContainerStyle={styles.listContent}
+                    contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 130 }]}
                     showsVerticalScrollIndicator={false}
                     renderItem={({ item }) => (
                         <AppCard style={styles.studentCard}>
                             <View style={styles.studentInfo}>
                                 <View style={[styles.avatar, { backgroundColor: item.status === 'present' ? Theme.colors.status.present.bg : Theme.colors.gray[100] }]}>
-                                    <Text style={[styles.avatarText, { color: item.status === 'present' ? Theme.colors.status.present.text : Theme.colors.gray[400] }]}>
-                                        {item.name.value[0]}
-                                    </Text>
+                                    {item.photoUrl ? (
+                                        <Image source={{ uri: item.photoUrl }} style={styles.avatarImage} />
+                                    ) : (
+                                        <Text style={[styles.avatarText, { color: item.status === 'present' ? Theme.colors.status.present.text : Theme.colors.gray[400] }]}>
+                                            {item.name.value[0]}
+                                        </Text>
+                                    )}
                                 </View>
                                 <View style={styles.nameContainer}>
                                     <View style={styles.nameRow}>
@@ -209,6 +386,7 @@ export const AttendanceScreen = () => {
                                                 />
                                             </TouchableOpacity>
                                         )}
+
                                     </View>
                                     <Text style={styles.statusLabel}>
                                         {item.status === 'present' ? 'Presente' : 'Ausente'}
@@ -246,7 +424,7 @@ export const AttendanceScreen = () => {
                 />
             </View>
 
-            <View style={styles.footer}>
+            <View style={[styles.footer, { bottom: insets.bottom + 16 }]}>
                 <View style={styles.progressSection}>
                     <Text style={styles.progressText}>
                         {presentCount} de {students.length} marcados
@@ -255,7 +433,7 @@ export const AttendanceScreen = () => {
                         <View
                             style={[
                                 styles.progressBarFill,
-                                { width: `${(presentCount / students.length) * 100}%` }
+                                { width: `${students.length > 0 ? (presentCount / students.length) * 100 : 0}%` }
                             ]}
                         />
                     </View>
@@ -277,13 +455,14 @@ export const AttendanceScreen = () => {
                 presentCount={presentCount}
                 absentCount={absentCount}
                 loading={submitting}
+                selectedActivity={selectedActivity}
             />
         </SafeAreaView>
     );
 };
 
 // Internal Modal Component for simplicity
-const AttendanceSummaryModal = ({ isVisible, onClose, onConfirm, presentCount, absentCount, loading }: any) => {
+const AttendanceSummaryModal = ({ isVisible, onClose, onConfirm, presentCount, absentCount, loading, selectedActivity }: any) => {
     if (!isVisible) return null;
 
     return (
@@ -292,6 +471,17 @@ const AttendanceSummaryModal = ({ isVisible, onClose, onConfirm, presentCount, a
                 <MaterialCommunityIcons name="clipboard-check-outline" size={48} color={Theme.colors.primary} style={styles.modalIcon} />
                 <Text style={styles.modalTitle}>Resumo da Chamada</Text>
                 <Text style={styles.modalSubtitle}>Confira os totais antes de finalizar</Text>
+
+                <View style={styles.modalActivityLabelContainer}>
+                    <MaterialCommunityIcons 
+                        name={selectedActivity ? 'calendar-clock' : 'calendar'} 
+                        size={16} 
+                        color={Theme.colors.gray[500]} 
+                    />
+                    <Text style={styles.modalActivityLabelText}>
+                        Vínculo: <Text style={{ fontWeight: '700', color: Theme.colors.onBackground }}>{selectedActivity ? selectedActivity.title : 'Horário Padrão (Geral)'}</Text>
+                    </Text>
+                </View>
 
                 <View style={styles.summaryGrid}>
                     <View style={[styles.summaryBox, { backgroundColor: '#DCFCE7' }]}>
@@ -343,7 +533,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: Theme.spacing.md,
-        paddingVertical: Theme.spacing.lg,
+        paddingVertical: Theme.spacing.md,
         backgroundColor: '#FFF',
         borderBottomWidth: 1,
         borderBottomColor: Theme.colors.gray[100],
@@ -410,6 +600,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginRight: Theme.spacing.md,
     },
+    avatarImage: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 22,
+    },
     avatarText: {
         ...Theme.typography.body1,
         fontWeight: 'bold',
@@ -432,9 +627,9 @@ const styles = StyleSheet.create({
         gap: Theme.spacing.sm,
     },
     toggleBtn: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         borderWidth: 1,
         borderColor: Theme.colors.gray[200],
         justifyContent: 'center',
@@ -450,33 +645,46 @@ const styles = StyleSheet.create({
         borderColor: Theme.colors.error,
     },
     footer: {
-        padding: Theme.spacing.md,
-        backgroundColor: '#FFF',
-        borderTopWidth: 1,
-        borderTopColor: Theme.colors.gray[100],
+        position: 'absolute',
+        left: 16,
+        right: 16,
+        // bottom is set inline via insets to avoid StyleSheet dynamic values
+        backgroundColor: 'rgba(255,255,255,0.97)',
+        borderRadius: 24,
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        elevation: 12,
+        shadowColor: Theme.colors.primary,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.15,
+        shadowRadius: 20,
+        borderWidth: 1,
+        borderColor: Theme.colors.gray[100],
     },
     progressSection: {
-        marginBottom: Theme.spacing.md,
+        marginBottom: 12,
     },
     progressText: {
         ...Theme.typography.caption,
         fontWeight: 'bold',
-        color: Theme.colors.onBackground,
-        marginBottom: 8,
+        color: Theme.colors.gray[600],
+        marginBottom: 6,
     },
     progressBarBg: {
-        height: 6,
+        height: 4,
         backgroundColor: Theme.colors.gray[100],
-        borderRadius: 3,
+        borderRadius: 2,
         overflow: 'hidden',
     },
     progressBarFill: {
         height: '100%',
         backgroundColor: Theme.colors.primary,
-        borderRadius: 3,
+        borderRadius: 2,
     },
     submitBtn: {
-        height: 56,
+        height: 48,
+        minHeight: 48,
+        paddingVertical: 0,
     },
     flex1: { flex: 1 },
     bulkActionBtn: {
@@ -588,4 +796,117 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: '#FFF',
     },
+    carouselContainer: {
+        backgroundColor: Theme.colors.background,
+        paddingTop: 12,
+        paddingBottom: 8,
+        borderBottomWidth: 0,
+    },
+    carouselTitle: {
+        ...Theme.typography.caption,
+        fontWeight: '700',
+        color: Theme.colors.gray[500],
+        textTransform: 'uppercase',
+        letterSpacing: 0.8,
+        paddingHorizontal: Theme.spacing.md,
+        marginBottom: 10,
+    },
+    carouselScroll: {
+        paddingHorizontal: Theme.spacing.md,
+        gap: 12,
+        paddingBottom: 4,
+    },
+    carouselCard: {
+        backgroundColor: '#FFF',
+        borderColor: Theme.colors.gray[200],
+        borderWidth: 1.5,
+        borderRadius: 16,
+        padding: 12,
+        width: 145,
+        justifyContent: 'space-between',
+        height: 96,
+    },
+    carouselCardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    iconContainer: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    ongoingBadge: {
+        backgroundColor: Theme.colors.primary,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 8,
+    },
+    ongoingBadgeText: {
+        fontSize: 8,
+        fontWeight: '800',
+        color: '#FFF',
+        letterSpacing: 0.5,
+    },
+    activityTitle: {
+        ...Theme.typography.caption,
+        fontSize: 13,
+        fontWeight: '600',
+        color: Theme.colors.onBackground,
+        marginTop: 6,
+    },
+    activityTime: {
+        fontSize: 10,
+        fontWeight: '500',
+        color: Theme.colors.gray[400],
+        marginTop: 2,
+    },
+    modalActivityLabelContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Theme.colors.gray[50],
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 10,
+        gap: 6,
+        marginBottom: 16,
+        width: '100%',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: Theme.colors.gray[200],
+    },
+    modalActivityLabelText: {
+        ...Theme.typography.caption,
+        color: Theme.colors.gray[600],
+    },
+    listHeaderSection: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: Theme.spacing.md,
+        paddingTop: 16,
+        paddingBottom: 8,
+        backgroundColor: Theme.colors.background,
+    },
+    listHeaderTitle: {
+        ...Theme.typography.caption,
+        fontWeight: '700',
+        color: Theme.colors.gray[500],
+        textTransform: 'uppercase',
+        letterSpacing: 0.8,
+    },
+    countBadge: {
+        backgroundColor: Theme.colors.gray[200],
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 10,
+    },
+    countBadgeText: {
+        fontSize: 10,
+        fontWeight: '700',
+        color: Theme.colors.gray[600],
+    },
 });
+

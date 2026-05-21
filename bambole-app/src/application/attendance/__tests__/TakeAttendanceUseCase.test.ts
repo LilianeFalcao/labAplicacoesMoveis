@@ -3,6 +3,7 @@ import { IAttendanceRepository } from '@/domain/attendance/repositories/IAttenda
 import { IClassRepository } from '@/domain/activity/repositories/IClassRepository';
 import { AttendanceRecord } from '@/domain/attendance/entities/AttendanceRecord';
 import { Class, WeeklySchedule } from '@/domain/activity/entities/Class';
+import { MockAgendaRepository } from '@/infrastructure/activity/repositories/MockAgendaRepository';
 
 describe('TakeAttendanceUseCase', () => {
     let mockAttendanceRepo: jest.Mocked<IAttendanceRepository>;
@@ -47,8 +48,9 @@ describe('TakeAttendanceUseCase', () => {
         await expect(useCase.execute('cl1', 'm1', new Date(), [])).rejects.toThrow('Class not found');
     });
 
-    it('should throw error if outside schedule', async () => {
+    it('should throw error if outside schedule (spy overrides tolerance)', async () => {
         const mockClass = new Class('cl1', 'Turma A', new WeeklySchedule(['MON'], '14:00', '17:00'));
+        // Mock returns false regardless of toleranceMinutes — keeps test hermetic
         jest.spyOn(mockClass, 'isCallAllowedNow').mockReturnValue(false);
         mockClassRepo.findById.mockResolvedValue(mockClass);
 
@@ -64,5 +66,59 @@ describe('TakeAttendanceUseCase', () => {
         mockClassRepo.findById.mockResolvedValue(mockClass);
 
         await expect(useCase.execute(classId, 'm1', date, students)).rejects.toThrow('Geolocation required for present student c1');
+    });
+
+    it('should take attendance successfully within a dynamically registered activity schedule', async () => {
+        const classId = 'cl1';
+        const monitorId = 'm1';
+        const date = new Date('2026-03-23T10:15:00'); // 10:15 is within 10:00 - 11:00 schedule
+        const students = [
+            { childId: 'c1', status: 'present' as const, geolocation: { lat: 1, lng: 2 } },
+        ];
+
+        const mockClass = new Class(classId, 'Turma A', new WeeklySchedule(['MON'], '14:00', '17:00'));
+        mockClassRepo.findById.mockResolvedValue(mockClass);
+
+        const mockActivity = {
+            id: 'act1',
+            classId: 'cl1',
+            startTime: '10:00',
+            endTime: '11:00',
+            title: 'Dynamic Activity',
+            status: 'ongoing' as const,
+            category: 'activity' as const
+        };
+        const agendaRepo = MockAgendaRepository.getInstance();
+        jest.spyOn(agendaRepo, 'findByClass').mockResolvedValue([mockActivity]);
+
+        await useCase.execute(classId, monitorId, date, students, 'act1');
+
+        expect(mockAttendanceRepo.save).toHaveBeenCalledTimes(1);
+    });
+
+    it('should throw error if outside the dynamically registered activity schedule', async () => {
+        const classId = 'cl1';
+        const monitorId = 'm1';
+        const date = new Date('2026-03-23T12:00:00'); // 12:00 is outside 10:00 - 11:00 (even with 30-min buffer)
+        const students = [
+            { childId: 'c1', status: 'present' as const, geolocation: { lat: 1, lng: 2 } },
+        ];
+
+        const mockClass = new Class(classId, 'Turma A', new WeeklySchedule(['MON'], '14:00', '17:00'));
+        mockClassRepo.findById.mockResolvedValue(mockClass);
+
+        const mockActivity = {
+            id: 'act1',
+            classId: 'cl1',
+            startTime: '10:00',
+            endTime: '11:00',
+            title: 'Dynamic Activity',
+            status: 'ongoing' as const,
+            category: 'activity' as const
+        };
+        const agendaRepo = MockAgendaRepository.getInstance();
+        jest.spyOn(agendaRepo, 'findByClass').mockResolvedValue([mockActivity]);
+
+        await expect(useCase.execute(classId, monitorId, date, students, 'act1')).rejects.toThrow('Attendance outside schedule');
     });
 });

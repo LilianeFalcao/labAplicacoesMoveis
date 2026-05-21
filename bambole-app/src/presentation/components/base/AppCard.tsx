@@ -1,5 +1,7 @@
+import React from 'react';
 import { View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
-import { Theme } from '../../styles/Theme';
+import { ThemeType } from '../../styles/Theme';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface AppCardProps {
     children: React.ReactNode;
@@ -7,6 +9,9 @@ interface AppCardProps {
 }
 
 export const AppCard: React.FC<AppCardProps> = ({ children, style }) => {
+    const { colors, activeTheme, isDark } = useTheme();
+    const styles = createStyles(colors, activeTheme, isDark);
+
     return (
         <View style={[styles.card, style]}>
             {children}
@@ -14,14 +19,14 @@ export const AppCard: React.FC<AppCardProps> = ({ children, style }) => {
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeType['colors'], theme: ThemeType, isDark: boolean) => StyleSheet.create({
     card: {
-        backgroundColor: Theme.colors.surface,
-        borderRadius: Theme.roundness,
-        padding: Theme.spacing.lg,
+        backgroundColor: colors.surface,
+        borderRadius: theme.roundness,
+        padding: theme.spacing.lg,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
+        shadowOpacity: isDark ? 0.3 : 0.05,
         shadowRadius: 12,
         elevation: 5,
     },

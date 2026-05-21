@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Theme } from '../../styles/Theme';
+import { ThemeType } from '../../styles/Theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigation } from '@react-navigation/native';
@@ -13,6 +14,8 @@ export const MonitorProfileScreen = () => {
     const { user, signOut, profilePhotoUri, updateProfilePhoto } = useAuth();
     const navigation = useNavigation<any>();
     const insets = useSafeAreaInsets();
+    const { colors, activeTheme, isDark } = useTheme();
+    const styles = createStyles(colors, activeTheme, isDark);
     const [isCaptureModalVisible, setCaptureModalVisible] = useState(false);
 
     const menuItems = [
@@ -34,10 +37,10 @@ export const MonitorProfileScreen = () => {
 
     return (
         <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
-            <View style={[styles.header, { paddingTop: Math.max(insets.top, Theme.spacing.md) }]}>
+            <View style={[styles.header, { paddingTop: Math.max(insets.top, activeTheme.spacing.md) }]}>
                 <Text style={styles.headerTitle}>Meu Perfil</Text>
                 <TouchableOpacity onPress={signOut} style={styles.logoutButton}>
-                    <MaterialCommunityIcons name="logout" size={20} color={Theme.colors.error} />
+                    <MaterialCommunityIcons name="logout" size={20} color={colors.error} />
                 </TouchableOpacity>
             </View>
 
@@ -71,13 +74,15 @@ export const MonitorProfileScreen = () => {
                         icon="image-multiple" 
                         value="12" 
                         label="Fotos Hoje" 
-                        color={Theme.colors.primary} 
+                        color={colors.primary} 
+                        styles={styles}
                     />
                     <StatsCard 
                         icon="clipboard-check" 
                         value="4" 
                         label="Chamadas" 
                         color="#10B981" 
+                        styles={styles}
                     />
                 </View>
 
@@ -97,7 +102,7 @@ export const MonitorProfileScreen = () => {
                                     </View>
                                     <Text style={styles.menuLabel}>{item.title}</Text>
                                 </View>
-                                <MaterialCommunityIcons name="chevron-right" size={20} color={Theme.colors.gray[300]} />
+                                <MaterialCommunityIcons name="chevron-right" size={20} color={colors.gray[300]} />
                             </AppCard>
                         </TouchableOpacity>
                     ))}
@@ -117,7 +122,7 @@ export const MonitorProfileScreen = () => {
     );
 };
 
-const StatsCard = ({ icon, value, label, color }: any) => (
+const StatsCard = ({ icon, value, label, color, styles }: any) => (
     <AppCard style={styles.statsCard}>
         <View style={[styles.statsIconBox, { backgroundColor: `${color}15` }]}>
             <MaterialCommunityIcons name={icon} size={20} color={color} />
@@ -127,34 +132,34 @@ const StatsCard = ({ icon, value, label, color }: any) => (
     </AppCard>
 );
 
-const styles = StyleSheet.create({
-    safeArea: { flex: 1, backgroundColor: Theme.colors.background },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Theme.spacing.lg, paddingBottom: Theme.spacing.md },
-    headerTitle: { ...Theme.typography.h3, color: Theme.colors.onBackground },
+const createStyles = (colors: ThemeType['colors'], theme: ThemeType, isDark: boolean) => StyleSheet.create({
+    safeArea: { flex: 1, backgroundColor: colors.background },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: theme.spacing.lg, paddingBottom: theme.spacing.md },
+    headerTitle: { ...theme.typography.h3, color: colors.onBackground },
     logoutButton: { padding: 4 },
     container: { flex: 1 },
-    scrollContent: { padding: Theme.spacing.lg, alignItems: 'center' },
-    profileHeader: { alignItems: 'center', marginBottom: Theme.spacing.xl },
+    scrollContent: { padding: theme.spacing.lg, alignItems: 'center' },
+    profileHeader: { alignItems: 'center', marginBottom: theme.spacing.xl },
     avatarWrapper: { marginBottom: 16 },
-    avatarCircle: { width: 100, height: 100, borderRadius: 50, backgroundColor: Theme.colors.primary, justifyContent: 'center', alignItems: 'center', borderWidth: 4, borderColor: '#E0F2FE', overflow: 'hidden' },
+    avatarCircle: { width: 100, height: 100, borderRadius: 50, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', borderWidth: 4, borderColor: isDark ? colors.gray[100] : '#E0F2FE', overflow: 'hidden' },
     avatarImage: { width: '100%', height: '100%' },
-    cameraBadge: { position: 'absolute', bottom: 0, right: 0, width: 32, height: 32, borderRadius: 16, backgroundColor: Theme.colors.primary, borderWidth: 3, borderColor: '#FFF', justifyContent: 'center', alignItems: 'center' },
-    userName: { ...Theme.typography.h2, color: Theme.colors.onBackground, textTransform: 'capitalize' },
-    roleTag: { backgroundColor: '#F0F9FF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, marginTop: 4 },
-    roleText: { ...Theme.typography.caption, color: Theme.colors.primary, fontWeight: 'bold' },
-    userEmail: { ...Theme.typography.body2, color: Theme.colors.gray[500], marginTop: 4 },
-    menuSection: { width: '100%', marginTop: Theme.spacing.md },
-    menuItemWrapper: { marginBottom: Theme.spacing.sm },
-    menuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: Theme.spacing.md },
+    cameraBadge: { position: 'absolute', bottom: 0, right: 0, width: 32, height: 32, borderRadius: 16, backgroundColor: colors.primary, borderWidth: 3, borderColor: colors.surface, justifyContent: 'center', alignItems: 'center' },
+    userName: { ...theme.typography.h2, color: colors.onBackground, textTransform: 'capitalize' },
+    roleTag: { backgroundColor: isDark ? colors.gray[100] : '#F0F9FF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, marginTop: 4 },
+    roleText: { ...theme.typography.caption, color: colors.primary, fontWeight: 'bold' },
+    userEmail: { ...theme.typography.body2, color: colors.gray[500], marginTop: 4 },
+    menuSection: { width: '100%', marginTop: theme.spacing.md },
+    menuItemWrapper: { marginBottom: theme.spacing.sm },
+    menuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: theme.spacing.md },
     menuLeft: { flexDirection: 'row', alignItems: 'center' },
     iconBox: { width: 40, height: 40, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
-    menuLabel: { ...Theme.typography.body1, fontWeight: '600', color: Theme.colors.onBackground },
-    sectionLabel: { ...Theme.typography.caption, fontWeight: 'bold', color: Theme.colors.gray[400], marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 },
-    statsSection: { flexDirection: 'row', gap: 12, width: '100%', marginBottom: Theme.spacing.xl },
+    menuLabel: { ...theme.typography.body1, fontWeight: '600', color: colors.onBackground },
+    sectionLabel: { ...theme.typography.caption, fontWeight: 'bold', color: colors.gray[400], marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 },
+    statsSection: { flexDirection: 'row', gap: 12, width: '100%', marginBottom: theme.spacing.xl },
     statsCard: { flex: 1, alignItems: 'center', padding: 16 },
     statsIconBox: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
-    statsValue: { ...Theme.typography.h3, color: Theme.colors.onBackground },
-    statsLabel: { ...Theme.typography.caption, color: Theme.colors.gray[500] },
-    logoutLink: { marginTop: Theme.spacing.xl, paddingVertical: 12 },
-    logoutText: { ...Theme.typography.body2, color: Theme.colors.error, fontWeight: 'bold' },
+    statsValue: { ...theme.typography.h3, color: colors.onBackground },
+    statsLabel: { ...theme.typography.caption, color: colors.gray[500] },
+    logoutLink: { marginTop: theme.spacing.xl, paddingVertical: 12 },
+    logoutText: { ...theme.typography.body2, color: colors.error, fontWeight: 'bold' },
 });

@@ -1,5 +1,5 @@
 import { supabase } from '../../supabase/client';
-import { IClassRepository } from '@/domain/activity/repositories/IClassRepository';
+import { IClassRepository, MonitorClassAssignment } from '@/domain/activity/repositories/IClassRepository';
 import { Class, WeeklySchedule } from '@/domain/activity/entities/Class';
 
 export class SupabaseClassRepository implements IClassRepository {
@@ -76,6 +76,29 @@ export class SupabaseClassRepository implements IClassRepository {
             });
 
         if (error) throw error;
+    }
+
+    async assignClassesToMonitor(monitorId: string, assignments: MonitorClassAssignment[]): Promise<void> {
+        const { error: deleteError } = await supabase
+            .from('monitor_activities')
+            .delete()
+            .eq('monitor_id', monitorId);
+
+        if (deleteError) throw deleteError;
+
+        if (assignments.length === 0) return;
+
+        const insertData = assignments.map(a => ({
+            monitor_id: monitorId,
+            class_id: a.classId,
+            is_primary: a.isPrimary
+        }));
+
+        const { error: insertError } = await supabase
+            .from('monitor_activities')
+            .insert(insertData);
+
+        if (insertError) throw insertError;
     }
 
     private mapFromDb(data: any): Class {

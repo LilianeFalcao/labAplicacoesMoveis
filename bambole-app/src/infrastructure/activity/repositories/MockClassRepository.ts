@@ -1,4 +1,4 @@
-import { IClassRepository } from '../../../domain/activity/repositories/IClassRepository';
+import { IClassRepository, MonitorClassAssignment } from '../../../domain/activity/repositories/IClassRepository';
 import { Class, WeeklySchedule } from '../../../domain/activity/entities/Class';
 
 export class MockClassRepository implements IClassRepository {
@@ -53,6 +53,18 @@ export class MockClassRepository implements IClassRepository {
         } else {
             this.classes.push(cls);
         }
+    }
+
+    async assignClassesToMonitor(monitorId: string, assignments: MonitorClassAssignment[]): Promise<void> {
+        const assignedClassIds = assignments.map(a => a.classId);
+        this.classes = this.classes.map(c => {
+            if (c.monitorId === monitorId && !assignedClassIds.includes(c.id)) {
+                return new Class(c.id, c.name, c.weeklySchedule, c.description, c.ageRange, undefined);
+            } else if (assignedClassIds.includes(c.id)) {
+                return new Class(c.id, c.name, c.weeklySchedule, c.description, c.ageRange, monitorId);
+            }
+            return c;
+        });
     }
 
     setClasses(classes: Class[]): void {

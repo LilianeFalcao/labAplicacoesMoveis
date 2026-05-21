@@ -2,6 +2,7 @@ import { IAttendanceRepository } from '@/domain/attendance/repositories/IAttenda
 import { IClassRepository } from '@/domain/activity/repositories/IClassRepository';
 import { AttendanceRecord } from '@/domain/attendance/entities/AttendanceRecord';
 import { GeolocationProof } from '@/domain/attendance/value-objects/AttendanceStatus';
+import { MockAgendaRepository } from '@/infrastructure/activity/repositories/MockAgendaRepository';
 
 interface AttendanceInput {
     childId: string;
@@ -19,24 +20,57 @@ export class TakeAttendanceUseCase {
         classId: string,
         monitorId: string,
         date: Date,
-        students: AttendanceInput[]
+        students: AttendanceInput[],
+        activityId?: string
     ): Promise<void> {
         const cls = await this.classRepo.findById(classId);
         if (!cls) {
             throw new Error('Class not found');
         }
 
-        if (!cls.isCallAllowedNow(date)) {
-            throw new Error('Attendance outside schedule');
+        // Validate schedule
+        if (activityId) {
+            const agendaRepo = MockAgendaRepository.getInstance();
+            const activities = await agendaRepo.findByClass(classId);
+            const activity = activities.find(a => a.id === activityId);
+            if (!activity) {
+                throw new Error('Activity not found in this class agenda');
+            }
+
+            // Parse start and end times (HH:MM)
+            const [startH, startM] = activity.startTime.split(':').map(Number);
+            const [endH, endM] = activity.endTime.split(':').map(Number);
+
+            const currentH = date.getHours();
+            const currentM = date.getMinutes();
+
+            const currentTotal = currentH * 60 + currentM;
+            const startTotal = startH * 60 + startM;
+            const endTotal = endH * 60 + endM;
+
+            // Allow 30 minutes tolerance buffer before and after the activity
+            const bufferBefore = 30;
+            const bufferAfter = 30;
+
+            const isAllowed = currentTotal >= (startTotal - bufferBefore) && currentTotal <= (endTotal + bufferAfter);
+
+            if (!isAllowed) {
+                throw new Error('Attendance outside schedule');
+            }
+        } else {
+            // General call (no specific activity) — allow 60-minute tolerance window
+            if (!cls.isCallAllowedNow(date, 60)) {
+                throw new Error('Attendance outside schedule');
+            }
         }
 
         for (const student of students) {
             let record: AttendanceRecord;
             if (student.status === 'present') {
                 if (!student.geolocation) throw new Error(`Geolocation required for present student ${student.childId}`);
-                record = AttendanceRecord.createPresent(student.childId, classId, monitorId, date, student.geolocation);
+                record = AttendanceRecord.createPresent(student.childId, classId, monitorId, date, student.geolocation, activityId);
             } else {
-                record = AttendanceRecord.createAbsent(student.childId, classId, monitorId, date);
+                record = AttendanceRecord.createAbsent(student.childId, classId, monitorId, date, activityId);
             }
             await this.attendanceRepo.save(record);
         }

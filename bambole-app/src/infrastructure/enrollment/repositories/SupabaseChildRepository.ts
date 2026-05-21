@@ -40,7 +40,14 @@ export class SupabaseChildRepository implements IChildRepository {
     async findByClass(classId: string): Promise<Child[]> {
         const { data, error } = await supabase
             .from('children')
-            .select('*')
+            .select(`
+                *,
+                guardian_children(
+                    guardians(
+                        image_consent
+                    )
+                )
+            `)
             .eq('class_id', classId);
 
         if (error || !data) {
@@ -49,13 +56,25 @@ export class SupabaseChildRepository implements IChildRepository {
             return local.map(item => this.mapFromCache(item));
         }
 
-        const results = data.map(item => new Child(
-            item.id,
-            ChildName.create(item.name),
-            item.birth_date ? new Date(item.birth_date) : undefined,
-            item.class_id,
-            item.photo_url
-        ));
+        const results = data.map(item => {
+            let hasImageConsent = false;
+            if (item.guardian_children && Array.isArray(item.guardian_children)) {
+                hasImageConsent = item.guardian_children.some((gc: any) => {
+                    const guardian = gc.guardians;
+                    return guardian ? guardian.image_consent === true : false;
+                });
+            }
+
+            return new Child(
+                item.id,
+                ChildName.create(item.name),
+                item.birth_date ? new Date(item.birth_date) : undefined,
+                item.class_id,
+                item.photo_url,
+                [],
+                hasImageConsent
+            );
+        });
 
         // Update cache
         for (const child of results) {

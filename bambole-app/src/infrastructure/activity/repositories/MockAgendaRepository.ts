@@ -1,68 +1,15 @@
-export interface ClassActivity {
-    id: string;
-    classId: string;
-    startTime: string;
-    endTime: string;
-    title: string;
-    description?: string;
-    status: 'pending' | 'ongoing' | 'completed';
-    category: 'activity' | 'break' | 'meal';
-}
+import { IAgendaRepository, ClassActivity } from '@/domain/activity/repositories/IAgendaRepository';
+import { SupabaseAgendaRepository } from './SupabaseAgendaRepository';
 
-export class MockAgendaRepository {
+export { ClassActivity };
+
+export class MockAgendaRepository implements IAgendaRepository {
     private static instance: MockAgendaRepository;
+    private useMock = false;
     private activities: ClassActivity[] = [];
+    private delegate = SupabaseAgendaRepository.getInstance();
 
-    private constructor() {
-        this.activities = [
-            // Class 101 - Today
-            {
-                id: 'a1',
-                classId: '101',
-                startTime: '08:00',
-                endTime: '09:00',
-                title: 'Recepção e Jogos Livres',
-                status: 'completed',
-                category: 'activity'
-            },
-            {
-                id: 'a2',
-                classId: '101',
-                startTime: '09:00',
-                endTime: '10:00',
-                title: 'Oficina de Slime Colorido',
-                status: 'ongoing',
-                category: 'activity'
-            },
-            {
-                id: 'a3',
-                classId: '101',
-                startTime: '10:00',
-                endTime: '10:30',
-                title: 'Lanche da Manhã',
-                status: 'pending',
-                category: 'meal'
-            },
-            {
-                id: 'a4',
-                classId: '101',
-                startTime: '10:30',
-                endTime: '12:00',
-                title: 'Caça ao Tesouro no Pátio',
-                status: 'pending',
-                category: 'activity'
-            },
-            {
-                id: 'a5',
-                classId: '101',
-                startTime: '12:00',
-                endTime: '13:00',
-                title: 'Almoço e Descanso',
-                status: 'pending',
-                category: 'meal'
-            },
-        ];
-    }
+    private constructor() {}
 
     public static getInstance(): MockAgendaRepository {
         if (!MockAgendaRepository.instance) {
@@ -71,14 +18,64 @@ export class MockAgendaRepository {
         return MockAgendaRepository.instance;
     }
 
+    /**
+     * Toggles whether this repository should use in-memory mock data or persist to the DB.
+     * Useful for isolating behaviors during integration testing.
+     */
+    public setUseMock(value: boolean): void {
+        this.useMock = value;
+    }
+
     async findByClass(classId: string): Promise<ClassActivity[]> {
-        return this.activities.filter(a => a.classId === classId);
+        if (this.useMock) {
+            const existing = this.activities.filter(a => a.classId === classId);
+            if (existing.length > 0) {
+                return existing;
+            }
+
+            const now = new Date();
+            const currentHour = now.getHours();
+
+            const formatTime = (h: number, m: number = 0) => {
+                const wrappedH = ((h % 24) + 24) % 24;
+                return `${wrappedH.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+            };
+
+            const generated: ClassActivity[] = [
+                {
+                    id: `act_${classId}_2`,
+                    classId: classId,
+                    startTime: formatTime(currentHour - 1),
+                    endTime: formatTime(currentHour + 1),
+                    title: 'Oficina de Slime Colorido',
+                    status: 'ongoing',
+                    category: 'activity'
+                }
+            ];
+
+            this.activities.push(...generated);
+            return generated;
+        }
+
+        return await this.delegate.findByClass(classId);
+    }
+
+    async save(activity: ClassActivity): Promise<void> {
+        if (this.useMock) {
+            this.activities.push(activity);
+            return;
+        }
+        await this.delegate.save(activity);
     }
 
     async updateStatus(id: string, status: 'pending' | 'ongoing' | 'completed'): Promise<void> {
-        const index = this.activities.findIndex(a => a.id === id);
-        if (index >= 0) {
-            this.activities[index] = { ...this.activities[index], status };
+        if (this.useMock) {
+            const index = this.activities.findIndex(a => a.id === id);
+            if (index >= 0) {
+                this.activities[index] = { ...this.activities[index], status };
+            }
+            return;
         }
+        await this.delegate.updateStatus(id, status);
     }
 }

@@ -3,6 +3,7 @@ import { IAnnouncementRepository } from '@/domain/communication/repositories/IAn
 import { Announcement } from '@/domain/communication/entities/Announcement';
 import { AnnouncementContent, Audience } from '@/domain/communication/value-objects/CommunicationVOs';
 import { SqliteStorageService } from '../../storage/SqliteStorageService';
+import { generateUUID } from '@/infrastructure/utils/uuid';
 
 export class SupabaseAnnouncementRepository implements IAnnouncementRepository {
     private storage = SqliteStorageService.getInstance();
@@ -11,7 +12,7 @@ export class SupabaseAnnouncementRepository implements IAnnouncementRepository {
         const { error } = await supabase
             .from('announcements')
             .upsert({
-                id: ann.id || crypto.randomUUID(),
+                id: ann.id || generateUUID(),
                 author_id: ann.authorId,
                 content: ann.content.value,
                 audience_type: ann.audience.type,

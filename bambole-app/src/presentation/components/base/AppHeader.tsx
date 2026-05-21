@@ -2,9 +2,10 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Theme } from '../../styles/Theme';
+import { Theme, ThemeType } from '../../styles/Theme';
 import { useAuth } from '../../contexts/AuthContext';
 import { SyncStatusIndicator } from './SyncStatusIndicator';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface AppHeaderProps {
     title: string;
@@ -26,6 +27,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 }) => {
     const { isSimulated, signOut } = useAuth();
     const insets = useSafeAreaInsets();
+    const { colors, activeTheme } = useTheme();
+
+    const styles = createStyles(colors, activeTheme);
 
     return (
         <View style={[
@@ -45,7 +49,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 <View style={styles.left}>
                     {showBack && (
                         <TouchableOpacity onPress={onBack}>
-                            <MaterialCommunityIcons name="arrow-left" size={24} color={Theme.colors.onPrimary} />
+                            <MaterialCommunityIcons name="arrow-left" size={24} color={colors.onPrimary} />
                         </TouchableOpacity>
                     )}
                 </View>
@@ -54,7 +58,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                     {!hideSync && <SyncStatusIndicator />}
                     {rightAction && (
                         <TouchableOpacity onPress={rightAction.onPress} style={{ marginLeft: 8 }}>
-                            <MaterialCommunityIcons name={rightAction.icon} size={24} color={Theme.colors.onPrimary} />
+                            <MaterialCommunityIcons name={rightAction.icon} size={24} color={colors.onPrimary} />
                         </TouchableOpacity>
                     )}
                 </View>
@@ -63,17 +67,17 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeType['colors'], theme: ThemeType) => StyleSheet.create({
     headerWrapper: {
-        backgroundColor: Theme.colors.primary,
+        backgroundColor: colors.primary,
     },
     simulatedHeaderWrapper: {
-        backgroundColor: Theme.colors.secondaryVariant,
+        backgroundColor: colors.secondaryVariant,
     },
     simulationBanner: {
         backgroundColor: '#FFD700',
         paddingVertical: 2,
-        paddingHorizontal: Theme.spacing.md,
+        paddingHorizontal: theme.spacing.md,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -86,7 +90,7 @@ const styles = StyleSheet.create({
     exitText: {
         fontSize: 10,
         fontWeight: 'bold',
-        color: Theme.colors.primary,
+        color: colors.primary,
         textDecorationLine: 'underline',
     },
     container: {
@@ -94,7 +98,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: Theme.spacing.md,
+        paddingHorizontal: theme.spacing.md,
     },
     left: {
         width: 40,
@@ -105,8 +109,8 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
     },
     title: {
-        ...Theme.typography.h3,
-        color: Theme.colors.onPrimary,
+        ...theme.typography.h3,
+        color: colors.onPrimary,
         flex: 1,
         textAlign: 'center',
     },

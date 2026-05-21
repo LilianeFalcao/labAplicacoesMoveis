@@ -7,6 +7,7 @@ export class Child {
         public readonly birthDate?: Date,
         public readonly classId?: string | null,
         public readonly photoUrl?: string,
-        public readonly medicalAlerts: string[] = []
+        public readonly medicalAlerts: string[] = [],
+        public readonly hasImageConsent: boolean = false
     ) { }
 }

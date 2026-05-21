@@ -27,7 +27,23 @@ export class SupabaseGuardianRepository implements IGuardianRepository {
             .eq('user_id', userId)
             .single();
 
-        if (error || !data) return null;
+        if (error || !data) {
+            // Fallback: Create guardian record if not found
+            const { data: newGuardian, error: createError } = await supabase
+                .from('guardians')
+                .insert({ user_id: userId })
+                .select()
+                .single();
+
+            if (createError || !newGuardian) return null;
+
+            return new Guardian(
+                newGuardian.id,
+                newGuardian.user_id,
+                newGuardian.image_consent,
+                newGuardian.image_consent_at ? new Date(newGuardian.image_consent_at) : undefined
+            );
+        }
 
         return new Guardian(
             data.id,

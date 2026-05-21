@@ -3,18 +3,20 @@ import { IAttendanceRepository } from '@/domain/attendance/repositories/IAttenda
 import { AttendanceRecord } from '@/domain/attendance/entities/AttendanceRecord';
 import { AttendanceStatus } from '@/domain/attendance/value-objects/AttendanceStatus';
 import { SqliteStorageService } from '../../storage/SqliteStorageService';
+import { generateUUID } from '@/infrastructure/utils/uuid';
 
 export class SupabaseAttendanceRepository implements IAttendanceRepository {
     private storage = SqliteStorageService.getInstance();
 
     async save(record: AttendanceRecord): Promise<void> {
         const payload = {
-            id: record.id || crypto.randomUUID(),
+            id: record.id || generateUUID(),
             child_id: record.childId,
             class_id: record.classId,
             monitor_id: record.monitorId,
             date: record.date.toISOString().split('T')[0],
             status: record.status.value,
+            activity_id: record.activityId,
             lat: record.geolocation?.lat,
             lng: record.geolocation?.lng,
             justification_note: record.justificationNote,
@@ -29,8 +31,8 @@ export class SupabaseAttendanceRepository implements IAttendanceRepository {
 
             // 2. Also update local cache for immediate feedback
             await this.storage.run(
-                'INSERT OR REPLACE INTO attendance (id, child_id, class_id, date, status, synced) VALUES (?, ?, ?, ?, ?, 1)',
-                [payload.id, payload.child_id, payload.class_id, payload.date, payload.status]
+                'INSERT OR REPLACE INTO attendance (id, child_id, class_id, date, status, activity_id, synced) VALUES (?, ?, ?, ?, ?, ?, 1)',
+                [payload.id, payload.child_id, payload.class_id, payload.date, payload.status, payload.activity_id]
             );
 
         } catch (error) {
@@ -44,8 +46,8 @@ export class SupabaseAttendanceRepository implements IAttendanceRepository {
 
             // 4. Update local cache marked as unsynced
             await this.storage.run(
-                'INSERT OR REPLACE INTO attendance (id, child_id, class_id, date, status, synced) VALUES (?, ?, ?, ?, ?, 0)',
-                [payload.id, payload.child_id, payload.class_id, payload.date, payload.status]
+                'INSERT OR REPLACE INTO attendance (id, child_id, class_id, date, status, activity_id, synced) VALUES (?, ?, ?, ?, ?, ?, 0)',
+                [payload.id, payload.child_id, payload.class_id, payload.date, payload.status, payload.activity_id]
             );
         }
     }
@@ -107,8 +109,8 @@ export class SupabaseAttendanceRepository implements IAttendanceRepository {
         // Populate cache with results
         for (const item of (data || [])) {
             await this.storage.run(
-                'INSERT OR REPLACE INTO attendance (id, child_id, class_id, date, status, synced) VALUES (?, ?, ?, ?, ?, 1)',
-                [item.id, item.child_id, item.class_id, item.date, item.status]
+                'INSERT OR REPLACE INTO attendance (id, child_id, class_id, date, status, activity_id, synced) VALUES (?, ?, ?, ?, ?, ?, 1)',
+                [item.id, item.child_id, item.class_id, item.date, item.status, item.activity_id]
             );
         }
 
@@ -135,7 +137,8 @@ export class SupabaseAttendanceRepository implements IAttendanceRepository {
             AttendanceStatus.create(data.status as any),
             data.lat && data.lng ? { lat: data.lat, lng: data.lng } : undefined,
             data.justification_note || undefined,
-            data.justified_at ? new Date(data.justified_at) : undefined
+            data.justified_at ? new Date(data.justified_at) : undefined,
+            data.activity_id || undefined
         );
     }
 
@@ -149,7 +152,21 @@ export class SupabaseAttendanceRepository implements IAttendanceRepository {
             AttendanceStatus.create(data.status as any),
             undefined,
             undefined,
-            undefined
+            undefined,
+            data.activity_id || undefined
         );
+    }
+
+    subscribe(callback: () => void): () => void {
+        const channel = supabase
+            .channel('public:attendance_records')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_records' }, () => {
+                callback();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }
 }

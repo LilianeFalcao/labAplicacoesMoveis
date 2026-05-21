@@ -7,7 +7,7 @@ import { AppCard } from '../../components/base/AppCard';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { MockActivityRepository } from '../../../infrastructure/activity/repositories/MockActivityRepository';
-import { MockIncidentRepository } from '../../../infrastructure/activity/repositories/MockIncidentRepository';
+import { SupabaseIncidentRepository } from '../../../infrastructure/activity/repositories/SupabaseIncidentRepository';
 
 interface HistoryItem {
     id: string;
@@ -29,7 +29,7 @@ export const ActivityHistoryScreen = () => {
         try {
             const monitorId = user?.id || 'monitor-mock-id';
             const photoRepo = MockActivityRepository.getInstance();
-            const incidentRepo = MockIncidentRepository.getInstance();
+            const incidentRepo = new SupabaseIncidentRepository();
 
             const [photos, incidents] = await Promise.all([
                 photoRepo.getFeedByMonitor(monitorId),

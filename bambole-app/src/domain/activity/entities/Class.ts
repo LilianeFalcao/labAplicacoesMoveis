@@ -7,7 +7,13 @@ export class WeeklySchedule {
         public readonly endTime: string    // "HH:MM"
     ) { }
 
-    includesNow(now: Date = new Date()): boolean {
+    /**
+     * Returns true if the given date/time falls within the scheduled window,
+     * plus an optional tolerance buffer (in minutes) before start and after end.
+     * @param now - The date/time to check (defaults to current time)
+     * @param toleranceMinutes - Buffer in minutes added before start and after end (default: 60)
+     */
+    includesNow(now: Date = new Date(), toleranceMinutes: number = 60): boolean {
         const dayNames: DayOfWeek[] = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
         const currentDay = dayNames[now.getDay()];
 
@@ -23,7 +29,7 @@ export class WeeklySchedule {
         const startTotal = startH * 60 + startM;
         const endTotal = endH * 60 + endM;
 
-        return currentTotal >= startTotal && currentTotal <= endTotal;
+        return currentTotal >= (startTotal - toleranceMinutes) && currentTotal <= (endTotal + toleranceMinutes);
     }
 }
 
@@ -37,7 +43,12 @@ export class Class {
         public readonly monitorId?: string
     ) { }
 
-    isCallAllowedNow(now: Date = new Date()): boolean {
-        return this.weeklySchedule.includesNow(now);
+    /**
+     * Returns true if a class call is allowed at the given time.
+     * @param now - The date/time to check (defaults to current time)
+     * @param toleranceMinutes - Buffer in minutes before/after the scheduled window (default: 60)
+     */
+    isCallAllowedNow(now: Date = new Date(), toleranceMinutes: number = 60): boolean {
+        return this.weeklySchedule.includesNow(now, toleranceMinutes);
     }
 }

@@ -1,7 +1,8 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, ViewStyle, TextStyle, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Theme } from '../../styles/Theme';
+import { ThemeType } from '../../styles/Theme';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface AppButtonProps {
     title: string;
@@ -26,6 +27,7 @@ export const AppButton: React.FC<AppButtonProps> = ({
     style,
     textStyle,
 }) => {
+    const { colors, activeTheme } = useTheme();
     const isOutline = variant === 'outline';
     const isText = variant === 'text';
     const isGhost = variant === 'ghost';
@@ -33,14 +35,15 @@ export const AppButton: React.FC<AppButtonProps> = ({
     const isError = variant === 'error';
 
     const getTextColor = () => {
-        if (disabled) return Theme.colors.gray[500];
-        if (isOutline || isText || isGhost) return Theme.colors.primary;
-        if (isSecondary) return Theme.colors.onSecondary;
-        if (isError) return Theme.colors.onError;
-        return Theme.colors.onPrimary;
+        if (disabled) return colors.gray[500];
+        if (isOutline || isText || isGhost) return colors.primary;
+        if (isSecondary) return colors.onSecondary;
+        if (isError) return colors.onError;
+        return colors.onPrimary;
     };
 
     const textColor = getTextColor();
+    const styles = createStyles(colors, activeTheme);
 
     return (
         <TouchableOpacity
@@ -81,16 +84,16 @@ export const AppButton: React.FC<AppButtonProps> = ({
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeType['colors'], theme: ThemeType) => StyleSheet.create({
     button: {
-        backgroundColor: Theme.colors.primary,
-        paddingVertical: Theme.spacing.md,
-        paddingHorizontal: Theme.spacing.lg,
-        borderRadius: Theme.roundness,
+        backgroundColor: colors.primary,
+        paddingVertical: theme.spacing.md,
+        paddingHorizontal: theme.spacing.lg,
+        borderRadius: theme.roundness,
         alignItems: 'center',
         justifyContent: 'center',
         minHeight: 56,
-        shadowColor: Theme.colors.primary,
+        shadowColor: colors.primary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.2,
         shadowRadius: 8,
@@ -102,40 +105,40 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     secondary: {
-        backgroundColor: Theme.colors.secondary,
-        shadowColor: Theme.colors.secondary,
+        backgroundColor: colors.secondary,
+        shadowColor: colors.secondary,
     },
     error: {
-        backgroundColor: Theme.colors.error,
-        shadowColor: Theme.colors.error,
+        backgroundColor: colors.error,
+        shadowColor: colors.error,
     },
     outline: {
         backgroundColor: 'transparent',
         borderWidth: 2,
-        borderColor: Theme.colors.primary,
+        borderColor: colors.primary,
         shadowOpacity: 0,
         elevation: 0,
     },
     ghost: {
         backgroundColor: 'transparent',
-        paddingVertical: Theme.spacing.sm,
+        paddingVertical: theme.spacing.sm,
         shadowOpacity: 0,
         elevation: 0,
         minHeight: 40,
     },
     disabled: {
-        backgroundColor: Theme.colors.gray[200],
-        borderColor: Theme.colors.gray[200],
+        backgroundColor: colors.gray[200],
+        borderColor: colors.gray[200],
         shadowOpacity: 0,
         elevation: 0,
     },
     buttonText: {
-        ...Theme.typography.button,
+        ...theme.typography.button,
     },
     leftIcon: {
-        marginRight: Theme.spacing.sm,
+        marginRight: theme.spacing.sm,
     },
     rightIcon: {
-        marginLeft: Theme.spacing.sm,
+        marginLeft: theme.spacing.sm,
     },
 });

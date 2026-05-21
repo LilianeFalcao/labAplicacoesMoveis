@@ -65,6 +65,17 @@ export class SupabaseAccessRequestRepository implements IAccessRequestRepository
         };
     }
 
+    async findByMonitorId(monitorId: string): Promise<ClassAccessRequest[]> {
+        const { data, error } = await supabase
+            .from('class_access_requests')
+            .select('*')
+            .eq('monitor_id', monitorId)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return (data || []).map(row => this.mapToDomain(row));
+    }
+
     private mapToDomain(row: any): ClassAccessRequest {
         // Mapping 'approved' (db) to 'APPROVED' (enum)
         const statusMap: Record<string, AccessRequestStatus> = {

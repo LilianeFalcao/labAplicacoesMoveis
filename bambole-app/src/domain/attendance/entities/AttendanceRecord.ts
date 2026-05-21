@@ -10,7 +10,8 @@ export class AttendanceRecord {
         private _status: AttendanceStatus,
         private _geolocation?: GeolocationProof,
         private _justificationNote?: string,
-        private _justifiedAt?: Date
+        private _justifiedAt?: Date,
+        public readonly activityId?: string
     ) { }
 
     get status() { return this._status; }
@@ -18,12 +19,12 @@ export class AttendanceRecord {
     get justificationNote() { return this._justificationNote; }
     get justifiedAt() { return this._justifiedAt; }
 
-    static createPresent(childId: string, classId: string, monitorId: string, date: Date, proof: GeolocationProof): AttendanceRecord {
-        return new AttendanceRecord(undefined, childId, classId, monitorId, date, AttendanceStatus.create('present'), proof);
+    static createPresent(childId: string, classId: string, monitorId: string, date: Date, proof: GeolocationProof, activityId?: string): AttendanceRecord {
+        return new AttendanceRecord(undefined, childId, classId, monitorId, date, AttendanceStatus.create('present'), proof, undefined, undefined, activityId);
     }
 
-    static createAbsent(childId: string, classId: string, monitorId: string, date: Date): AttendanceRecord {
-        return new AttendanceRecord(undefined, childId, classId, monitorId, date, AttendanceStatus.create('absent'));
+    static createAbsent(childId: string, classId: string, monitorId: string, date: Date, activityId?: string): AttendanceRecord {
+        return new AttendanceRecord(undefined, childId, classId, monitorId, date, AttendanceStatus.create('absent'), undefined, undefined, undefined, activityId);
     }
 
     preJustify(note: string): void {

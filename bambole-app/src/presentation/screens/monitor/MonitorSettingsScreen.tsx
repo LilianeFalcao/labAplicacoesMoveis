@@ -1,163 +1,156 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Switch, ScrollView, TouchableOpacity } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Theme } from '../../styles/Theme';
+import { useNavigation } from '@react-navigation/native';
 import { AppHeader } from '../../components/base/AppHeader';
-import { AppCard } from '../../components/base/AppCard';
+import { useTheme, ThemePreference } from '../../contexts/ThemeContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useAuth } from '../../contexts/AuthContext';
 
 export const MonitorSettingsScreen = () => {
-    const { user } = useAuth();
-    const [darkMode, setDarkMode] = useState(false);
-    const [notifications, setNotifications] = useState(true);
+    const navigation = useNavigation();
+    const { themeMode, setThemeMode, colors, isDark } = useTheme();
 
-    const SettingRow = ({ icon, label, description, children }: any) => (
-        <View style={styles.settingRow}>
-            <View style={styles.settingInfo}>
-                <View style={styles.iconBox}>
-                    <MaterialCommunityIcons name={icon} size={22} color={Theme.colors.primary} />
-                </View>
-                <View style={styles.textColumn}>
-                    <Text style={styles.settingLabel}>{label}</Text>
-                    {description && <Text style={styles.settingDesc}>{description}</Text>}
-                </View>
-            </View>
-            {children}
-        </View>
-    );
+    const options: { mode: ThemePreference; label: string; icon: any; description: string }[] = [
+        {
+            mode: 'system',
+            label: 'Padrão do Sistema',
+            icon: 'cellphone-link',
+            description: 'Sincroniza automaticamente a aparência com o tema configurado no seu celular.',
+        },
+        {
+            mode: 'light',
+            label: 'Tema Claro',
+            icon: 'weather-sunny',
+            description: 'Mantém o aplicativo sempre no modo claro para visualização em ambientes iluminados.',
+        },
+        {
+            mode: 'dark',
+            label: 'Tema Escuro',
+            icon: 'weather-night',
+            description: 'Reduz o brilho da tela e o cansaço visual, ideal para uso prolongado ou pouca luz.',
+        },
+    ];
+
+    const styles = StyleSheet.create({
+        container: {
+            flex: 1,
+            backgroundColor: colors.background,
+        },
+        content: {
+            padding: 16,
+        },
+        sectionTitle: {
+            fontSize: 12,
+            fontWeight: '700',
+            color: colors.gray[500],
+            textTransform: 'uppercase',
+            letterSpacing: 1.1,
+            marginBottom: 16,
+            marginTop: 8,
+        },
+        card: {
+            backgroundColor: colors.surface,
+            borderRadius: 16,
+            padding: 16,
+            marginBottom: 12,
+            borderWidth: 1.5,
+            borderColor: colors.gray[100],
+            flexDirection: 'row',
+            alignItems: 'center',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: isDark ? 0.2 : 0.03,
+            shadowRadius: 4,
+            elevation: 2,
+        },
+        activeCard: {
+            borderColor: colors.primary,
+            backgroundColor: isDark ? colors.gray[100] : colors.primary + '08',
+        },
+        iconContainer: {
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            backgroundColor: colors.gray[100],
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginRight: 16,
+        },
+        activeIconContainer: {
+            backgroundColor: colors.primary + '15',
+        },
+        textContainer: {
+            flex: 1,
+        },
+        label: {
+            fontSize: 16,
+            fontWeight: '700',
+            color: colors.onBackground,
+            marginBottom: 4,
+        },
+        activeLabel: {
+            color: colors.primary,
+        },
+        description: {
+            fontSize: 12,
+            color: colors.gray[500],
+            lineHeight: 18,
+        },
+        checkCircle: {
+            width: 24,
+            height: 24,
+            borderRadius: 12,
+            borderWidth: 2,
+            borderColor: colors.gray[300],
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginLeft: 12,
+        },
+        activeCheckCircle: {
+            borderColor: colors.primary,
+            backgroundColor: colors.primary,
+        },
+    });
 
     return (
-        <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-            <AppHeader title="Configurações" />
-            
-            <ScrollView contentContainerStyle={styles.scrollContent}>
-                <Text style={styles.sectionTitle}>Aparência</Text>
-                <AppCard style={styles.card}>
-                    <SettingRow 
-                        icon="theme-light-dark" 
-                        label="Modo Escuro" 
-                        description="Reduza o cansaço visual em ambientes escuros."
-                    >
-                        <Switch 
-                            value={darkMode} 
-                            onValueChange={setDarkMode}
-                            trackColor={{ false: '#CBD5E1', true: Theme.colors.primary + '80' }}
-                            thumbColor={darkMode ? Theme.colors.primary : '#F1F5F9'}
-                        />
-                    </SettingRow>
-                </AppCard>
+        <SafeAreaView style={styles.container} edges={['left', 'right']}>
+            <AppHeader
+                title="Configurações"
+                showBack
+                onBack={() => navigation.goBack()}
+            />
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                <Text style={styles.sectionTitle}>Aparência e Tema</Text>
 
-                <Text style={styles.sectionTitle}>Preferências</Text>
-                <AppCard style={styles.card}>
-                    <SettingRow 
-                        icon="bell-outline" 
-                        label="Notificações Push" 
-                        description="Receba alertas de novos incidentes e mensagens."
-                    >
-                        <Switch 
-                            value={notifications} 
-                            onValueChange={setNotifications}
-                            trackColor={{ false: '#CBD5E1', true: Theme.colors.primary + '80' }}
-                            thumbColor={notifications ? Theme.colors.primary : '#F1F5F9'}
-                        />
-                    </SettingRow>
-                </AppCard>
-
-                <Text style={styles.sectionTitle}>Sobre a Conta</Text>
-                <AppCard style={styles.card}>
-                    <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>ID do Monitor</Text>
-                        <Text style={styles.infoValue}>{user?.id || 'monitor-mock-id'}</Text>
-                    </View>
-                    <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Versão do App</Text>
-                        <Text style={styles.infoValue}>1.0.4 (Beta)</Text>
-                    </View>
-                </AppCard>
-
-                <TouchableOpacity style={styles.dangerZone}>
-                    <Text style={styles.dangerText}>Excluir Dados de Cache</Text>
-                </TouchableOpacity>
+                {options.map((opt) => {
+                    const isActive = themeMode === opt.mode;
+                    return (
+                        <TouchableOpacity
+                            key={opt.mode}
+                            style={[styles.card, isActive && styles.activeCard]}
+                            activeOpacity={0.8}
+                            onPress={() => setThemeMode(opt.mode)}
+                        >
+                            <View style={[styles.iconContainer, isActive && styles.activeIconContainer]}>
+                                <MaterialCommunityIcons
+                                    name={opt.icon}
+                                    size={24}
+                                    color={isActive ? colors.primary : colors.gray[500]}
+                                />
+                            </View>
+                            <View style={styles.textContainer}>
+                                <Text style={[styles.label, isActive && styles.activeLabel]}>{opt.label}</Text>
+                                <Text style={styles.description}>{opt.description}</Text>
+                            </View>
+                            <View style={[styles.checkCircle, isActive && styles.activeCheckCircle]}>
+                                {isActive && (
+                                    <MaterialCommunityIcons name="check" size={14} color="#FFF" />
+                                )}
+                            </View>
+                        </TouchableOpacity>
+                    );
+                })}
             </ScrollView>
         </SafeAreaView>
     );
 };
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Theme.colors.background,
-    },
-    scrollContent: {
-        padding: Theme.spacing.md,
-    },
-    sectionTitle: {
-        ...Theme.typography.caption,
-        fontWeight: 'bold',
-        color: Theme.colors.gray[500],
-        textTransform: 'uppercase',
-        letterSpacing: 1,
-        marginBottom: 8,
-        marginLeft: 4,
-        marginTop: 20,
-    },
-    card: {
-        padding: Theme.spacing.md,
-    },
-    settingRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-    },
-    settingInfo: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        flex: 1,
-    },
-    iconBox: {
-        width: 36,
-        height: 36,
-        borderRadius: 10,
-        backgroundColor: '#F0F9FF',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 12,
-    },
-    textColumn: {
-        flex: 1,
-    },
-    settingLabel: {
-        ...Theme.typography.body1,
-        fontWeight: '600',
-        color: Theme.colors.onBackground,
-    },
-    settingDesc: {
-        ...Theme.typography.caption,
-        color: Theme.colors.gray[400],
-    },
-    infoRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        paddingVertical: 8,
-    },
-    infoLabel: {
-        ...Theme.typography.body2,
-        color: Theme.colors.gray[500],
-    },
-    infoValue: {
-        ...Theme.typography.body2,
-        color: Theme.colors.onBackground,
-        fontWeight: 'bold',
-    },
-    dangerZone: {
-        marginTop: 40,
-        alignItems: 'center',
-        padding: 12,
-    },
-    dangerText: {
-        ...Theme.typography.caption,
-        color: Theme.colors.error,
-        fontWeight: 'bold',
-    }
-});

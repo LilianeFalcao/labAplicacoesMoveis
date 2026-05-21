@@ -1,7 +1,8 @@
 import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Theme } from '../../styles/Theme';
+import { ThemeType } from '../../styles/Theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -10,14 +11,14 @@ import { MonitorSummaryCard } from '../../components/monitor/MonitorSummaryCard'
 import { TurmaAgendaCard } from '../../components/monitor/TurmaAgendaCard';
 // MONITOR_DASHBOARD_DATA has been removed.
 import { ClassSelectionModal } from '../../components/monitor/ClassSelectionModal';
-import { MockClassRepository } from '../../../infrastructure/activity/repositories/MockClassRepository';
-import { MockAccessRequestRepository } from '../../../infrastructure/activity/repositories/MockAccessRequestRepository';
+import { SupabaseClassRepository } from '../../../infrastructure/activity/repositories/SupabaseClassRepository';
+import { SupabaseAccessRequestRepository } from '../../../infrastructure/activity/repositories/SupabaseAccessRequestRepository';
 import { GetClassesWithoutMonitorUseCase } from '../../../application/activity/use-cases/GetClassesWithoutMonitorUseCase';
 import { RequestTemporaryAccessUseCase } from '../../../application/activity/use-cases/RequestTemporaryAccessUseCase';
 import { GetMonitorClassesUseCase } from '../../../application/activity/use-cases/GetMonitorClassesUseCase';
 import { GetMonitorAverageAttendanceUseCase } from '../../../application/attendance/use-cases/GetMonitorAverageAttendanceUseCase';
 import { MockNotificationRepository } from '../../../infrastructure/notification/repositories/MockNotificationRepository';
-import { MockAttendanceRepository } from '../../../infrastructure/attendance/repositories/MockAttendanceRepository';
+import { SupabaseAttendanceRepository } from '../../../infrastructure/attendance/repositories/SupabaseAttendanceRepository';
 import { NotificationService } from '../../../infrastructure/notification/services/NotificationService';
 import { SpeedDial, SpeedDialAction } from '../../components/base/SpeedDial';
 import { IncidentReportModal } from '../../components/monitor/IncidentReportModal';
@@ -27,6 +28,7 @@ import { UploadActivityPhotoUseCase } from '../../../application/activity/use-ca
 import { MockActivityRepository } from '../../../infrastructure/activity/repositories/MockActivityRepository';
 import { MonitorSidebar } from '../../components/monitor/MonitorSidebar';
 import { MockAgendaRepository, ClassActivity } from '../../../infrastructure/activity/repositories/MockAgendaRepository';
+import { QuickAddActivityModal } from '../../components/monitor/QuickAddActivityModal';
 
 import { SqliteStorageService } from '../../../infrastructure/storage/SqliteStorageService';
 import { OfflineSyncService } from '../../../infrastructure/offline/OfflineSyncService';
@@ -36,6 +38,8 @@ export const MonitorHomeScreen = () => {
     const { user, signOut } = useAuth();
     const navigation = useNavigation<any>();
     const insets = useSafeAreaInsets();
+    const { colors, activeTheme, isDark } = useTheme();
+    const styles = createStyles(colors, activeTheme, isDark);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [monitorClassesData, setMonitorClassesData] = useState<any[]>([]);
     const [todayAgenda, setTodayAgenda] = useState<ClassActivity[]>([]);
@@ -52,6 +56,7 @@ export const MonitorHomeScreen = () => {
     const [pendingSyncCount, setPendingSyncCount] = useState(0);
     const [syncing, setSyncing] = useState(false);
     const [connectionStatus, setConnectionStatus] = useState<ConnectivityStatus>('online');
+    const [isQuickActivityModalVisible, setIsQuickActivityModalVisible] = useState(false);
 
     const storage = SqliteStorageService.getInstance();
     const syncService = new OfflineSyncService();
@@ -84,9 +89,9 @@ export const MonitorHomeScreen = () => {
     // Initialize repositories and use cases
     const notificationRepo = MockNotificationRepository.getInstance();
     const notificationService = NotificationService.getInstance();
-    const classRepo = MockClassRepository.getInstance();
-    const accessRequestRepo = MockAccessRequestRepository.getInstance();
-    const attendanceRepo = MockAttendanceRepository.getInstance();
+    const classRepo = new SupabaseClassRepository();
+    const accessRequestRepo = new SupabaseAccessRequestRepository();
+    const attendanceRepo = new SupabaseAttendanceRepository();
     const getClassesUseCase = new GetClassesWithoutMonitorUseCase(classRepo);
     const requestAccessUseCase = new RequestTemporaryAccessUseCase(accessRequestRepo);
     const getMonitorClassesUseCase = new GetMonitorClassesUseCase(classRepo, accessRequestRepo);
@@ -204,12 +209,12 @@ export const MonitorHomeScreen = () => {
             >
                 <View style={styles.syncIconBox}>
                     {syncing ? (
-                        <ActivityIndicator size="small" color={Theme.colors.primary} />
+                        <ActivityIndicator size="small" color={colors.primary} />
                     ) : (
                         <MaterialCommunityIcons 
                             name={connectionStatus === 'online' ? "cloud-sync" : "cloud-off-outline"} 
                             size={24} 
-                            color={connectionStatus === 'online' ? Theme.colors.primary : Theme.colors.gray[400]} 
+                            color={connectionStatus === 'online' ? colors.primary : colors.gray[400]} 
                         />
                     )}
                 </View>
@@ -224,7 +229,7 @@ export const MonitorHomeScreen = () => {
                     </Text>
                 </View>
                 {connectionStatus === 'online' && !syncing && (
-                    <MaterialCommunityIcons name="chevron-right" size={20} color={Theme.colors.gray[300]} />
+                    <MaterialCommunityIcons name="chevron-right" size={20} color={colors.gray[300]} />
                 )}
             </TouchableOpacity>
         );
@@ -276,16 +281,31 @@ export const MonitorHomeScreen = () => {
 
     const speedDialActions: SpeedDialAction[] = [
         {
+            icon: 'calendar-plus',
+            label: 'Nova Atividade',
+            onPress: () => {
+                if (monitorClasses.length === 0) {
+                    Alert.alert(
+                        'Sem turma atribuída',
+                        'Você precisa ter uma turma atribuída para criar atividades.'
+                    );
+                } else {
+                    setIsQuickActivityModalVisible(true);
+                }
+            },
+            color: '#059669'
+        },
+        {
             icon: 'alert-circle',
             label: 'Relatar Incidente',
             onPress: () => setIsIncidentModalVisible(true),
-            color: Theme.colors.error
+            color: colors.error
         },
         {
             icon: 'camera',
             label: 'Captura Espontânea',
             onPress: handleQuickPhoto,
-            color: Theme.colors.primary
+            color: colors.primary
         },
         {
             icon: 'bullhorn',
@@ -309,7 +329,7 @@ export const MonitorHomeScreen = () => {
                         style={styles.headerIcon}
                         onPress={() => setSidebarOpen(true)}
                     >
-                        <MaterialCommunityIcons name="menu" size={24} color={Theme.colors.onBackground} />
+                        <MaterialCommunityIcons name="menu" size={24} color={colors.onBackground} />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Bambolê</Text>
                 </View>
@@ -318,7 +338,7 @@ export const MonitorHomeScreen = () => {
                     onPress={() => navigation.navigate('Notifications')}
                 >
                     {hasUnreadNotifications && <View style={styles.notificationDot} />}
-                    <MaterialCommunityIcons name="bell-outline" size={24} color={Theme.colors.onBackground} />
+                    <MaterialCommunityIcons name="bell-outline" size={24} color={colors.onBackground} />
                 </TouchableOpacity>
             </View>
 
@@ -344,6 +364,13 @@ export const MonitorHomeScreen = () => {
                 onClose={() => setIsMultiNoticeModalVisible(false)}
                 classes={monitorClasses}
                 onSend={handleSendMultiNotice}
+            />
+
+            <QuickAddActivityModal
+                visible={isQuickActivityModalVisible}
+                onClose={() => setIsQuickActivityModalVisible(false)}
+                monitorClasses={monitorClasses.map(c => ({ id: c.id, name: c.name }))}
+                onCreated={() => loadDynamicData()}
             />
 
             <MultiClassNoticeModal
@@ -437,7 +464,7 @@ export const MonitorHomeScreen = () => {
                                     onPress={() => navigation.navigate('ClassDashboard', { classId: cls.id, groupName: cls.name })}
                                 >
                                     <View style={styles.classIconBox}>
-                                        <MaterialCommunityIcons name="school-outline" size={20} color={Theme.colors.primary} />
+                                        <MaterialCommunityIcons name="school-outline" size={20} color={colors.primary} />
                                     </View>
                                     <Text style={styles.classMiniTitle} numberOfLines={1}>{cls.name}</Text>
                                 </TouchableOpacity>
@@ -478,7 +505,7 @@ export const MonitorHomeScreen = () => {
                         ))
                     ) : (
                         <View style={styles.emptyAgenda}>
-                            <MaterialCommunityIcons name="calendar-blank" size={40} color={Theme.colors.gray[200]} />
+                            <MaterialCommunityIcons name="calendar-blank" size={40} color={colors.gray[200]} />
                             <Text style={styles.emptyText}>Nenhuma atividade agendada</Text>
                         </View>
                     )}
@@ -498,17 +525,17 @@ export const MonitorHomeScreen = () => {
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeType['colors'], theme: ThemeType, isDark: boolean) => StyleSheet.create({
     mainContainer: {
         flex: 1,
-        backgroundColor: '#F8FAFC',
+        backgroundColor: colors.background,
     },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: Theme.spacing.lg,
-        paddingBottom: Theme.spacing.sm,
+        paddingHorizontal: theme.spacing.lg,
+        paddingBottom: theme.spacing.sm,
     },
     headerLeft: {
         flexDirection: 'row',
@@ -524,7 +551,7 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontSize: 22,
         fontWeight: 'bold',
-        color: Theme.colors.primary,
+        color: colors.primary,
     },
     notificationDot: {
         position: 'absolute',
@@ -533,16 +560,16 @@ const styles = StyleSheet.create({
         width: 8,
         height: 8,
         borderRadius: 4,
-        backgroundColor: Theme.colors.error,
+        backgroundColor: colors.error,
         zIndex: 1,
         borderWidth: 1.5,
-        borderColor: '#F8FAFC',
+        borderColor: colors.background,
     },
     container: {
         flex: 1,
     },
     scrollContent: {
-        padding: Theme.spacing.lg,
+        padding: theme.spacing.lg,
     },
     topSection: {
         marginBottom: 32,
@@ -559,18 +586,18 @@ const styles = StyleSheet.create({
     overtitle: {
         fontSize: 10,
         fontWeight: '900',
-        color: '#B45309',
+        color: isDark ? colors.warning : '#B45309',
         letterSpacing: 1,
         marginBottom: 4,
     },
     mainTitle: {
         fontSize: 32,
         fontWeight: '800',
-        color: Theme.colors.onBackground,
+        color: colors.onBackground,
         lineHeight: 36,
     },
     solicitarBtn: {
-        backgroundColor: Theme.colors.primary,
+        backgroundColor: colors.primary,
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 12,
@@ -578,45 +605,45 @@ const styles = StyleSheet.create({
         borderRadius: 20,
         gap: 4,
         elevation: 4,
-        shadowColor: Theme.colors.primary,
+        shadowColor: colors.primary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.2,
         shadowRadius: 8,
         marginLeft: 8,
     },
     solicitarLabel: {
-        color: '#FFF',
+        color: isDark ? colors.background : '#FFF',
         fontWeight: 'bold',
         fontSize: 12,
     },
     summaryGrid: {
         flexDirection: 'row',
-        gap: Theme.spacing.md,
+        gap: theme.spacing.md,
     },
     syncCard: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#FFF',
+        backgroundColor: colors.surface,
         borderRadius: 24,
         padding: 16,
         marginBottom: 24,
         borderWidth: 1,
-        borderColor: Theme.colors.primary + '15',
+        borderColor: colors.primary + '15',
         elevation: 3,
-        shadowColor: Theme.colors.primary,
+        shadowColor: colors.primary,
         shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.1,
+        shadowOpacity: isDark ? 0.3 : 0.1,
         shadowRadius: 12,
     },
     syncCardOffline: {
-        borderColor: '#FEF3C7',
-        backgroundColor: '#FFFBEB',
+        borderColor: colors.warning + '30',
+        backgroundColor: isDark ? colors.warning + '10' : '#FFFBEB',
     },
     syncIconBox: {
         width: 48,
         height: 48,
         borderRadius: 24,
-        backgroundColor: '#F0F9FF',
+        backgroundColor: isDark ? colors.gray[100] : '#F0F9FF',
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 16,
@@ -625,13 +652,13 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     syncTitle: {
-        ...Theme.typography.body1,
+        ...theme.typography.body1,
         fontWeight: 'bold',
-        color: Theme.colors.onBackground,
+        color: colors.onBackground,
     },
     syncSub: {
-        ...Theme.typography.caption,
-        color: Theme.colors.gray[500],
+        ...theme.typography.caption,
+        color: colors.gray[500],
     },
     agendaSection: {
         flex: 1,
@@ -645,11 +672,11 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 20,
         fontWeight: '800',
-        color: Theme.colors.onBackground,
+        color: colors.onBackground,
     },
     seeAllText: {
         fontSize: 14,
-        color: Theme.colors.primary,
+        color: colors.primary,
         fontWeight: '700',
     },
     classesSection: {
@@ -659,47 +686,47 @@ const styles = StyleSheet.create({
         paddingRight: 32,
     },
     classMiniCard: {
-        backgroundColor: '#FFF',
+        backgroundColor: colors.surface,
         borderRadius: 20,
         padding: 12,
         marginRight: 12,
         width: 120,
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: '#F1F5F9',
+        borderColor: colors.gray[200],
     },
     classIconBox: {
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: '#F0F9FF',
+        backgroundColor: isDark ? colors.gray[100] : '#F0F9FF',
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 8,
     },
     classMiniTitle: {
-        ...Theme.typography.caption,
+        ...theme.typography.caption,
         fontWeight: 'bold',
-        color: Theme.colors.onBackground,
+        color: colors.onBackground,
     },
     progressText: {
-        ...Theme.typography.caption,
-        color: Theme.colors.gray[400],
+        ...theme.typography.caption,
+        color: colors.gray[400],
         marginTop: 2,
     },
     emptyAgenda: {
         alignItems: 'center',
         justifyContent: 'center',
         padding: 32,
-        backgroundColor: '#F8FAFC',
+        backgroundColor: colors.background,
         borderRadius: 24,
         borderStyle: 'dashed',
         borderWidth: 1,
-        borderColor: Theme.colors.gray[200],
+        borderColor: colors.gray[200],
     },
     emptyText: {
-        ...Theme.typography.caption,
-        color: Theme.colors.gray[400],
+        ...theme.typography.caption,
+        color: colors.gray[400],
         marginTop: 12,
     },
     fab: {

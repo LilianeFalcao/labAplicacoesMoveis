@@ -40,13 +40,14 @@ export class MockAttendanceRepository implements IAttendanceRepository {
             (record as any).id = Math.random().toString(36).substr(2, 9);
         }
 
-        const sql = `INSERT INTO attendance (id, class_id, date, student_ids, status) VALUES (?, ?, ?, ?, ?)`;
+        const sql = `INSERT INTO attendance (id, class_id, date, student_ids, status, activity_id) VALUES (?, ?, ?, ?, ?, ?)`;
         const params = [
             record.id,
             record.classId,
             record.date.toISOString(),
             JSON.stringify([record.childId]), // Simplified
-            'pending'
+            'pending',
+            record.activityId || null
         ];
 
         await this.storage.run(sql, params);
@@ -57,7 +58,8 @@ export class MockAttendanceRepository implements IAttendanceRepository {
             classId: record.classId,
             childId: record.childId,
             status: record.status,
-            date: record.date.toISOString()
+            date: record.date.toISOString(),
+            activityId: record.activityId
         });
 
         this.notifyListeners();
@@ -94,7 +96,8 @@ export class MockAttendanceRepository implements IAttendanceRepository {
             row.class_id,
             'monitor-id',
             new Date(row.date),
-            { lat: 0, lng: 0 }
+            { lat: 0, lng: 0 },
+            row.activity_id || undefined
         );
     }
 

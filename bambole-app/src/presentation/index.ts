@@ -1,3 +1,4 @@
+import '../infrastructure/utils/crypto-polyfill'; // Load crypto polyfills first
 import { registerRootComponent } from 'expo';
 
 import App from './App';

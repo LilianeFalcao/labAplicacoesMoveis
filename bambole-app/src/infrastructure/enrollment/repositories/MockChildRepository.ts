@@ -85,6 +85,23 @@ export class MockChildRepository implements IChildRepository {
             ));
     }
 
+    async findByGuardianId(guardianId: string): Promise<Child[]> {
+        const all = await this.findAll();
+        return all.slice(0, 2);
+    }
+
+    async findAll(): Promise<Child[]> {
+        const rows = await this.storage.query<any>('SELECT * FROM children');
+        return rows.map(row => new Child(
+            row.id, 
+            ChildName.create(row.name), 
+            new Date(), 
+            row.age_group, 
+            row.photo_uri, 
+            JSON.parse(row.medical_alerts || '[]')
+        ));
+    }
+
     async save(child: Child): Promise<void> {
         await this.storage.run(
             'INSERT OR REPLACE INTO children (id, name, age_group, medical_alerts, photo_uri) VALUES (?, ?, ?, ?, ?)',

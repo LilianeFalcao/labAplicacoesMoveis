@@ -5,8 +5,8 @@ import { Theme } from '../../styles/Theme';
 import { AppHeader } from '../../components/base/AppHeader';
 import { TurmaAgendaCard } from '../../components/monitor/TurmaAgendaCard';
 import { useAuth } from '../../contexts/AuthContext';
-import { MockClassRepository } from '../../../infrastructure/activity/repositories/MockClassRepository';
-import { MockAccessRequestRepository } from '../../../infrastructure/activity/repositories/MockAccessRequestRepository';
+import { SupabaseClassRepository } from '../../../infrastructure/activity/repositories/SupabaseClassRepository';
+import { SupabaseAccessRequestRepository } from '../../../infrastructure/activity/repositories/SupabaseAccessRequestRepository';
 import { GetMonitorClassesUseCase } from '../../../application/activity/use-cases/GetMonitorClassesUseCase';
 import { useNavigation } from '@react-navigation/native';
 
@@ -19,8 +19,8 @@ export const MonitorClassesScreen = () => {
     const loadClasses = useCallback(async () => {
         setRefreshing(true);
         try {
-            const classRepo = MockClassRepository.getInstance();
-            const accessRepo = MockAccessRequestRepository.getInstance();
+            const classRepo = new SupabaseClassRepository();
+            const accessRepo = new SupabaseAccessRequestRepository();
             const useCase = new GetMonitorClassesUseCase(classRepo, accessRepo);
             
             const monitorId = user?.id || 'monitor-mock-id';

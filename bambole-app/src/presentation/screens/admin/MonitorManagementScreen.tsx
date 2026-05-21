@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../../infrastructure/supabase/client';
 import { SupabaseClassRepository } from '../../../infrastructure/activity/repositories/SupabaseClassRepository';
 import { createClient } from '@supabase/supabase-js';
+import { AssignClassesToMonitorUseCase } from '../../../application/activity/use-cases/AssignClassesToMonitorUseCase';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -35,6 +36,7 @@ export const MonitorManagementScreen = () => {
 
     const [selectedMonitor, setSelectedMonitor] = useState<any>(null);
     const [selectedClassesMap, setSelectedClassesMap] = useState<{ [key: string]: boolean }>({});
+    const [primaryClassId, setPrimaryClassId] = useState<string | null>(null);
     const [newPasswordInput, setNewPasswordInput] = useState('');
     const [saving, setSaving] = useState(false);
 
@@ -59,22 +61,29 @@ export const MonitorManagementScreen = () => {
             // 3. Fetch monitor-class activities
             const { data: activities, error: activitiesError } = await supabase
                 .from('monitor_activities')
-                .select('monitor_id, class_id');
+                .select('monitor_id, class_id, is_primary');
 
             if (activitiesError) throw activitiesError;
 
             // Map activities to monitors
             const mappedMonitors = (monitorsData || []).map(monitor => {
-                const assignedClassIds = (activities || [])
-                    .filter(act => act.monitor_id === monitor.id)
-                    .map(act => act.class_id);
+                const assignedActivities = (activities || [])
+                    .filter(act => act.monitor_id === monitor.id);
+
+                const assignedClassIds = assignedActivities.map(act => act.class_id);
 
                 const assignedClasses = allClasses.filter(cls => assignedClassIds.includes(cls.id));
 
+                const primaryActivity = assignedActivities.find(act => act.is_primary);
+
                 return {
                     ...monitor,
-                    groups: assignedClasses.map(c => c.name),
+                    groups: assignedClasses.map(c => {
+                        const act = assignedActivities.find(a => a.class_id === c.id);
+                        return act?.is_primary ? `${c.name} ★` : c.name;
+                    }),
                     groupIds: assignedClassIds,
+                    primaryClassId: primaryActivity?.class_id || null,
                     status: monitor.status || 'Active' // Default to Active
                 };
             });
@@ -123,27 +132,20 @@ export const MonitorManagementScreen = () => {
                 }
             });
 
-            // 1. Sign up the user in auth schema
+            // 1. Sign up the user in auth schema (which triggers handle_new_user to insert into public.users)
             const { data: authData, error: authError } = await tempClient.auth.signUp({
                 email: newMonitorEmail.trim(),
                 password: newMonitorPassword.trim(),
+                options: {
+                    data: {
+                        role: 'monitor',
+                        full_name: newMonitorName.trim()
+                    }
+                }
             });
 
             if (authError) throw authError;
             if (!authData.user) throw new Error('Não foi possível criar o usuário no sistema.');
-
-            // 2. Create the profile in public.users table
-            const { error: profileError } = await supabase
-                .from('users')
-                .insert({
-                    id: authData.user.id,
-                    full_name: newMonitorName.trim(),
-                    email: newMonitorEmail.trim(),
-                    role: 'monitor',
-                    status: 'Active'
-                });
-
-            if (profileError) throw profileError;
 
             Alert.alert('Sucesso', 'Monitor registrado e perfil criado com sucesso!');
             setRegisterModalVisible(false);
@@ -163,6 +165,7 @@ export const MonitorManagementScreen = () => {
             map[c.id] = monitor.groupIds.includes(c.id);
         });
         setSelectedClassesMap(map);
+        setPrimaryClassId(monitor.primaryClassId || null);
         setActionsModalVisible(false);
         setLinkClassesModalVisible(true);
     };
@@ -172,47 +175,50 @@ export const MonitorManagementScreen = () => {
         setSaving(true);
 
         try {
-            // 1. Delete all existing relations for this monitor
-            const { error: deleteError } = await supabase
-                .from('monitor_activities')
-                .delete()
-                .eq('monitor_id', selectedMonitor.id);
-
-            if (deleteError) throw deleteError;
-
-            // 2. Insert new relations
-            const newRelations = Object.keys(selectedClassesMap)
+            const assignments = Object.keys(selectedClassesMap)
                 .filter(classId => selectedClassesMap[classId])
                 .map(classId => ({
-                    monitor_id: selectedMonitor.id,
-                    class_id: classId,
-                    is_primary: false
+                    classId,
+                    isPrimary: classId === primaryClassId
                 }));
 
-            if (newRelations.length > 0) {
-                const { error: insertError } = await supabase
-                    .from('monitor_activities')
-                    .insert(newRelations);
-
-                if (insertError) throw insertError;
-            }
+            const assignUseCase = new AssignClassesToMonitorUseCase(classRepo);
+            await assignUseCase.execute(selectedMonitor.id, assignments);
 
             Alert.alert('Sucesso', 'Turmas associadas ao monitor com sucesso!');
             setLinkClassesModalVisible(false);
             loadData();
         } catch (error: any) {
             console.error('Failed to link classes', error);
-            Alert.alert('Erro', 'Não foi possível salvar as atribuições.');
+            Alert.alert('Erro', error.message || 'Não foi possível salvar as atribuições.');
         } finally {
             setSaving(false);
         }
     };
 
     const toggleClassSelection = (classId: string) => {
-        setSelectedClassesMap(prev => ({
-            ...prev,
-            [classId]: !prev[classId]
-        }));
+        setSelectedClassesMap(prev => {
+            const newValue = !prev[classId];
+            if (!newValue && primaryClassId === classId) {
+                setPrimaryClassId(null);
+            }
+            return {
+                ...prev,
+                [classId]: newValue
+            };
+        });
+    };
+
+    const togglePrimaryClass = (classId: string) => {
+        if (primaryClassId === classId) {
+            setPrimaryClassId(null);
+        } else {
+            setSelectedClassesMap(prev => ({
+                ...prev,
+                [classId]: true
+            }));
+            setPrimaryClassId(classId);
+        }
     };
 
     const handleOpenPasswordReset = (monitor: any) => {
@@ -222,22 +228,32 @@ export const MonitorManagementScreen = () => {
         setPasswordModalVisible(true);
     };
 
-    const handleResetPassword = () => {
-        if (!newPasswordInput.trim() || newPasswordInput.trim().length < 6) {
-            Alert.alert('Aviso', 'Digite uma senha válida com pelo menos 6 caracteres.');
+    const handleResetPassword = async () => {
+        if (!selectedMonitor?.email) {
+            Alert.alert('Erro', 'E-mail do monitor não encontrado.');
             return;
         }
 
         setSaving(true);
-        setTimeout(() => {
-            setSaving(false);
+        try {
+            const { error } = await supabase.auth.resetPasswordForEmail(
+                selectedMonitor.email
+            );
+
+            if (error) throw error;
+
             setPasswordModalVisible(false);
             Alert.alert(
-                'Redefinição Concluída',
-                `A senha do monitor ${selectedMonitor.full_name || selectedMonitor.email} foi alterada visualmente com sucesso.`,
+                'E-mail Enviado',
+                `Um link de redefinição de senha foi enviado para ${selectedMonitor.email}. O monitor deverá acessar o e-mail para definir a nova senha.`,
                 [{ text: 'OK' }]
             );
-        }, 1200);
+        } catch (error: any) {
+            console.error('Failed to send password reset', error);
+            Alert.alert('Erro', error.message || 'Não foi possível enviar o e-mail de redefinição.');
+        } finally {
+            setSaving(false);
+        }
     };
 
     const handleOpenActions = (monitor: any) => {
@@ -504,16 +520,19 @@ export const MonitorManagementScreen = () => {
                             ) : (
                                 classes.map(cls => {
                                     const isSelected = !!selectedClassesMap[cls.id];
+                                    const isPrimary = primaryClassId === cls.id;
                                     return (
-                                        <TouchableOpacity
+                                        <View
                                             key={cls.id}
                                             style={[
                                                 styles.checkItem,
                                                 isSelected && styles.checkItemActive
                                             ]}
-                                            onPress={() => toggleClassSelection(cls.id)}
                                         >
-                                            <View style={styles.checkItemLeft}>
+                                            <TouchableOpacity
+                                                style={styles.checkItemLeft}
+                                                onPress={() => toggleClassSelection(cls.id)}
+                                            >
                                                 <MaterialCommunityIcons
                                                     name={isSelected ? "checkbox-marked" : "checkbox-blank-outline"}
                                                     size={24}
@@ -525,13 +544,28 @@ export const MonitorManagementScreen = () => {
                                                 ]}>
                                                     {cls.name}
                                                 </Text>
+                                            </TouchableOpacity>
+
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                                {isSelected && (
+                                                    <TouchableOpacity
+                                                        onPress={() => togglePrimaryClass(cls.id)}
+                                                        style={{ padding: 4 }}
+                                                    >
+                                                        <MaterialCommunityIcons
+                                                            name={isPrimary ? "star" : "star-outline"}
+                                                            size={24}
+                                                            color={isPrimary ? "#EAB308" : Theme.colors.gray[400]}
+                                                        />
+                                                    </TouchableOpacity>
+                                                )}
+                                                {cls.ageRange && (
+                                                    <View style={styles.ageBadge}>
+                                                        <Text style={styles.ageBadgeText}>{cls.ageRange}</Text>
+                                                    </View>
+                                                )}
                                             </View>
-                                            {cls.ageRange && (
-                                                <View style={styles.ageBadge}>
-                                                    <Text style={styles.ageBadgeText}>{cls.ageRange}</Text>
-                                                </View>
-                                            )}
-                                        </TouchableOpacity>
+                                        </View>
                                     );
                                 })
                             )}
@@ -562,7 +596,7 @@ export const MonitorManagementScreen = () => {
                 </View>
             </Modal>
 
-            {/* Simulated Password Reset Modal */}
+            {/* Password Reset via Email Modal */}
             <Modal visible={passwordModalVisible} animationType="slide" transparent>
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
@@ -574,18 +608,25 @@ export const MonitorManagementScreen = () => {
                         </View>
 
                         <Text style={styles.modalSubtitle}>
-                            Digite a nova senha para o monitor {selectedMonitor?.full_name || selectedMonitor?.email}:
+                            Um link de redefinição será enviado para o e-mail do monitor:
                         </Text>
 
-                        <TextInput
-                            placeholder="Mínimo de 6 caracteres..."
-                            value={newPasswordInput}
-                            onChangeText={setNewPasswordInput}
-                            secureTextEntry
-                            style={styles.textInput}
-                            autoCapitalize="none"
-                            placeholderTextColor={Theme.colors.gray[400]}
-                        />
+                        <View style={{
+                            backgroundColor: '#F0F9FF',
+                            padding: Theme.spacing.md,
+                            borderRadius: Theme.borderRadius.md,
+                            borderWidth: 1,
+                            borderColor: '#E0F2FE',
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 8,
+                            marginBottom: Theme.spacing.md,
+                        }}>
+                            <MaterialCommunityIcons name="email-outline" size={20} color={Theme.colors.primary} />
+                            <Text style={{ fontSize: 14, fontWeight: '600', color: Theme.colors.primary }}>
+                                {selectedMonitor?.email}
+                            </Text>
+                        </View>
 
                         <View style={styles.modalFooter}>
                             <TouchableOpacity
@@ -604,7 +645,7 @@ export const MonitorManagementScreen = () => {
                                 {saving ? (
                                     <ActivityIndicator size="small" color="#fff" />
                                 ) : (
-                                    <Text style={styles.saveButtonText}>Redefinir</Text>
+                                    <Text style={styles.saveButtonText}>Enviar Link</Text>
                                 )}
                             </TouchableOpacity>
                         </View>
