@@ -3,11 +3,12 @@ import { IAttendanceRepository } from '@/domain/attendance/repositories/IAttenda
 import { IClassRepository } from '@/domain/activity/repositories/IClassRepository';
 import { AttendanceRecord } from '@/domain/attendance/entities/AttendanceRecord';
 import { Class, WeeklySchedule } from '@/domain/activity/entities/Class';
-import { MockAgendaRepository } from '@/infrastructure/activity/repositories/MockAgendaRepository';
+import { IAgendaRepository } from '@/domain/activity/repositories/IAgendaRepository';
 
 describe('TakeAttendanceUseCase', () => {
     let mockAttendanceRepo: jest.Mocked<IAttendanceRepository>;
     let mockClassRepo: jest.Mocked<IClassRepository>;
+    let mockAgendaRepo: jest.Mocked<IAgendaRepository>;
     let useCase: TakeAttendanceUseCase;
 
     beforeEach(() => {
@@ -23,7 +24,13 @@ describe('TakeAttendanceUseCase', () => {
             save: jest.fn(),
         } as any;
 
-        useCase = new TakeAttendanceUseCase(mockAttendanceRepo, mockClassRepo);
+        mockAgendaRepo = {
+            findByClass: jest.fn(),
+            save: jest.fn(),
+            updateStatus: jest.fn(),
+        } as any;
+
+        useCase = new TakeAttendanceUseCase(mockAttendanceRepo, mockClassRepo, mockAgendaRepo);
     });
 
     it('should take attendance successfully', async () => {
@@ -88,8 +95,7 @@ describe('TakeAttendanceUseCase', () => {
             status: 'ongoing' as const,
             category: 'activity' as const
         };
-        const agendaRepo = MockAgendaRepository.getInstance();
-        jest.spyOn(agendaRepo, 'findByClass').mockResolvedValue([mockActivity]);
+        mockAgendaRepo.findByClass.mockResolvedValue([mockActivity]);
 
         await useCase.execute(classId, monitorId, date, students, 'act1');
 
@@ -116,8 +122,7 @@ describe('TakeAttendanceUseCase', () => {
             status: 'ongoing' as const,
             category: 'activity' as const
         };
-        const agendaRepo = MockAgendaRepository.getInstance();
-        jest.spyOn(agendaRepo, 'findByClass').mockResolvedValue([mockActivity]);
+        mockAgendaRepo.findByClass.mockResolvedValue([mockActivity]);
 
         await expect(useCase.execute(classId, monitorId, date, students, 'act1')).rejects.toThrow('Attendance outside schedule');
     });

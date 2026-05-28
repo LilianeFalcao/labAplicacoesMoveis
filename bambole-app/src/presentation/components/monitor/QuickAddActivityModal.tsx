@@ -17,6 +17,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Theme } from '../../styles/Theme';
 import { SqliteStorageService } from '../../../infrastructure/storage/SqliteStorageService';
 import { ConnectivityService } from '../../../infrastructure/network/ConnectivityService';
+import { OfflineSyncService } from '../../../infrastructure/offline/OfflineSyncService';
+import { generateUUID } from '../../../infrastructure/utils/uuid';
 
 export interface QuickAddActivityClass {
     id: string;
@@ -78,6 +80,26 @@ export const QuickAddActivityModal: React.FC<Props> = ({ visible, onClose, monit
         return h * 60 + m;
     };
 
+    const formatTimeInput = (text: string) => {
+        const cleaned = text.replace(/[^0-9]/g, '');
+        if (cleaned.length <= 2) {
+            return cleaned;
+        }
+        return `${cleaned.slice(0, 2)}:${cleaned.slice(2, 4)}`;
+    };
+
+    const handleStartTimeChange = (text: string) => {
+        const formatted = formatTimeInput(text);
+        setStartTime(formatted);
+        if (timeError) setTimeError('');
+    };
+
+    const handleEndTimeChange = (text: string) => {
+        const formatted = formatTimeInput(text);
+        setEndTime(formatted);
+        if (timeError) setTimeError('');
+    };
+
     const validate = (): boolean => {
         let valid = true;
         setTitleError('');
@@ -88,14 +110,18 @@ export const QuickAddActivityModal: React.FC<Props> = ({ visible, onClose, monit
             valid = false;
         }
 
-        if (startTime && endTime) {
-            if (!validateTimeFormat(startTime) || !validateTimeFormat(endTime)) {
-                setTimeError('Use o formato HH:MM (ex: 09:30)');
-                valid = false;
-            } else if (timeToMinutes(endTime) <= timeToMinutes(startTime)) {
-                setTimeError('Horário de término deve ser após o início');
-                valid = false;
-            }
+        if (!startTime.trim()) {
+            setTimeError('Horário de início é obrigatório');
+            valid = false;
+        } else if (!endTime.trim()) {
+            setTimeError('Horário de término é obrigatório');
+            valid = false;
+        } else if (!validateTimeFormat(startTime) || !validateTimeFormat(endTime)) {
+            setTimeError('Use o formato HH:MM (ex: 09:30)');
+            valid = false;
+        } else if (timeToMinutes(endTime) <= timeToMinutes(startTime)) {
+            setTimeError('Horário de término deve ser após o início');
+            valid = false;
         }
 
         return valid;
@@ -107,7 +133,7 @@ export const QuickAddActivityModal: React.FC<Props> = ({ visible, onClose, monit
         setLoading(true);
         try {
             const storage = SqliteStorageService.getInstance();
-            const id = (globalThis as any).crypto?.randomUUID?.() ?? `act_${Date.now()}`;
+            const id = (globalThis as any).crypto?.randomUUID?.() ?? generateUUID();
             const classId = selectedClassId || monitorClasses[0]?.id;
 
             if (!classId) {
@@ -115,10 +141,8 @@ export const QuickAddActivityModal: React.FC<Props> = ({ visible, onClose, monit
                 return;
             }
 
-            const now = new Date();
-            const defaultStartTime = startTime || `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-            const defaultEndHour = Math.min(now.getHours() + 1, 23);
-            const defaultEndTime = endTime || `${defaultEndHour.toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+            const defaultStartTime = startTime.trim();
+            const defaultEndTime = endTime.trim();
 
             // Insert into local SQLite cache
             await storage.run(
@@ -152,6 +176,8 @@ export const QuickAddActivityModal: React.FC<Props> = ({ visible, onClose, monit
 
             if (isOnline) {
                 Alert.alert('✓ Atividade criada!', `"${title.trim()}" foi adicionada à agenda.`);
+                const syncService = new OfflineSyncService();
+                syncService.syncUp().catch(err => console.error("QuickAddActivityModal auto-sync error:", err));
             } else {
                 Alert.alert(
                     'Atividade salva localmente',
@@ -230,7 +256,7 @@ export const QuickAddActivityModal: React.FC<Props> = ({ visible, onClose, monit
 
                         {/* Time Range */}
                         <View style={styles.fieldGroup}>
-                            <Text style={styles.fieldLabel}>Horário (opcional)</Text>
+                            <Text style={styles.fieldLabel}>Horário *</Text>
                             <View style={styles.timeRow}>
                                 <View style={styles.timeInputWrapper}>
                                     <MaterialCommunityIcons name="clock-start" size={16} color={Theme.colors.gray[400]} style={styles.timeIcon} />
@@ -239,7 +265,7 @@ export const QuickAddActivityModal: React.FC<Props> = ({ visible, onClose, monit
                                         placeholder="09:00"
                                         placeholderTextColor={Theme.colors.gray[300]}
                                         value={startTime}
-                                        onChangeText={(t) => { setStartTime(t); if (timeError) setTimeError(''); }}
+                                        onChangeText={handleStartTimeChange}
                                         keyboardType="numeric"
                                         maxLength={5}
                                     />
@@ -254,7 +280,7 @@ export const QuickAddActivityModal: React.FC<Props> = ({ visible, onClose, monit
                                         placeholder="10:00"
                                         placeholderTextColor={Theme.colors.gray[300]}
                                         value={endTime}
-                                        onChangeText={(t) => { setEndTime(t); if (timeError) setTimeError(''); }}
+                                        onChangeText={handleEndTimeChange}
                                         keyboardType="numeric"
                                         maxLength={5}
                                     />

@@ -87,6 +87,9 @@ export class SupabaseAttendanceRepository implements IAttendanceRepository {
     }
 
     async findByClassAndDate(classId: string, date: string): Promise<AttendanceRecord[]> {
+        if (!classId || classId === 'undefined' || classId === 'null') {
+            return [];
+        }
         // We might want to combine local unsynced + online data here
         // For simplicity, we trust the cache for the current session
         const local = await this.storage.query<any>(
@@ -118,6 +121,9 @@ export class SupabaseAttendanceRepository implements IAttendanceRepository {
     }
 
     async findByClassId(classId: string): Promise<AttendanceRecord[]> {
+        if (!classId || classId === 'undefined' || classId === 'null') {
+            return [];
+        }
         const { data, error } = await supabase
             .from('attendance_records')
             .select('*')
@@ -125,6 +131,58 @@ export class SupabaseAttendanceRepository implements IAttendanceRepository {
 
         if (error) throw error;
         return (data || []).map(item => this.mapToEntity(item));
+    }
+
+    async findByChildId(childId: string): Promise<AttendanceRecord[]> {
+        if (!childId || childId === 'undefined' || childId === 'null') {
+            return [];
+        }
+        try {
+            // 1. Try fetching online first
+            const { data, error } = await supabase
+                .from('attendance_records')
+                .select('*')
+                .eq('child_id', childId)
+                .order('date', { ascending: false });
+
+            if (!error && data) {
+                // 2. Clear old synced local cache records for this child
+                await this.storage.run(
+                    'DELETE FROM attendance WHERE child_id = ? AND synced = 1',
+                    [childId]
+                );
+
+                // 3. Populate cache with online results
+                for (const item of data) {
+                    await this.storage.run(
+                        'INSERT OR REPLACE INTO attendance (id, child_id, class_id, date, status, activity_id, synced) VALUES (?, ?, ?, ?, ?, ?, 1)',
+                        [item.id, item.child_id, item.class_id, item.date, item.status, item.activity_id]
+                    );
+                }
+
+                return data.map(item => this.mapToEntity(item));
+            } else if (error) {
+                console.warn('Supabase findByChildId error:', error);
+            }
+        } catch (err) {
+            console.warn('Failed to fetch from Supabase attendance, falling back to SQLite cache', err);
+        }
+
+        // 4. Return consolidated cache rows
+        try {
+            const local = await this.storage.query<any>(
+                'SELECT * FROM attendance WHERE child_id = ? ORDER BY date DESC',
+                [childId]
+            );
+
+            if (local && local.length > 0) {
+                return local.map(item => this.mapFromCache(item));
+            }
+        } catch (localErr) {
+            console.error('Failed to query local attendance cache:', localErr);
+        }
+
+        return [];
     }
 
     private mapToEntity(data: any): AttendanceRecord {

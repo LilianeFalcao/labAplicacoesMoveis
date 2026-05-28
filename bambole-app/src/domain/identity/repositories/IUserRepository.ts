@@ -8,4 +8,5 @@ export interface IUserRepository {
     create(user: User): Promise<void>;
     findTokensByClass(classId: string): Promise<string[]>;
     findAllParentTokens(): Promise<string[]>;
+    findAdminTokens(): Promise<string[]>;
 }

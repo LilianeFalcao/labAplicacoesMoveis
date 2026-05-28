@@ -138,7 +138,7 @@ export const ParentHomeScreen = () => {
                             renderItem={({ item }) => (
                                 <TouchableOpacity
                                     activeOpacity={0.7}
-                                    onPress={() => navigation.navigate('ParentStack', { screen: 'ChildDetails', params: { childId: item.id, childName: item.name } })}
+                                    onPress={() => navigation.navigate('ChildDetails', { childId: item.id, childName: item.name })}
                                 >
                                     <AppCard style={styles.childCard}>
                                         <View style={styles.childCardHeader}>

@@ -6,5 +6,6 @@ export interface IAttendanceRepository {
     save(record: AttendanceRecord): Promise<void>;
     findByClassAndDate(classId: string, date: string): Promise<AttendanceRecord[]>;
     findByClassId(classId: string): Promise<AttendanceRecord[]>;
+    findByChildId(childId: string): Promise<AttendanceRecord[]>;
     subscribe(callback: () => void): () => void;
 }

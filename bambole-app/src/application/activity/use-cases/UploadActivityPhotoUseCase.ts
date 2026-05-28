@@ -5,6 +5,7 @@ interface UploadActivityPhotoRequest {
     classId: string;
     photoUri: string;
     caption?: string;
+    monitorId: string;
 }
 
 export class UploadActivityPhotoUseCase {
@@ -15,6 +16,7 @@ export class UploadActivityPhotoUseCase {
             classId: request.classId,
             photoUri: request.photoUri,
             caption: request.caption,
+            monitorId: request.monitorId,
         });
 
         await this.activityRepository.savePhoto(photo);

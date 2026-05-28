@@ -98,12 +98,13 @@ export class SupabaseGuardianRepository implements IGuardianRepository {
     }
 
     async save(guardian: Guardian): Promise<void> {
-        const { error } = await supabase.from('guardians').upsert({
-            id: guardian.id,
-            user_id: guardian.userId,
-            image_consent: guardian.imageConsent,
-            image_consent_at: guardian.imageConsentAt?.toISOString()
-        });
+        const { error } = await supabase
+            .from('guardians')
+            .update({
+                image_consent: guardian.imageConsent,
+                image_consent_at: guardian.imageConsentAt?.toISOString()
+            })
+            .eq('id', guardian.id);
 
         if (error) throw new Error(`Error saving guardian: ${error.message}`);
     }

@@ -35,8 +35,9 @@ export class SupabaseAnnouncementRepository implements IAnnouncementRepository {
             .select('*')
             .order('published_at', { ascending: false });
 
-        if (classIds.length > 0) {
-            const classIdsFilter = classIds.map(id => `'${id}'`).join(',');
+        const cleanClassIds = classIds.map(id => id.replace(/'/g, ''));
+        if (cleanClassIds.length > 0) {
+            const classIdsFilter = cleanClassIds.join(',');
             query = query.or(`audience_type.eq.all,and(audience_type.eq.class,class_id.in.(${classIdsFilter}))`);
         } else {
             query = query.eq('audience_type', 'all');

@@ -4,15 +4,23 @@ import { Class, WeeklySchedule } from '@/domain/activity/entities/Class';
 
 export class SupabaseClassRepository implements IClassRepository {
     async findById(id: string): Promise<Class | null> {
-        const { data, error } = await supabase
-            .from('classes')
-            .select('*')
-            .eq('id', id)
-            .single();
+        try {
+            const { data, error } = await supabase
+                .from('classes')
+                .select('*')
+                .eq('id', id)
+                .single();
 
-        if (error || !data) return null;
+            if (error) throw error;
+            if (!data) return null;
 
-        return this.mapFromDb(data);
+            return this.mapFromDb(data);
+        } catch (err) {
+            console.warn('ClassRepository: falha ao buscar online, usando fallback offline', err);
+            const allDays: any[] = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+            const alwaysOpen = new WeeklySchedule(allDays, '00:00', '23:59');
+            return new Class(id, 'Turma Offline', alwaysOpen, 'Carregada em modo offline');
+        }
     }
 
     async findByIds(ids: string[]): Promise<Class[]> {

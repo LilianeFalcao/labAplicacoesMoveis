@@ -20,8 +20,40 @@ export class SupabaseAgendaRepository implements IAgendaRepository {
     }
 
     async findByClass(classId: string): Promise<ClassActivity[]> {
+        if (!classId || classId === 'undefined' || classId === 'null') {
+            return [];
+        }
         try {
-            // 1. Try querying local SQLite cache first for high speed and offline support
+            // 1. Try fetching online from Supabase first
+            const { data: onlineRows, error } = await supabase
+                .from('class_activities')
+                .select('*')
+                .eq('class_id', classId)
+                .order('start_time', { ascending: true });
+
+            if (!error && onlineRows) {
+                // 2. Clear old synced local cache records for this class
+                await this.storage.run(
+                    'DELETE FROM class_activities WHERE class_id = ? AND synced = 1',
+                    [classId]
+                );
+
+                // 3. Populate local SQLite cache with online results
+                for (const row of onlineRows) {
+                    await this.storage.run(
+                        'INSERT OR REPLACE INTO class_activities (id, class_id, start_time, end_time, title, description, status, category, synced) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)',
+                        [row.id, row.class_id, row.start_time, row.end_time, row.title, row.description || null, row.status, row.category]
+                    );
+                }
+            } else if (error) {
+                console.warn('Supabase findByClass error:', error);
+            }
+        } catch (err) {
+            console.warn('Failed to fetch from Supabase agenda, falling back to SQLite cache', err);
+        }
+
+        // 4. Return consolidated cache rows (both synced and unsynced)
+        try {
             const localRows = await this.storage.query<any>(
                 'SELECT * FROM class_activities WHERE class_id = ? ORDER BY start_time ASC',
                 [classId]
@@ -30,108 +62,11 @@ export class SupabaseAgendaRepository implements IAgendaRepository {
             if (localRows && localRows.length > 0) {
                 return localRows.map(row => this.mapFromCache(row));
             }
-
-            // 2. Local cache empty, try fetching online from Supabase
-            const { data: onlineRows, error } = await supabase
-                .from('class_activities')
-                .select('*')
-                .eq('class_id', classId)
-                .order('start_time', { ascending: true });
-
-            if (!error && onlineRows && onlineRows.length > 0) {
-                // Populate local SQLite cache with online results for subsequent loads
-                for (const row of onlineRows) {
-                    await this.storage.run(
-                        'INSERT OR REPLACE INTO class_activities (id, class_id, start_time, end_time, title, description, status, category, synced) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)',
-                        [row.id, row.class_id, row.start_time, row.end_time, row.title, row.description || null, row.status, row.category]
-                    );
-                }
-                return onlineRows.map(row => ({
-                    id: row.id,
-                    classId: row.class_id,
-                    startTime: row.start_time,
-                    endTime: row.end_time,
-                    title: row.title,
-                    description: row.description || undefined,
-                    status: row.status as any,
-                    category: row.category as any
-                }));
-            }
-        } catch (err) {
-            console.warn('Failed to fetch from SQLite or Supabase agenda, falling back to mock generation', err);
+        } catch (localErr) {
+            console.error('Failed to query local class_activities cache:', localErr);
         }
 
-        // 3. Fallback: Local database and online both empty (or offline failed completely)
-        // Generates the time-centered routine so the UI stays fully responsive and functional.
-        const now = new Date();
-        const currentHour = now.getHours();
-
-        const formatTime = (h: number, m: number = 0) => {
-            const wrappedH = ((h % 24) + 24) % 24;
-            return `${wrappedH.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-        };
-
-        const fallbackActivities: ClassActivity[] = [
-            {
-                id: `act_${classId}_1`,
-                classId: classId,
-                startTime: formatTime(currentHour - 2),
-                endTime: formatTime(currentHour - 1),
-                title: 'Recepção e Jogos Livres',
-                status: 'completed',
-                category: 'activity'
-            },
-            {
-                id: `act_${classId}_2`,
-                classId: classId,
-                startTime: formatTime(currentHour - 1),
-                endTime: formatTime(currentHour + 1),
-                title: 'Oficina de Slime Colorido',
-                status: 'ongoing',
-                category: 'activity'
-            },
-            {
-                id: `act_${classId}_3`,
-                classId: classId,
-                startTime: formatTime(currentHour + 1),
-                endTime: formatTime(currentHour + 1, 30),
-                title: 'Lanche Coletivo',
-                status: 'pending',
-                category: 'meal'
-            },
-            {
-                id: `act_${classId}_4`,
-                classId: classId,
-                startTime: formatTime(currentHour + 1, 30),
-                endTime: formatTime(currentHour + 3),
-                title: 'Caça ao Tesouro',
-                status: 'pending',
-                category: 'activity'
-            },
-            {
-                id: `act_${classId}_5`,
-                classId: classId,
-                startTime: formatTime(currentHour + 3),
-                endTime: formatTime(currentHour + 4),
-                title: 'Descanso e Leitura',
-                status: 'break',
-                category: 'break'
-            },
-        ];
-
-        // Cache fallback activities locally to ensure database constraint checks pass
-        for (const act of fallbackActivities) {
-            try {
-                await this.storage.run(
-                    'INSERT OR REPLACE INTO class_activities (id, class_id, start_time, end_time, title, description, status, category, synced) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)',
-                    [act.id, act.classId, act.startTime, act.endTime, act.title, act.description || null, act.status, act.category]
-                );
-            } catch (err) {
-                console.error('Error caching fallback activity', err);
-            }
-        }
-
-        return fallbackActivities;
+        return [];
     }
 
     async save(activity: ClassActivity): Promise<void> {

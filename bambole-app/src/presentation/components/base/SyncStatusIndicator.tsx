@@ -3,14 +3,13 @@ import { View, TouchableOpacity, StyleSheet, Animated, Text } from 'react-native
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Theme } from '../../styles/Theme';
 import { SyncQueueRepository } from '../../../infrastructure/sync/SyncQueueRepository';
-import { SyncManager } from '../../../infrastructure/sync/SyncManager';
+import { OfflineSyncService } from '../../../infrastructure/offline/OfflineSyncService';
 
 export const SyncStatusIndicator = () => {
     const [pendingCount, setPendingCount] = useState(0);
     const [isSyncing, setIsSyncing] = useState(false);
     const spinValue = new Animated.Value(0);
     const queue = SyncQueueRepository.getInstance();
-    const syncManager = SyncManager.getInstance();
 
     useEffect(() => {
         const updateStatus = async () => {
@@ -38,7 +37,12 @@ export const SyncStatusIndicator = () => {
         ).start();
 
         try {
-            await syncManager.sync();
+            const syncService = new OfflineSyncService();
+            await syncService.syncUp();
+            const count = await queue.countPending();
+            setPendingCount(count);
+        } catch (error) {
+            console.error("Manual header sync failed:", error);
         } finally {
             setIsSyncing(false);
             spinValue.setValue(0);

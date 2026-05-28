@@ -2,7 +2,7 @@ import { IAttendanceRepository } from '@/domain/attendance/repositories/IAttenda
 import { IClassRepository } from '@/domain/activity/repositories/IClassRepository';
 import { AttendanceRecord } from '@/domain/attendance/entities/AttendanceRecord';
 import { GeolocationProof } from '@/domain/attendance/value-objects/AttendanceStatus';
-import { MockAgendaRepository } from '@/infrastructure/activity/repositories/MockAgendaRepository';
+import { IAgendaRepository } from '@/domain/activity/repositories/IAgendaRepository';
 
 interface AttendanceInput {
     childId: string;
@@ -13,7 +13,8 @@ interface AttendanceInput {
 export class TakeAttendanceUseCase {
     constructor(
         private readonly attendanceRepo: IAttendanceRepository,
-        private readonly classRepo: IClassRepository
+        private readonly classRepo: IClassRepository,
+        private readonly agendaRepo: IAgendaRepository
     ) { }
 
     async execute(
@@ -30,8 +31,7 @@ export class TakeAttendanceUseCase {
 
         // Validate schedule
         if (activityId) {
-            const agendaRepo = MockAgendaRepository.getInstance();
-            const activities = await agendaRepo.findByClass(classId);
+            const activities = await this.agendaRepo.findByClass(classId);
             const activity = activities.find(a => a.id === activityId);
             if (!activity) {
                 throw new Error('Activity not found in this class agenda');

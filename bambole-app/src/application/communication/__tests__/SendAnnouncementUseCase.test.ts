@@ -31,24 +31,43 @@ describe('SendAnnouncementUseCase', () => {
         useCase = new SendAnnouncementUseCase(mockAnnounceRepo, mockUserRepo, mockPushService);
     });
 
-    it('should send announcement to a specific class and trigger push', async () => {
+    it('should send announcement to a specific class (passed as array) and trigger push exactly once', async () => {
         const classId = 'cl1';
         const tokens = ['token1', 'token2'];
         mockUserRepo.findTokensByClass.mockResolvedValue(tokens);
 
-        await useCase.execute('u1', 'Reunião', 'class', classId);
+        await useCase.execute('u1', 'Reunião', 'class', [classId]);
 
-        expect(mockAnnounceRepo.save).toHaveBeenCalled();
+        expect(mockAnnounceRepo.save).toHaveBeenCalledTimes(1);
+        expect(mockUserRepo.findTokensByClass).toHaveBeenCalledTimes(1);
+        expect(mockUserRepo.findTokensByClass).toHaveBeenCalledWith('cl1');
+        expect(mockPushService.send).toHaveBeenCalledTimes(1);
         expect(mockPushService.send).toHaveBeenCalledWith(tokens, 'Bambolê: Novo Aviso', 'Reunião');
     });
 
-    it('should send announcement to all parents and trigger push', async () => {
+    it('should send announcement to a specific class (defensively passed as string) and normalize correctly without looping letters', async () => {
+        const classId = 'cl1';
+        const tokens = ['token1', 'token2'];
+        mockUserRepo.findTokensByClass.mockResolvedValue(tokens);
+
+        // Passing classId as a string to test the defensive wrap
+        await useCase.execute('u1', 'Reunião', 'class', classId as any);
+
+        expect(mockAnnounceRepo.save).toHaveBeenCalledTimes(1);
+        expect(mockUserRepo.findTokensByClass).toHaveBeenCalledTimes(1);
+        expect(mockUserRepo.findTokensByClass).toHaveBeenCalledWith('cl1');
+        expect(mockPushService.send).toHaveBeenCalledTimes(1);
+        expect(mockPushService.send).toHaveBeenCalledWith(tokens, 'Bambolê: Novo Aviso', 'Reunião');
+    });
+
+    it('should send announcement to all parents and trigger push exactly once', async () => {
         const tokens = ['tokenA', 'tokenB'];
         mockUserRepo.findAllParentTokens.mockResolvedValue(tokens);
 
         await useCase.execute('u1', 'Feriado', 'all');
 
-        expect(mockAnnounceRepo.save).toHaveBeenCalled();
+        expect(mockAnnounceRepo.save).toHaveBeenCalledTimes(1);
+        expect(mockPushService.send).toHaveBeenCalledTimes(1);
         expect(mockPushService.send).toHaveBeenCalledWith(tokens, 'Bambolê: Comunicado Geral', 'Feriado');
     });
 

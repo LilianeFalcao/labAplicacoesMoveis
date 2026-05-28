@@ -5,7 +5,7 @@ import { AppHeader } from "../../components/base/AppHeader";
 import { Theme } from "../../styles/Theme";
 import { ActivityPhoto } from "../../../domain/activity/entities/ActivityPhoto";
 import { GetActivityFeedUseCase } from "../../../application/activity/use-cases/GetActivityFeedUseCase";
-import { MockActivityRepository } from "../../../infrastructure/activity/repositories/MockActivityRepository";
+import { SupabaseActivityRepository } from "../../../infrastructure/activity/repositories/SupabaseActivityRepository";
 import { MockEnrollmentService } from "../../../application/activity/services/MockEnrollmentService";
 
 export const ParentFeedScreen = () => {
@@ -19,7 +19,7 @@ export const ParentFeedScreen = () => {
             // In a real app, 'parent-id-123' would come from auth context
             const childrenClassIds = await enrollmentService.getChildrenClassIds("parent-id-123");
 
-            const repository = MockActivityRepository.getInstance();
+            const repository = SupabaseActivityRepository.getInstance();
             const useCase = new GetActivityFeedUseCase(repository);
 
             const feed = await useCase.execute({ classIds: childrenClassIds });

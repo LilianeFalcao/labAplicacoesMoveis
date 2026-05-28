@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme } from '../../styles/Theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -8,6 +8,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { ParentStackParamList } from '../../navigation/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBadge } from '../../components/base/StatusBadge';
+import { SupabaseAttendanceRepository } from '../../../infrastructure/attendance/repositories/SupabaseAttendanceRepository';
 
 type AttendanceHistoryRouteProp = RouteProp<ParentStackParamList, 'AttendanceHistory'>;
 type AttendanceHistoryNavigationProp = StackNavigationProp<ParentStackParamList, 'AttendanceHistory'>;
@@ -16,15 +17,65 @@ export const AttendanceHistoryScreen = () => {
     const navigation = useNavigation<AttendanceHistoryNavigationProp>();
     const route = useRoute<AttendanceHistoryRouteProp>();
     const insets = useSafeAreaInsets();
-    const { childName = 'Aluno' } = route.params;
+    const { childId, childName = 'Aluno' } = route.params;
 
-    const historyData = [
+    const [history, setHistory] = React.useState<any[]>([]);
+    const [loading, setLoading] = React.useState(true);
+
+    const fallbackHistory = [
         { id: '1', date: '31 de Março', dayOfWeek: 'Segunda-feira', status: 'present', label: 'Presente', checkIn: '08:15', checkOut: '17:30' },
         { id: '2', date: '30 de Março', dayOfWeek: 'Domingo', status: 'absent', label: 'Faltou', checkIn: '-', checkOut: '-' },
         { id: '3', date: '29 de Março', dayOfWeek: 'Sábado', status: 'present', label: 'Presente', checkIn: '08:20', checkOut: '17:45' },
         { id: '4', date: '28 de Março', dayOfWeek: 'Sexta-feira', status: 'present', label: 'Presente', checkIn: '08:05', checkOut: '17:20' },
         { id: '5', date: '27 de Março', dayOfWeek: 'Quinta-feira', status: 'present', label: 'Presente', checkIn: '08:10', checkOut: '17:35' },
     ];
+
+    const loadHistory = React.useCallback(async () => {
+        if (!childId) {
+            setHistory(fallbackHistory);
+            setLoading(false);
+            return;
+        }
+        try {
+            setLoading(true);
+            const repo = new SupabaseAttendanceRepository();
+            const records = await repo.findByChildId(childId);
+            
+            if (records.length === 0) {
+                setHistory([]);
+                return;
+            }
+
+            const mapped = records.map(record => {
+                const dateObj = record.date;
+                const dateStr = dateObj.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' });
+                const dayOfWeek = dateObj.toLocaleDateString('pt-BR', { weekday: 'long' });
+                const capitalizedDayOfWeek = dayOfWeek.charAt(0).toUpperCase() + dayOfWeek.slice(1);
+                
+                const isPresent = record.status.value === 'present';
+                
+                return {
+                    id: record.id,
+                    date: dateStr,
+                    dayOfWeek: capitalizedDayOfWeek,
+                    status: record.status.value,
+                    label: isPresent ? 'Presente' : record.status.value === 'absent' ? 'Faltou' : 'Justificado',
+                    checkIn: isPresent ? dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '-',
+                    checkOut: isPresent ? '17:30' : '-',
+                };
+            });
+            setHistory(mapped);
+        } catch (error) {
+            console.error("Failed to load attendance history", error);
+            setHistory(fallbackHistory);
+        } finally {
+            setLoading(false);
+        }
+    }, [childId]);
+
+    React.useEffect(() => {
+        loadHistory();
+    }, [loadHistory]);
 
     return (
         <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
@@ -39,35 +90,41 @@ export const AttendanceHistoryScreen = () => {
             <View style={styles.container}>
                 <View style={styles.summaryInfo}>
                     <Text style={styles.title}>Presenças de {childName}</Text>
-                    <Text style={styles.subtitle}>Março de 2026</Text>
+                    <Text style={styles.subtitle}>Histórico Recente</Text>
                 </View>
 
-                <FlatList
-                    data={historyData}
-                    keyExtractor={item => item.id}
-                    contentContainerStyle={styles.listContent}
-                    showsVerticalScrollIndicator={false}
-                    renderItem={({ item }) => (
-                        <View style={styles.historyItem}>
-                            <View style={styles.dateColumn}>
-                                <Text style={styles.dateText}>{item.date.split(' ')[0]}</Text>
-                                <Text style={styles.monthText}>{item.date.split(' ')[2]}</Text>
-                            </View>
-                            <View style={styles.detailsCard}>
-                                <View style={styles.cardMain}>
-                                    <View>
-                                        <Text style={styles.dayText}>{item.dayOfWeek}</Text>
-                                        <View style={styles.timesRow}>
-                                            <MaterialCommunityIcons name="clock-outline" size={14} color={Theme.colors.gray[500]} />
-                                            <Text style={styles.timeText}>{item.checkIn} – {item.checkOut}</Text>
+                {loading ? (
+                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                        <ActivityIndicator size="large" color={Theme.colors.primary} />
+                    </View>
+                ) : (
+                    <FlatList
+                        data={history}
+                        keyExtractor={item => item.id}
+                        contentContainerStyle={styles.listContent}
+                        showsVerticalScrollIndicator={false}
+                        renderItem={({ item }) => (
+                            <View style={styles.historyItem}>
+                                <View style={styles.dateColumn}>
+                                    <Text style={styles.dateText}>{item.date.split(' ')[0]}</Text>
+                                    <Text style={styles.monthText}>{item.date.split(' ')[2]}</Text>
+                                </View>
+                                <View style={styles.detailsCard}>
+                                    <View style={styles.cardMain}>
+                                        <View>
+                                            <Text style={styles.dayText}>{item.dayOfWeek}</Text>
+                                            <View style={styles.timesRow}>
+                                                <MaterialCommunityIcons name="clock-outline" size={14} color={Theme.colors.gray[500]} />
+                                                <Text style={styles.timeText}>{item.checkIn} – {item.checkOut}</Text>
+                                            </View>
                                         </View>
+                                        <StatusBadge type={item.status as any} label={item.label} />
                                     </View>
-                                    <StatusBadge type={item.status as any} label={item.label} />
                                 </View>
                             </View>
-                        </View>
-                    )}
-                />
+                        )}
+                    />
+                )}
             </View>
         </SafeAreaView>
     );

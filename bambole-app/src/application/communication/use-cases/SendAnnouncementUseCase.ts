@@ -20,10 +20,14 @@ export class SendAnnouncementUseCase {
         const annContent = AnnouncementContent.create(content);
 
         if (audienceType === 'class') {
-            if (!classIds || classIds.length === 0) {
+            if (!classIds || (typeof classIds === 'string' && !(classIds as string).trim())) {
                 throw new Error('Class ID is required for class audience');
             }
-            for (const classId of classIds) {
+            const normalizedClassIds = typeof classIds === 'string' ? [classIds] : classIds;
+            if (normalizedClassIds.length === 0) {
+                throw new Error('Class ID is required for class audience');
+            }
+            for (const classId of normalizedClassIds) {
                 const audience = Audience.forClass(classId);
                 const announcement = new Announcement(undefined, authorId, annContent, audience, new Date());
                 await this.announceRepo.save(announcement);

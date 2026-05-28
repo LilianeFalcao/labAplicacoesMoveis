@@ -38,9 +38,9 @@
 
 ## 7. Testes do QuickAddActivityModal
 
-- [ ] 7.1 Criar `src/presentation/components/monitor/__tests__/QuickAddActivityModal.test.tsx` com RNTL: testar renderização do modal, validação de campos obrigatórios, exibição de erro quando título está vazio, exibição de erro quando término é anterior ao início. (1.5h)
-- [ ] 7.2 Testar cenário de sucesso de criação: mock de `SqliteStorageService`, verificar que `run()` é chamado com payload correto e que o callback `onCreated` é invocado. (1h)
-- [ ] 7.3 Testar comportamento offline: verificar que a atividade é criada localmente mesmo sem conexão e que o feedback de "salvo localmente" é exibido. (0.5h)
+- [x] 7.1 Criar `src/presentation/components/monitor/__tests__/QuickAddActivityModal.test.tsx` com RNTL: testar renderização do modal, validação de campos obrigatórios, exibição de erro quando título está vazio, exibição de erro quando término é anterior ao início. (1.5h)
+- [x] 7.2 Testar cenário de sucesso de criação: mock de `SqliteStorageService`, verificar que `run()` é chamado com payload correto e que o callback `onCreated` é invocado. (1h)
+- [x] 7.3 Testar comportamento offline: verificar que a atividade é criada localmente mesmo sem conexão e que o feedback de "salvo localmente" é exibido. (0.5h)
 
 ---
 

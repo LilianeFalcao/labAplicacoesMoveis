@@ -1,15 +1,23 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme } from '../../styles/Theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AppCard } from '../../components/base/AppCard';
+import { useAuth } from '../../contexts/AuthContext';
+import { SupabaseGuardianRepository } from '../../../infrastructure/enrollment/repositories/SupabaseGuardianRepository';
+import { SupabaseChildRepository } from '../../../infrastructure/enrollment/repositories/SupabaseChildRepository';
+import { SupabaseAnnouncementRepository } from '../../../infrastructure/communication/repositories/SupabaseAnnouncementRepository';
 
 export const NoticesScreen = () => {
     const insets = useSafeAreaInsets();
+    const { user } = useAuth();
 
-    const noticesData = [
+    const [notices, setNotices] = React.useState<any[]>([]);
+    const [loading, setLoading] = React.useState(true);
+
+    const fallbackNotices = [
         {
             id: '1',
             title: 'Uniforme de natação obrigatório',
@@ -39,6 +47,63 @@ export const NoticesScreen = () => {
         },
     ];
 
+    const loadNotices = React.useCallback(async () => {
+        setLoading(true);
+        try {
+            let classIds: string[] = [];
+            if (user?.id) {
+                const guardianRepo = new SupabaseGuardianRepository();
+                const guardian = await guardianRepo.findByUserId(user.id);
+                if (guardian) {
+                    const childRepo = new SupabaseChildRepository();
+                    const children = await childRepo.findByGuardianId(guardian.id);
+                    classIds = children.map(c => c.classId).filter((id): id is string => !!id);
+                }
+            }
+
+            const annRepo = new SupabaseAnnouncementRepository();
+            const announcements = await annRepo.findRelevantForClasses(classIds);
+
+            if (announcements.length === 0) {
+                setNotices([]);
+                return;
+            }
+
+            const mapped = announcements.map(ann => {
+                const dateObj = ann.publishedAt;
+                const formattedDate = dateObj.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).toUpperCase();
+                
+                const fullText = ann.content.value || '';
+                const parts = fullText.split('\n');
+                const titleText = parts[0] || 'Comunicado';
+                const contentText = parts.slice(1).join('\n') || fullText;
+
+                const isGeneral = ann.audience.type === 'all';
+
+                return {
+                    id: ann.id,
+                    title: titleText.length > 50 ? titleText.substring(0, 50) + '...' : titleText,
+                    content: contentText,
+                    date: formattedDate,
+                    type: isGeneral ? 'info' : 'alert',
+                    icon: isGeneral ? 'bullhorn-variant' : 'school',
+                    tag: isGeneral ? 'ESCOLA' : 'TURMA'
+                };
+            });
+
+            setNotices(mapped);
+        } catch (error) {
+            console.error("Failed to load notices", error);
+            setNotices(fallbackNotices);
+        } finally {
+            setLoading(false);
+        }
+    }, [user?.id]);
+
+    React.useEffect(() => {
+        loadNotices();
+    }, [loadNotices]);
+
     return (
         <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
             <View style={[styles.header, { paddingTop: Math.max(insets.top, Theme.spacing.md) }]}>
@@ -58,32 +123,46 @@ export const NoticesScreen = () => {
                     <Text style={styles.subtitle}>Fique por dentro das novidades da escola.</Text>
                 </View>
 
-                {noticesData.map((item) => (
-                    <AppCard key={item.id} style={styles.noticeCard}>
-                        <View style={styles.noticeHeader}>
-                            <View style={[styles.iconContainer, { backgroundColor: item.type === 'alert' ? '#FFEDD5' : '#DBEAFE' }]}>
-                                <MaterialCommunityIcons
-                                    name={item.icon as any}
-                                    size={24}
-                                    color={item.type === 'alert' ? '#92400E' : '#1E40AF'}
-                                />
-                            </View>
-                            <View style={styles.headerContent}>
-                                <View style={styles.tagRow}>
-                                    <Text style={[styles.tag, { color: item.type === 'alert' ? '#92400E' : '#1E40AF' }]}>{item.tag}</Text>
-                                    <Text style={styles.dot}> • </Text>
-                                    <Text style={styles.date}>{item.date}</Text>
+                {loading ? (
+                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 100 }}>
+                        <ActivityIndicator size="large" color={Theme.colors.primary} />
+                    </View>
+                ) : notices.length === 0 ? (
+                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 100 }}>
+                        <MaterialCommunityIcons name="bell-off-outline" size={48} color={Theme.colors.gray[300]} />
+                        <Text style={{ marginTop: 16, color: Theme.colors.gray[400], ...Theme.typography.body2 }}>Nenhum comunicado no momento.</Text>
+                    </View>
+                ) : (
+                    notices.map((item) => (
+                        <AppCard key={item.id} style={styles.noticeCard}>
+                            <View style={styles.noticeHeader}>
+                                <View style={[styles.iconContainer, { backgroundColor: item.type === 'alert' ? '#FFEDD5' : '#DBEAFE' }]}>
+                                    <MaterialCommunityIcons
+                                        name={item.icon as any}
+                                        size={24}
+                                        color={item.type === 'alert' ? '#92400E' : '#1E40AF'}
+                                    />
                                 </View>
-                                <Text style={styles.noticeTitle}>{item.title}</Text>
+                                <View style={styles.headerContent}>
+                                    <View style={styles.tagRow}>
+                                        <Text style={[styles.tag, { color: item.type === 'alert' ? '#92400E' : '#1E40AF' }]}>{item.tag}</Text>
+                                        <Text style={styles.dot}> • </Text>
+                                        <Text style={styles.date}>{item.date}</Text>
+                                    </View>
+                                    <Text style={styles.noticeTitle}>{item.title}</Text>
+                                </View>
                             </View>
-                        </View>
-                        <Text style={styles.noticeContent}>{item.content}</Text>
-                        <TouchableOpacity style={styles.readMore}>
-                            <Text style={styles.readMoreText}>Ler comunicado completo</Text>
-                            <MaterialCommunityIcons name="chevron-right" size={16} color={Theme.colors.primary} />
-                        </TouchableOpacity>
-                    </AppCard>
-                ))}
+                            <Text style={styles.noticeContent}>{item.content}</Text>
+                            <TouchableOpacity 
+                                style={styles.readMore}
+                                onPress={() => Alert.alert(item.title, item.content)}
+                            >
+                                <Text style={styles.readMoreText}>Ler comunicado completo</Text>
+                                <MaterialCommunityIcons name="chevron-right" size={16} color={Theme.colors.primary} />
+                            </TouchableOpacity>
+                        </AppCard>
+                    ))
+                )}
             </ScrollView>
         </SafeAreaView>
     );

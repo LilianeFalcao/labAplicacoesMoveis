@@ -1,6 +1,8 @@
 import { supabase } from '@/infrastructure/supabase/client';
 import { IIncidentRepository } from '@/domain/activity/repositories/IIncidentRepository';
 import { Incident } from '@/domain/activity/entities/Incident';
+import * as FileSystem from 'expo-file-system/legacy';
+import { decode } from '@/infrastructure/utils/base64';
 
 export class SupabaseIncidentRepository implements IIncidentRepository {
     async save(incident: Incident): Promise<void> {
@@ -18,14 +20,46 @@ export class SupabaseIncidentRepository implements IIncidentRepository {
 
         if (incidentError) throw incidentError;
 
+        const uploadedUrls: string[] = [];
+
         if (incident.photoUrls && incident.photoUrls.length > 0) {
+            for (const url of incident.photoUrls) {
+                if (url.startsWith('http://') || url.startsWith('https://')) {
+                    uploadedUrls.push(url);
+                } else {
+                    try {
+                        const base64 = await FileSystem.readAsStringAsync(url, { encoding: 'base64' });
+                        const fileName = `incident_${incident.id}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}.jpg`;
+                        const { error: uploadError } = await supabase.storage
+                            .from('children-photos')
+                            .upload(fileName, decode(base64), {
+                                contentType: 'image/jpeg',
+                                upsert: true
+                            });
+
+                        if (uploadError) throw uploadError;
+
+                        const { data: { publicUrl } } = supabase.storage
+                            .from('children-photos')
+                            .getPublicUrl(fileName);
+
+                        uploadedUrls.push(publicUrl);
+                    } catch (uploadErr) {
+                        console.error('Failed to upload incident photo:', url, uploadErr);
+                        uploadedUrls.push(url); // fallback
+                    }
+                }
+            }
+        }
+
+        if (uploadedUrls.length > 0) {
             // Delete existing photos for this incident (if doing upsert)
             await supabase
                 .from('incident_photos')
                 .delete()
                 .eq('incident_id', incident.id);
 
-            const photosToInsert = incident.photoUrls.map(url => ({
+            const photosToInsert = uploadedUrls.map(url => ({
                 incident_id: incident.id,
                 url: url
             }));
@@ -67,6 +101,9 @@ export class SupabaseIncidentRepository implements IIncidentRepository {
     }
 
     async findByClassId(classId: string): Promise<Incident[]> {
+        if (!classId || classId === 'undefined' || classId === 'null') {
+            return [];
+        }
         let query = supabase
             .from('incidents')
             .select('*');

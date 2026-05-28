@@ -30,4 +30,59 @@ export class MockActivityRepository implements IActivityRepository {
     setPhotos(photos: ActivityPhoto[]) {
         this.photos = photos;
     }
+
+    async toggleLike(photoId: string, userId: string): Promise<string[]> {
+        const photoIndex = this.photos.findIndex(p => p.id === photoId);
+        if (photoIndex === -1) return [];
+
+        const photo = this.photos[photoIndex];
+        let likes = [...photo.likes];
+        if (likes.includes(userId)) {
+            likes = likes.filter(id => id !== userId);
+        } else {
+            likes.push(userId);
+        }
+
+        this.photos[photoIndex] = ActivityPhoto.create({
+            id: photo.id,
+            classId: photo.classId,
+            monitorId: photo.monitorId,
+            photoUri: photo.photoUri,
+            timestamp: photo.timestamp,
+            caption: photo.caption,
+            isPending: photo.isPending,
+            monitorName: photo.monitorName,
+            monitorAvatar: photo.monitorAvatar,
+            className: photo.className,
+            likes,
+            comments: photo.comments
+        });
+
+        return likes;
+    }
+
+    async addComment(photoId: string, comment: any): Promise<any[]> {
+        const photoIndex = this.photos.findIndex(p => p.id === photoId);
+        if (photoIndex === -1) return [];
+
+        const photo = this.photos[photoIndex];
+        const comments = [...photo.comments, comment];
+
+        this.photos[photoIndex] = ActivityPhoto.create({
+            id: photo.id,
+            classId: photo.classId,
+            monitorId: photo.monitorId,
+            photoUri: photo.photoUri,
+            timestamp: photo.timestamp,
+            caption: photo.caption,
+            isPending: photo.isPending,
+            monitorName: photo.monitorName,
+            monitorAvatar: photo.monitorAvatar,
+            className: photo.className,
+            likes: photo.likes,
+            comments
+        });
+
+        return comments;
+    }
 }

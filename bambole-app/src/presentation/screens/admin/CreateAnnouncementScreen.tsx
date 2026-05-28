@@ -36,7 +36,7 @@ export const CreateAnnouncementScreen = ({ navigation }: any) => {
                 user!.id,
                 content,
                 isGeneral ? 'all' : 'class',
-                isGeneral ? undefined : classId
+                isGeneral ? undefined : [classId]
             );
 
             Alert.alert('Sucesso', 'Aviso enviado e pais notificados!', [

@@ -102,4 +102,15 @@ export class SupabaseUserRepository implements IUserRepository {
         if (error) throw error;
         return (data || []).map(u => u.push_token) as string[];
     }
+
+    async findAdminTokens(): Promise<string[]> {
+        const { data, error } = await supabase
+            .from('users')
+            .select('push_token')
+            .eq('role', 'admin')
+            .not('push_token', 'is', null);
+
+        if (error) throw error;
+        return (data || []).map(u => u.push_token) as string[];
+    }
 }

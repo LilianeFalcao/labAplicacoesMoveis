@@ -12,7 +12,8 @@ import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { ClassDashboardTabsParamList } from '../../navigation/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { MockAgendaRepository, ClassActivity } from '@/infrastructure/activity/repositories/MockAgendaRepository';
+import { SupabaseAgendaRepository } from '@/infrastructure/activity/repositories/SupabaseAgendaRepository';
+import { ClassActivity } from '@/domain/activity/repositories/IAgendaRepository';
 import { generateUUID } from '@/infrastructure/utils/uuid';
 
 type GroupAgendaNavigationProp = BottomTabNavigationProp<ClassDashboardTabsParamList, 'Agenda'>;
@@ -56,7 +57,7 @@ export const GroupAgendaScreen = () => {
 
     const loadAgenda = React.useCallback(async () => {
         if (!classId) return;
-        const repo = MockAgendaRepository.getInstance();
+        const repo = SupabaseAgendaRepository.getInstance();
         const data = await repo.findByClass(classId);
         setAgendaItems(data);
         setLoading(false);
@@ -123,7 +124,7 @@ export const GroupAgendaScreen = () => {
         }
 
         try {
-            const repo = MockAgendaRepository.getInstance();
+            const repo = SupabaseAgendaRepository.getInstance();
             const newActivity: ClassActivity = {
                 id: generateUUID(),
                 classId: classId || '101',
@@ -178,7 +179,7 @@ export const GroupAgendaScreen = () => {
                     </View>
                     <TouchableOpacity onPress={async () => {
                         const newStatus = isCompleted ? 'pending' : 'completed';
-                        await MockAgendaRepository.getInstance().updateStatus(item.id, newStatus);
+                        await SupabaseAgendaRepository.getInstance().updateStatus(item.id, newStatus);
                         loadAgenda();
                     }}>
                         <MaterialCommunityIcons 
@@ -221,7 +222,7 @@ export const GroupAgendaScreen = () => {
                     !loading ? (
                         <View style={styles.emptyState}>
                             <MaterialCommunityIcons name="calendar-blank" size={64} color={Theme.colors.gray[200]} />
-                            <Text style={styles.emptyText}>Nenhuma atividade agendada para hoje.</Text>
+                            <Text style={styles.emptyText}>Nenhuma atividade cadastrada para hoje. Cadastre atividades clicando no botão "+" abaixo.</Text>
                         </View>
                     ) : null
                 }

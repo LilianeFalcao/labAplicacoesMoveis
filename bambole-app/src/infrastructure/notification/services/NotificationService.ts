@@ -27,8 +27,19 @@ export class NotificationService {
                         shouldShowList: true,
                     }),
                 });
+
+                Notifications.addNotificationResponseReceivedListener((response: any) => {
+                    try {
+                        const { navigationRef } = require('../../../presentation/navigation/AppNavigator');
+                        if (navigationRef.isReady()) {
+                            navigationRef.navigate('Notifications');
+                        }
+                    } catch (err) {
+                        console.warn("Erro ao processar clique na notificação", err);
+                    }
+                });
             } catch (e) {
-                console.warn("Erro ao configurar NotificationHandler", e);
+                console.warn("Erro ao configurar NotificationHandler ou ResponseListener", e);
             }
         }
     }

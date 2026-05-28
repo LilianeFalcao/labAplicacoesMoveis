@@ -25,8 +25,8 @@ export class ApproveAccessRequestUseCase {
         const className = cls ? cls.name : 'Desconhecida';
 
         // Send Notification
-        const title = 'Acesso Aprovado';
-        const message = `Sua solicitação de acesso temporário à turma ${className} foi aprovada.`;
+        const title = 'Acesso à Turma Aprovado 🎉';
+        const message = `Sua solicitação de acesso temporário à turma ${className} foi autorizada. Já pode iniciar o registro de presenças e atividades!`;
 
         const notification = Notification.create(request.monitorId, title, message);
         await this.notificationRepository.save(notification);

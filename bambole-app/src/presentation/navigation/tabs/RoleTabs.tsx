@@ -61,7 +61,7 @@ export const ParentTabs = () => {
             />
             <ParentTabCreator.Screen
                 name="Photos"
-                component={ParentFeedScreen}
+                component={PhotoFeedScreen}
                 options={{
                     title: 'Fotos',
                     tabBarIcon: (props) => <TabIcon name="image-multiple" {...props} />,

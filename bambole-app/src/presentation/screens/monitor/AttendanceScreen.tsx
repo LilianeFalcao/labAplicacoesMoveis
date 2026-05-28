@@ -15,8 +15,10 @@ import { SupabaseChildRepository } from '@/infrastructure/enrollment/repositorie
 import { TakeAttendanceUseCase } from '@/application/attendance/use-cases/TakeAttendanceUseCase';
 import { SupabaseAttendanceRepository } from '@/infrastructure/attendance/repositories/SupabaseAttendanceRepository';
 import { SupabaseClassRepository } from '@/infrastructure/activity/repositories/SupabaseClassRepository';
-import { MockAgendaRepository, ClassActivity } from '@/infrastructure/activity/repositories/MockAgendaRepository';
+import { SupabaseAgendaRepository } from '@/infrastructure/activity/repositories/SupabaseAgendaRepository';
+import { ClassActivity } from '@/domain/activity/repositories/IAgendaRepository';
 import { ConnectivityService, ConnectivityStatus } from '@/infrastructure/network/ConnectivityService';
+import { OfflineSyncService } from '@/infrastructure/offline/OfflineSyncService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RECREATION_CENTER_LOCATION, MAX_ALLOWED_DISTANCE_METERS } from '@/infrastructure/location/config';
 import { getDistanceHaversine } from '@/infrastructure/location/distance';
@@ -68,7 +70,7 @@ export const AttendanceScreen = () => {
     const loadActivities = async () => {
         try {
             setLoadingActivities(true);
-            const repo = MockAgendaRepository.getInstance();
+            const repo = SupabaseAgendaRepository.getInstance();
             const list = await repo.findByClass(classId);
             
             const sorted = list.sort((a, b) => a.startTime.localeCompare(b.startTime));
@@ -137,14 +139,7 @@ export const AttendanceScreen = () => {
         setIsSummaryModalVisible(false);
         setSubmitting(true);
         try {
-            if (connectionStatus !== 'online') {
-                Alert.alert(
-                    'Indisponível',
-                    'Você precisa estar conectado à internet (Online) e no Centro Recreativo para realizar a chamada.'
-                );
-                setSubmitting(false);
-                return;
-            }
+
 
             const { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== 'granted') {
@@ -174,7 +169,8 @@ export const AttendanceScreen = () => {
 
             const useCase = new TakeAttendanceUseCase(
                 new SupabaseAttendanceRepository(),
-                new SupabaseClassRepository()
+                new SupabaseClassRepository(),
+                SupabaseAgendaRepository.getInstance()
             );
 
             await useCase.execute(
@@ -188,6 +184,10 @@ export const AttendanceScreen = () => {
                 })),
                 selectedActivity?.id
             );
+
+            // Trigger background sync in case of other pending items
+            const syncService = new OfflineSyncService();
+            syncService.syncUp().catch(err => console.error("AttendanceScreen auto-sync error:", err));
 
             Alert.alert(
                 'Sucesso',
@@ -346,6 +346,14 @@ export const AttendanceScreen = () => {
                             );
                         }}
                     />
+                    {activities.length === 0 && (
+                        <View style={styles.emptyActivitiesBanner}>
+                            <MaterialCommunityIcons name="alert-circle-outline" size={14} color="#6B7280" />
+                            <Text style={styles.emptyActivitiesBannerText}>
+                                Nenhuma atividade cadastrada para hoje. Cadastre atividades na Agenda para vinculá-las aqui.
+                            </Text>
+                        </View>
+                    )}
                 </View>
 
                 {/* List Header Section */}
@@ -424,7 +432,7 @@ export const AttendanceScreen = () => {
                 />
             </View>
 
-            <View style={[styles.footer, { bottom: insets.bottom + 16 }]}>
+            <View style={[styles.footer, { bottom: 0, paddingBottom: 12 }]}>
                 <View style={styles.progressSection}>
                     <Text style={styles.progressText}>
                         {presentCount} de {students.length} marcados
@@ -646,19 +654,20 @@ const styles = StyleSheet.create({
     },
     footer: {
         position: 'absolute',
-        left: 16,
-        right: 16,
-        // bottom is set inline via insets to avoid StyleSheet dynamic values
-        backgroundColor: 'rgba(255,255,255,0.97)',
-        borderRadius: 24,
+        left: 0,
+        right: 0,
+        backgroundColor: '#FFF',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
         paddingHorizontal: 20,
-        paddingVertical: 16,
-        elevation: 12,
-        shadowColor: Theme.colors.primary,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.15,
-        shadowRadius: 20,
-        borderWidth: 1,
+        paddingTop: 16,
+        paddingBottom: 16,
+        elevation: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        borderTopWidth: 1,
         borderColor: Theme.colors.gray[100],
     },
     progressSection: {
@@ -907,6 +916,23 @@ const styles = StyleSheet.create({
         fontSize: 10,
         fontWeight: '700',
         color: Theme.colors.gray[600],
+    },
+    emptyActivitiesBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F3F4F6',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 10,
+        marginHorizontal: 16,
+        marginTop: 8,
+        gap: 6,
+    },
+    emptyActivitiesBannerText: {
+        fontSize: 11,
+        color: '#6B7280',
+        fontWeight: '500',
+        flex: 1,
     },
 });
 

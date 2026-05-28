@@ -24,7 +24,7 @@ export class SupabaseChildRepository implements IChildRepository {
             data.id,
             ChildName.create(data.name),
             data.birth_date ? new Date(data.birth_date) : undefined,
-            data.class_id,
+            data.class_id ? data.class_id.replace(/'/g, '') : null,
             data.photo_url
         );
 
@@ -38,6 +38,9 @@ export class SupabaseChildRepository implements IChildRepository {
     }
 
     async findByClass(classId: string): Promise<Child[]> {
+        if (!classId || classId === 'undefined' || classId === 'null') {
+            return [];
+        }
         const { data, error } = await supabase
             .from('children')
             .select(`
@@ -69,7 +72,7 @@ export class SupabaseChildRepository implements IChildRepository {
                 item.id,
                 ChildName.create(item.name),
                 item.birth_date ? new Date(item.birth_date) : undefined,
-                item.class_id,
+                item.class_id ? item.class_id.replace(/'/g, '') : null,
                 item.photo_url,
                 [],
                 hasImageConsent
@@ -88,27 +91,45 @@ export class SupabaseChildRepository implements IChildRepository {
     }
 
     async findByGuardianId(guardianId: string): Promise<Child[]> {
-        const { data, error } = await supabase
-            .from('children')
-            .select(`
-                *,
-                guardian_children!inner(guardian_id)
-            `)
-            .eq('guardian_children.guardian_id', guardianId);
+        try {
+            const { data, error } = await supabase
+                .from('children')
+                .select(`
+                    *,
+                    guardian_children!inner(guardian_id)
+                `)
+                .eq('guardian_children.guardian_id', guardianId);
 
-        if (error || !data) {
-            // No easy way to query "guardian_children" in local SQLite children table 
-            // but we can return all cached children as a fallback for the parent if needed
-            return [];
+            if (error) throw error;
+            if (!data) return [];
+
+            const results = data.map(item => new Child(
+                item.id,
+                ChildName.create(item.name),
+                item.birth_date ? new Date(item.birth_date) : undefined,
+                item.class_id ? item.class_id.replace(/'/g, '') : null,
+                item.photo_url
+            ));
+
+            // Cache locally for offline resilience
+            for (const child of results) {
+                await this.storage.run(
+                    'INSERT OR REPLACE INTO children (id, name, class_id, photo_uri) VALUES (?, ?, ?, ?)',
+                    [child.id, child.name.value, child.classId, child.photoUrl]
+                );
+            }
+
+            return results;
+        } catch (error) {
+            console.warn('Supabase findByGuardianId failed, using local children cache:', error);
+            try {
+                const local = await this.storage.query<any>('SELECT * FROM children');
+                return local.map(item => this.mapFromCache(item));
+            } catch (localErr) {
+                console.error('Failed to query local children cache:', localErr);
+                return [];
+            }
         }
-
-        return data.map(item => new Child(
-            item.id,
-            ChildName.create(item.name),
-            item.birth_date ? new Date(item.birth_date) : undefined,
-            item.class_id,
-            item.photo_url
-        ));
     }
 
     async findAll(): Promise<Child[]> {
@@ -126,7 +147,7 @@ export class SupabaseChildRepository implements IChildRepository {
             item.id,
             ChildName.create(item.name),
             item.birth_date ? new Date(item.birth_date) : undefined,
-            item.class_id,
+            item.class_id ? item.class_id.replace(/'/g, '') : null,
             item.photo_url
         ));
 
@@ -159,7 +180,7 @@ export class SupabaseChildRepository implements IChildRepository {
             data.id,
             ChildName.create(data.name),
             undefined,
-            data.class_id,
+            data.class_id ? data.class_id.replace(/'/g, '') : null,
             data.photo_uri
         );
     }

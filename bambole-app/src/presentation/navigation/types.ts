@@ -15,8 +15,8 @@ export type ParentTabsParamList = {
 
 export type ParentStackParamList = {
     ParentRoot: NavigatorScreenParams<ParentTabsParamList>;
-    ChildDetails: { childName: string; class_id: string };
-    AttendanceHistory: { childName: string };
+    ChildDetails: { childId?: string; childName: string; class_id: string };
+    AttendanceHistory: { childId?: string; childName: string };
 };
 
 export type MonitorTabsParamList = {

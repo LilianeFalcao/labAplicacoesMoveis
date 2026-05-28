@@ -73,7 +73,7 @@ export class SyncQueueRepository {
     }
 
     public async countPending(): Promise<number> {
-        const sql = `SELECT COUNT(*) as count FROM sync_queue WHERE status != 'synced'`;
+        const sql = `SELECT COUNT(*) as count FROM sync_queue WHERE status = 'pending' AND retry_count < 3`;
         const rows = await this.storage.query<{count: number}>(sql);
         return rows[0]?.count || 0;
     }

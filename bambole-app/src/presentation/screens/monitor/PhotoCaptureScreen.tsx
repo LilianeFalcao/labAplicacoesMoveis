@@ -9,7 +9,7 @@ import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "../../contexts/AuthContext";
 import { CameraView } from "expo-camera";
 import { ExpoCameraService } from "../../../infrastructure/camera/ExpoCameraService";
-import { MockActivityRepository } from "../../../infrastructure/activity/repositories/MockActivityRepository";
+import { SupabaseActivityRepository } from "../../../infrastructure/activity/repositories/SupabaseActivityRepository";
 import { UploadActivityPhotoUseCase } from "../../../application/activity/use-cases/UploadActivityPhotoUseCase";
 import { MockClassRepository } from "../../../infrastructure/activity/repositories/MockClassRepository";
 import { MockAccessRequestRepository } from "../../../infrastructure/activity/repositories/MockAccessRequestRepository";
@@ -68,13 +68,14 @@ export const PhotoCaptureScreen = () => {
         }
 
         try {
-            const repository = MockActivityRepository.getInstance();
+            const repository = SupabaseActivityRepository.getInstance();
             const useCase = new UploadActivityPhotoUseCase(repository);
 
             await useCase.execute({
                 classId: classId,
                 photoUri: image,
                 caption: caption,
+                monitorId: user?.id || '',
             });
 
             // Reset state
@@ -86,18 +87,33 @@ export const PhotoCaptureScreen = () => {
                 "O momento foi compartilhado com os pais!",
                 [
                     { text: "Capturar outro", style: "default" },
-                    { text: "Sair", onPress: () => navigation.goBack(), style: "cancel" }
+                    { text: "Sair", onPress: () => navigation.canGoBack() ? navigation.goBack() : (navigation as any).navigate('Attendance'), style: "cancel" }
                 ]
             );
-        } catch (error) {
-            Alert.alert("Erro", "Não foi possível compartilhar a foto.");
+        } catch (error: any) {
+            if (error?.message === 'OFFLINE_ENQUEUED') {
+                // Reset state
+                setImage(null);
+                setCaption("Atividade registrada pelo monitor");
+
+                Alert.alert(
+                    "Momento guardado offline",
+                    "Momento guardado com segurança offline! Fique tranquilo, salvamos tudo localmente e enviaremos assim que você se conectar!",
+                    [
+                        { text: "Capturar outro", style: "default" },
+                        { text: "Sair", onPress: () => navigation.canGoBack() ? navigation.goBack() : (navigation as any).navigate('Attendance'), style: "cancel" }
+                    ]
+                );
+            } else {
+                Alert.alert("Erro", "Não foi possível compartilhar a foto.");
+            }
         }
     };
 
     if (!classId) {
         return (
             <SafeAreaView style={styles.mainContainer} edges={["left", "right", "bottom"]}>
-                <AppHeader title="Erro" showBack onBack={() => navigation.goBack()} />
+                <AppHeader title="Erro" showBack onBack={() => navigation.canGoBack() ? navigation.goBack() : (navigation as any).navigate('Attendance')} />
                 <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
                     <Text>Erro: Turma não selecionada.</Text>
                 </View>
@@ -130,7 +146,7 @@ export const PhotoCaptureScreen = () => {
 
     return (
         <SafeAreaView style={styles.mainContainer} edges={["left", "right", "bottom"]}>
-            <AppHeader title={`Capturar Momento: ${groupName}`} showBack onBack={() => navigation.goBack()} />
+            <AppHeader title={`Capturar Momento: ${groupName}`} showBack onBack={() => navigation.canGoBack() ? navigation.goBack() : (navigation as any).navigate('Attendance')} />
 
             <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
 

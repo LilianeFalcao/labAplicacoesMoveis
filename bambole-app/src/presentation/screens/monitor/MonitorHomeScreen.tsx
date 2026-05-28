@@ -13,6 +13,8 @@ import { TurmaAgendaCard } from '../../components/monitor/TurmaAgendaCard';
 import { ClassSelectionModal } from '../../components/monitor/ClassSelectionModal';
 import { SupabaseClassRepository } from '../../../infrastructure/activity/repositories/SupabaseClassRepository';
 import { SupabaseAccessRequestRepository } from '../../../infrastructure/activity/repositories/SupabaseAccessRequestRepository';
+import { SupabaseUserRepository } from '../../../infrastructure/identity/repositories/SupabaseUserRepository';
+import { ExpoPushService } from '../../../infrastructure/notifications/ExpoPushService';
 import { GetClassesWithoutMonitorUseCase } from '../../../application/activity/use-cases/GetClassesWithoutMonitorUseCase';
 import { RequestTemporaryAccessUseCase } from '../../../application/activity/use-cases/RequestTemporaryAccessUseCase';
 import { GetMonitorClassesUseCase } from '../../../application/activity/use-cases/GetMonitorClassesUseCase';
@@ -29,6 +31,8 @@ import { MockActivityRepository } from '../../../infrastructure/activity/reposit
 import { MonitorSidebar } from '../../components/monitor/MonitorSidebar';
 import { MockAgendaRepository, ClassActivity } from '../../../infrastructure/activity/repositories/MockAgendaRepository';
 import { QuickAddActivityModal } from '../../components/monitor/QuickAddActivityModal';
+import { SupabaseAnnouncementRepository } from '../../../infrastructure/communication/repositories/SupabaseAnnouncementRepository';
+import { SendAnnouncementUseCase } from '../../../application/communication/use-cases/SendAnnouncementUseCase';
 
 import { SqliteStorageService } from '../../../infrastructure/storage/SqliteStorageService';
 import { OfflineSyncService } from '../../../infrastructure/offline/OfflineSyncService';
@@ -70,17 +74,19 @@ export const MonitorHomeScreen = () => {
         }
     };
 
-    const handleSyncNow = async () => {
+    const handleSyncNow = async (isManual: boolean = false) => {
         if (syncing) return;
         setSyncing(true);
         try {
             await syncService.syncUp();
             await checkPendingSync();
-            if (pendingSyncCount === 0) {
+            if (pendingSyncCount === 0 && isManual) {
                 Alert.alert('Sucesso', 'Todos os dados foram sincronizados!');
             }
         } catch (error) {
-            Alert.alert('Aviso', 'Alguns itens ainda não puderam ser sincronizados. Tentaremos novamente em breve.');
+            if (isManual) {
+                Alert.alert('Aviso', 'Alguns itens ainda não puderam ser sincronizados. Tentaremos novamente em breve.');
+            }
         } finally {
             setSyncing(false);
         }
@@ -93,7 +99,11 @@ export const MonitorHomeScreen = () => {
     const accessRequestRepo = new SupabaseAccessRequestRepository();
     const attendanceRepo = new SupabaseAttendanceRepository();
     const getClassesUseCase = new GetClassesWithoutMonitorUseCase(classRepo);
-    const requestAccessUseCase = new RequestTemporaryAccessUseCase(accessRequestRepo);
+    const requestAccessUseCase = new RequestTemporaryAccessUseCase(
+        accessRequestRepo,
+        new SupabaseUserRepository(),
+        new ExpoPushService()
+    );
     const getMonitorClassesUseCase = new GetMonitorClassesUseCase(classRepo, accessRequestRepo);
     const getMonitorAverageAttendanceUseCase = new GetMonitorAverageAttendanceUseCase(classRepo, accessRequestRepo, attendanceRepo);
 
@@ -198,47 +208,79 @@ export const MonitorHomeScreen = () => {
         }, [user?.id])
     );
 
-    const SyncStatusIndicator = () => {
-        if (pendingSyncCount === 0) return null;
+    const HeaderSyncButton = () => {
+        if (syncing) {
+            return (
+                <View style={styles.headerIcon}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                </View>
+            );
+        }
+
+        if (connectionStatus === 'offline') {
+            return (
+                <TouchableOpacity 
+                    style={styles.headerIcon}
+                    onPress={() => Alert.alert('Offline', 'Você está offline no momento. Suas alterações e presenças marcadas foram armazenadas localmente com total segurança e serão sincronizadas com o servidor automaticamente assim que você restabelecer sua conexão de internet.')}
+                >
+                    <MaterialCommunityIcons name="cloud-off-outline" size={24} color={colors.gray[400]} />
+                </TouchableOpacity>
+            );
+        }
+
+        if (pendingSyncCount > 0) {
+            return (
+                <TouchableOpacity 
+                    style={styles.headerIcon}
+                    onPress={() => handleSyncNow(true)}
+                >
+                    <View style={styles.headerIconWithBadge}>
+                        <View style={styles.syncBadgeCircle}>
+                            <Text style={styles.syncBadgeText}>{pendingSyncCount}</Text>
+                        </View>
+                        <MaterialCommunityIcons name="cloud-sync" size={24} color={colors.primary} />
+                    </View>
+                </TouchableOpacity>
+            );
+        }
 
         return (
             <TouchableOpacity 
-                style={[styles.syncCard, connectionStatus === 'offline' && styles.syncCardOffline]}
-                onPress={handleSyncNow}
-                disabled={syncing || connectionStatus === 'offline'}
+                style={styles.headerIcon}
+                onPress={() => handleSyncNow(true)}
             >
-                <View style={styles.syncIconBox}>
-                    {syncing ? (
-                        <ActivityIndicator size="small" color={colors.primary} />
-                    ) : (
-                        <MaterialCommunityIcons 
-                            name={connectionStatus === 'online' ? "cloud-sync" : "cloud-off-outline"} 
-                            size={24} 
-                            color={connectionStatus === 'online' ? colors.primary : colors.gray[400]} 
-                        />
-                    )}
-                </View>
-                <View style={styles.syncTextBox}>
-                    <Text style={styles.syncTitle}>
-                        {pendingSyncCount} {pendingSyncCount === 1 ? 'item pendente' : 'itens pendentes'}
-                    </Text>
-                    <Text style={styles.syncSub}>
-                        {connectionStatus === 'online' 
-                            ? 'Toque para sincronizar agora' 
-                            : 'Aguardando conexão para sincronizar'}
-                    </Text>
-                </View>
-                {connectionStatus === 'online' && !syncing && (
-                    <MaterialCommunityIcons name="chevron-right" size={20} color={colors.gray[300]} />
-                )}
+                <MaterialCommunityIcons name="cloud-check" size={24} color="#059669" />
             </TouchableOpacity>
         );
     };
 
     const handleSendMultiNotice = async (classIds: string[], content: string) => {
-        // Mock sending notice
-        console.log(`Sending notice to ${classIds.length} classes: ${content}`);
-        // In a real app, we would call the SendAnnouncementUseCase here
+        try {
+            if (!user) {
+                Alert.alert('Erro', 'Você precisa estar logado para enviar um comunicado.');
+                return;
+            }
+            if (!content || !content.trim()) {
+                Alert.alert('Erro', 'O conteúdo do comunicado não pode ser vazio.');
+                return;
+            }
+            if (classIds.length === 0) {
+                Alert.alert('Erro', 'Selecione pelo menos uma turma.');
+                return;
+            }
+
+            const announceRepo = new SupabaseAnnouncementRepository();
+            const userRepo = new SupabaseUserRepository();
+            const pushService = new ExpoPushService();
+            const useCase = new SendAnnouncementUseCase(announceRepo, userRepo, pushService);
+
+            await useCase.execute(user.id, content, 'class', classIds);
+            
+            Alert.alert('Sucesso', 'Comunicado enviado com sucesso!');
+        } catch (error: any) {
+            console.error('Failed to send announcement', error);
+            Alert.alert('Erro', `Falha ao enviar o comunicado: ${error.message || error}`);
+        }
     };
 
     const handleQuickPhoto = async () => {
@@ -267,7 +309,8 @@ export const MonitorHomeScreen = () => {
                 await useCase.execute({
                     classId,
                     photoUri: capturedPhoto,
-                    caption: 'Captura rápida da Home'
+                    caption: 'Captura rápida da Home',
+                    monitorId: user?.id || 'monitor-mock-id'
                 });
             }
             
@@ -333,13 +376,16 @@ export const MonitorHomeScreen = () => {
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Bambolê</Text>
                 </View>
-                <TouchableOpacity 
-                    style={styles.headerIcon} 
-                    onPress={() => navigation.navigate('Notifications')}
-                >
-                    {hasUnreadNotifications && <View style={styles.notificationDot} />}
-                    <MaterialCommunityIcons name="bell-outline" size={24} color={colors.onBackground} />
-                </TouchableOpacity>
+                <View style={styles.headerRight}>
+                    <HeaderSyncButton />
+                    <TouchableOpacity 
+                        style={styles.headerIcon} 
+                        onPress={() => navigation.navigate('Notifications')}
+                    >
+                        {hasUnreadNotifications && <View style={styles.notificationDot} />}
+                        <MaterialCommunityIcons name="bell-outline" size={24} color={colors.onBackground} />
+                    </TouchableOpacity>
+                </View>
             </View>
 
             <ClassSelectionModal
@@ -421,8 +467,6 @@ export const MonitorHomeScreen = () => {
                 ]}
                 showsVerticalScrollIndicator={false}
             >
-                <SyncStatusIndicator />
-
                 <View style={styles.topSection}>
                     <View style={styles.titleRow}>
                         <View style={styles.titleGroup}>
@@ -506,7 +550,7 @@ export const MonitorHomeScreen = () => {
                     ) : (
                         <View style={styles.emptyAgenda}>
                             <MaterialCommunityIcons name="calendar-blank" size={40} color={colors.gray[200]} />
-                            <Text style={styles.emptyText}>Nenhuma atividade agendada</Text>
+                            <Text style={styles.emptyText}>Nenhuma atividade cadastrada. Cadastre atividades para a turma!</Text>
                         </View>
                     )}
                 </View>
@@ -547,6 +591,36 @@ const createStyles = (colors: ThemeType['colors'], theme: ThemeType, isDark: boo
         height: 40,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    headerRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    headerIconWithBadge: {
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    syncBadgeCircle: {
+        position: 'absolute',
+        top: 2,
+        right: 2,
+        backgroundColor: colors.primary,
+        borderRadius: 8,
+        width: 16,
+        height: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 1,
+        borderWidth: 1.5,
+        borderColor: colors.background,
+    },
+    syncBadgeText: {
+        color: '#FFF',
+        fontSize: 8,
+        fontWeight: '900',
     },
     headerTitle: {
         fontSize: 22,

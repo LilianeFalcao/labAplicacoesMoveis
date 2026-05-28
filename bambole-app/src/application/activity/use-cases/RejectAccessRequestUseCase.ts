@@ -25,8 +25,8 @@ export class RejectAccessRequestUseCase {
         await this.accessRequestRepository.update(request);
 
         // Send Notification
-        const title = 'Acesso Negado';
-        const message = `Sua solicitação de acesso temporário à turma ${className} foi rejeitada.`;
+        const title = 'Solicitação de Acesso';
+        const message = `Sua solicitação de acesso temporário à turma ${className} foi recusada pelo administrador do Centro Bambolê.`;
 
         const notification = Notification.create(request.monitorId, title, message);
         await this.notificationRepository.save(notification);

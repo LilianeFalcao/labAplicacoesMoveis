@@ -78,6 +78,12 @@ export class MockAttendanceRepository implements IAttendanceRepository {
         return rows.map(row => this.mapRowToRecord(row));
     }
 
+    async findByChildId(childId: string): Promise<AttendanceRecord[]> {
+        const rows = await this.storage.query<any>('SELECT * FROM attendance');
+        const records = rows.map(row => this.mapRowToRecord(row));
+        return records.filter(record => record.childId === childId);
+    }
+
     subscribe(callback: () => void): () => void {
         this.listeners.push(callback);
         return () => {

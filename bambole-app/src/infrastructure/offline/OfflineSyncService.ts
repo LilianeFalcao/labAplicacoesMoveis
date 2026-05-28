@@ -1,5 +1,14 @@
 import { supabase } from '../supabase/client';
 import { SqliteStorageService } from '../storage/SqliteStorageService';
+import { MockNotificationRepository } from '../notification/repositories/MockNotificationRepository';
+import { Notification } from '../../domain/notification/entities/Notification';
+import { NotificationService } from '../notification/services/NotificationService';
+import * as FileSystem from 'expo-file-system/legacy';
+import { decode } from '../utils/base64';
+
+const isUUID = (str: string): boolean => {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+};
 
 export class OfflineSyncService {
     private storage = SqliteStorageService.getInstance();
@@ -35,7 +44,7 @@ export class OfflineSyncService {
         for (const child of uniqueChildren) {
             await this.storage.run(
                 'INSERT INTO children (id, name, class_id) VALUES (?, ?, ?)',
-                [child.id, child.name, child.class_id]
+                [child.id, child.name, child.class_id ? child.class_id.replace(/'/g, '') : null]
             );
         }
 
@@ -58,9 +67,24 @@ export class OfflineSyncService {
     }
 
     async syncUp(): Promise<void> {
+        // Query pending counts before syncing
+        const pendingQueueBefore = await this.storage.query<any>(
+            "SELECT COUNT(*) as count FROM sync_queue WHERE status = 'pending' AND retry_count < 3"
+        );
+        const pendingAttendanceBefore = await this.storage.query<any>(
+            "SELECT COUNT(*) as count FROM attendance WHERE synced = 0"
+        );
+        const pendingActivitiesBefore = await this.storage.query<any>(
+            "SELECT COUNT(*) as count FROM class_activities WHERE synced = 0"
+        );
+
+        const totalPendingBefore = (pendingQueueBefore[0]?.count || 0) + 
+                                   (pendingAttendanceBefore[0]?.count || 0) + 
+                                   (pendingActivitiesBefore[0]?.count || 0);
+
         // Process sync_queue sequentially
         const queue = await this.storage.query<any>(
-            "SELECT * FROM sync_queue WHERE status = 'pending' ORDER BY timestamp ASC"
+            "SELECT * FROM sync_queue WHERE status = 'pending' AND retry_count < 3 ORDER BY timestamp ASC"
         );
 
         for (const item of queue) {
@@ -87,6 +111,47 @@ export class OfflineSyncService {
                         .eq('id', payload.id);
                     
                     if (!error) success = true;
+                } else if (item.action_type === 'POST_PHOTO') {
+                    // 1. Read local file in base64
+                    const base64 = await FileSystem.readAsStringAsync(payload.photoUri, { encoding: 'base64' });
+
+                    // 2. Generate unique name in storage
+                    const fileName = `activity_${Date.now()}_${Math.random().toString(36).substring(2, 9)}.jpg`;
+
+                    // 3. Upload decoded binary to the public bucket 'children-photos'
+                    const { error: uploadError } = await supabase.storage
+                        .from('children-photos')
+                        .upload(fileName, decode(base64), {
+                            contentType: 'image/jpeg',
+                            upsert: true
+                        });
+
+                    if (uploadError) throw uploadError;
+
+                    // 4. Retrieve public URL
+                    const { data: { publicUrl } } = supabase.storage
+                        .from('children-photos')
+                        .getPublicUrl(fileName);
+
+                    // 5. Save the row in the activity_photos table
+                    const dbPayload: any = {
+                        class_id: payload.classId,
+                        url: publicUrl,
+                        uploaded_by: payload.monitorId || null,
+                        caption: payload.caption || null,
+                        uploaded_at: payload.timestamp || new Date().toISOString()
+                    };
+
+                    if (payload.id && isUUID(payload.id)) {
+                        dbPayload.id = payload.id;
+                    }
+
+                    const { error: dbError } = await supabase
+                        .from('activity_photos')
+                        .insert(dbPayload);
+
+                    if (dbError) throw dbError;
+                    success = true;
                 }
 
                 if (success) {
@@ -104,12 +169,16 @@ export class OfflineSyncService {
                     }
                 } else {
                     await this.storage.run(
-                        "UPDATE sync_queue SET retry_count = retry_count + 1 WHERE id = ?",
+                        "UPDATE sync_queue SET status = 'failed', retry_count = retry_count + 1 WHERE id = ?",
                         [item.id]
                     );
                 }
             } catch (error) {
                 console.error(`Failed to sync item ${item.id}`, error);
+                await this.storage.run(
+                    "UPDATE sync_queue SET status = 'failed', retry_count = retry_count + 1 WHERE id = ?",
+                    [item.id]
+                );
             }
         }
 
@@ -163,6 +232,23 @@ export class OfflineSyncService {
                 );
             }
         }
+
+        // Query pending counts after syncing
+        const pendingQueueAfter = await this.storage.query<any>(
+            "SELECT COUNT(*) as count FROM sync_queue WHERE status = 'pending' AND retry_count < 3"
+        );
+        const pendingAttendanceAfter = await this.storage.query<any>(
+            "SELECT COUNT(*) as count FROM attendance WHERE synced = 0"
+        );
+        const pendingActivitiesAfter = await this.storage.query<any>(
+            "SELECT COUNT(*) as count FROM class_activities WHERE synced = 0"
+        );
+
+        const totalPendingAfter = (pendingQueueAfter[0]?.count || 0) + 
+                                  (pendingAttendanceAfter[0]?.count || 0) + 
+                                  (pendingActivitiesAfter[0]?.count || 0);
+
+        // Silent background execution completed without spawning noisy notifications or popups.
     }
 
     async getCachedChildren() {

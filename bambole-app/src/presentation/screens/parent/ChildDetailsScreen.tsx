@@ -18,7 +18,7 @@ export const ChildDetailsScreen = () => {
     const navigation = useNavigation<ChildDetailsNavigationProp>();
     const route = useRoute<ChildDetailsRouteProp>();
     const insets = useSafeAreaInsets();
-    const { childName = 'Lucas Ferreira', class_id = 'Futebol — 6 a 9 anos' } = route.params;
+    const { childId, childName = 'Lucas Ferreira', class_id = 'Futebol — 6 a 9 anos' } = route.params;
 
     return (
         <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
@@ -114,7 +114,7 @@ export const ChildDetailsScreen = () => {
                     variant="primary"
                     title="Ver Histórico de Presenças"
                     icon="calendar-month"
-                    onPress={() => navigation.navigate('AttendanceHistory', { childName })}
+                    onPress={() => navigation.navigate('AttendanceHistory', { childId, childName })}
                     style={styles.historyButton}
                 />
             </ScrollView>
