@@ -70,6 +70,8 @@ export interface ThemeType {
         sm: number;
         md: number;
         lg: number;
+        xl: number;
+        full: number;
     };
 }
 
@@ -119,6 +121,8 @@ const sharedThemeProps = {
         sm: 4,
         md: 8,
         lg: 12,
+        xl: 16,
+        full: 9999,
     },
 };
 

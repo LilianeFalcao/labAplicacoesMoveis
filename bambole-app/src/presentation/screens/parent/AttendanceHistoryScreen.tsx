@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme } from '../../styles/Theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -21,6 +21,7 @@ export const AttendanceHistoryScreen = () => {
 
     const [history, setHistory] = React.useState<any[]>([]);
     const [loading, setLoading] = React.useState(true);
+    const [refreshing, setRefreshing] = React.useState(false);
 
     const fallbackHistory = [
         { id: '1', date: '31 de Março', dayOfWeek: 'Segunda-feira', status: 'present', label: 'Presente', checkIn: '08:15', checkOut: '17:30' },
@@ -93,7 +94,7 @@ export const AttendanceHistoryScreen = () => {
                     <Text style={styles.subtitle}>Histórico Recente</Text>
                 </View>
 
-                {loading ? (
+                {loading && !refreshing ? (
                     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
                         <ActivityIndicator size="large" color={Theme.colors.primary} />
                     </View>
@@ -103,6 +104,46 @@ export const AttendanceHistoryScreen = () => {
                         keyExtractor={item => item.id}
                         contentContainerStyle={styles.listContent}
                         showsVerticalScrollIndicator={false}
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={refreshing}
+                                onRefresh={async () => {
+                                    if (!childId) return;
+                                    setRefreshing(true);
+                                    try {
+                                        const repo = new SupabaseAttendanceRepository();
+                                        const records = await repo.findByChildId(childId);
+                                        if (records.length === 0) {
+                                            setHistory([]);
+                                            return;
+                                        }
+                                        const mapped = records.map(record => {
+                                            const dateObj = record.date;
+                                            const dateStr = dateObj.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' });
+                                            const dayOfWeek = dateObj.toLocaleDateString('pt-BR', { weekday: 'long' });
+                                            const capitalizedDayOfWeek = dayOfWeek.charAt(0).toUpperCase() + dayOfWeek.slice(1);
+                                            const isPresent = record.status.value === 'present';
+                                            return {
+                                                id: record.id,
+                                                date: dateStr,
+                                                dayOfWeek: capitalizedDayOfWeek,
+                                                status: record.status.value,
+                                                label: isPresent ? 'Presente' : record.status.value === 'absent' ? 'Faltou' : 'Justificado',
+                                                checkIn: isPresent ? dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '-',
+                                                checkOut: isPresent ? '17:30' : '-',
+                                            };
+                                        });
+                                        setHistory(mapped);
+                                    } catch (e) {
+                                        console.error(e);
+                                    } finally {
+                                        setRefreshing(false);
+                                    }
+                                }}
+                                colors={[Theme.colors.primary]}
+                                tintColor={Theme.colors.primary}
+                            />
+                        }
                         renderItem={({ item }) => (
                             <View style={styles.historyItem}>
                                 <View style={styles.dateColumn}>

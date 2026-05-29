@@ -108,7 +108,7 @@ describe('OfflineSyncService', () => {
             .mockResolvedValueOnce([{ count: 0 }]) // pendingAttendanceAfter
             .mockResolvedValueOnce([{ count: 0 }]);// pendingActivitiesAfter
 
-        const insertSpy = jest.spyOn(supabase, 'insert').mockResolvedValue({ error: null } as any);
+        const insertSpy = jest.spyOn(supabase as any, 'insert').mockResolvedValue({ error: null } as any);
 
         await service.syncUp();
 

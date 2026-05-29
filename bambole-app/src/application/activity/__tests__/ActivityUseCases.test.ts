@@ -19,6 +19,7 @@ describe("Activity Use Cases", () => {
         it("should create and save a new activity photo", async () => {
             const request = {
                 classId: "class-1",
+                monitorId: "monitor-1",
                 photoUri: "file://photo.jpg",
                 caption: "Fun at the playground",
             };

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, Alert, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, Alert, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../../components/base/AppHeader';
 import { AppButton } from '../../components/base/AppButton';
@@ -8,26 +8,51 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ClassDashboardTabsParamList } from '../../navigation/types';
+import { useAuth } from '../../contexts/AuthContext';
+import { SendAnnouncementUseCase } from '../../../application/communication/use-cases/SendAnnouncementUseCase';
+import { SupabaseAnnouncementRepository } from '../../../infrastructure/communication/repositories/SupabaseAnnouncementRepository';
+import { SupabaseUserRepository } from '../../../infrastructure/identity/repositories/SupabaseUserRepository';
+import { ExpoPushService } from '../../../infrastructure/notifications/ExpoPushService';
 
 export const MonitorObservationsScreen = () => {
-    const navigation = useNavigation();
+    const navigation = useNavigation<any>();
     const insets = useSafeAreaInsets();
     const route = useRoute<RouteProp<ClassDashboardTabsParamList, 'Notices'>>();
     const { classId } = route.params || {};
+    const { user } = useAuth();
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
     const [category, setCategory] = useState('Geral');
+    const [loading, setLoading] = useState(false);
 
     const categories = ['Geral', 'Aviso Urgente', 'Reunião', 'Evento'];
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!title || !content) {
             Alert.alert('Erro', 'Preencha todos os campos.');
             return;
         }
-        Alert.alert('Sucesso', 'Aviso enviado para a turma!', [
-            { text: 'OK', onPress: () => navigation.goBack() }
-        ]);
+
+        setLoading(true);
+        try {
+            const formattedContent = `${category.toUpperCase()}: ${title}\n${content}`;
+            
+            const announceRepo = new SupabaseAnnouncementRepository();
+            const userRepo = new SupabaseUserRepository();
+            const pushService = new ExpoPushService();
+            const useCase = new SendAnnouncementUseCase(announceRepo, userRepo, pushService);
+
+            await useCase.execute(user?.id || 'monitor-mock-id', formattedContent, 'class', [classId]);
+
+            Alert.alert('Sucesso', 'Aviso enviado para a turma com sucesso!', [
+                { text: 'OK', onPress: () => navigation.goBack() }
+            ]);
+        } catch (error: any) {
+            console.error('Failed to send class announcement', error);
+            Alert.alert('Erro', `Falha ao enviar o aviso: ${error.message || error}`);
+        } finally {
+            setLoading(false);
+        }
     };
 
     if (!classId) {
@@ -107,8 +132,9 @@ export const MonitorObservationsScreen = () => {
                         </View>
 
                         <AppButton
-                            title="Publicar Aviso Agora"
+                            title={loading ? "Publicando..." : "Publicar Aviso Agora"}
                             onPress={handleSave}
+                            disabled={loading}
                             style={styles.button}
                         />
 

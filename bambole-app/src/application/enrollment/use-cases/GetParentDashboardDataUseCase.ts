@@ -3,6 +3,7 @@ import { IGuardianRepository } from '@/domain/enrollment/repositories/IGuardianR
 import { IAttendanceRepository } from '@/domain/attendance/repositories/IAttendanceRepository';
 import { IAnnouncementRepository } from '@/domain/communication/repositories/IAnnouncementRepository';
 import { ParentDashboardData } from './ParentDashboardData';
+import { SupabaseClassRepository } from '@/infrastructure/activity/repositories/SupabaseClassRepository';
 
 export class GetParentDashboardDataUseCase {
     constructor(
@@ -28,10 +29,24 @@ export class GetParentDashboardDataUseCase {
         const enrichedChildren = await Promise.all(children.map(async (child) => {
             const attendance = await this.attendanceRepo.findByChildAndDate(child.id, today);
             
+            let className = 'Sem Turma';
+            if (child.classId) {
+                try {
+                    const classRepo = new SupabaseClassRepository();
+                    const classObj = await classRepo.findById(child.classId);
+                    if (classObj) {
+                        className = classObj.name;
+                    }
+                } catch (e) {
+                    console.error('Error fetching class in dashboard use case', e);
+                }
+            }
+
             return {
                 id: child.id,
                 name: child.name.value,
                 classId: child.classId || '',
+                className: className,
                 photoUrl: child.photoUrl,
                 status: (attendance?.status.value || 'pending') as any,
                 label: this.getStatusLabel(attendance?.status.value)
@@ -45,7 +60,7 @@ export class GetParentDashboardDataUseCase {
         return {
             children: enrichedChildren,
             announcements: announcements.map(ann => ({
-                id: ann.id,
+                id: ann.id || '',
                 title: ann.content.value,
                 type: ann.audience.type === 'all' ? 'alert' : 'info',
                 date: this.formatDate(ann.publishedAt),

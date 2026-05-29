@@ -13,6 +13,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Theme } from '../../styles/Theme';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
 const DRAWER_WIDTH = width * 0.75;
@@ -23,8 +24,27 @@ interface MonitorSidebarProps {
 }
 
 export const MonitorSidebar: React.FC<MonitorSidebarProps> = ({ isOpen, onClose }) => {
-    const { user, signOut, profilePhotoUri } = useAuth();
+    const { user, signOut } = useAuth();
     const navigation = useNavigation<any>();
+    const [photoUri, setPhotoUri] = useState<string | null>(null);
+
+    useEffect(() => {
+        const loadSavedPhoto = async () => {
+            if (isOpen && user?.id) {
+                try {
+                    const saved = await AsyncStorage.getItem(`profile_photo_${user.id}`);
+                    if (saved) {
+                        setPhotoUri(saved);
+                    } else {
+                        setPhotoUri(null);
+                    }
+                } catch (err) {
+                    console.error('Failed to load profile photo', err);
+                }
+            }
+        };
+        loadSavedPhoto();
+    }, [isOpen, user?.id]);
     const translateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
     const opacity = useRef(new Animated.Value(0)).current;
     
@@ -70,19 +90,23 @@ export const MonitorSidebar: React.FC<MonitorSidebarProps> = ({ isOpen, onClose 
 
             {/* Drawer Content */}
             <Animated.View style={[styles.drawer, { transform: [{ translateX }] }]}>
-                <View style={styles.header}>
+                <TouchableOpacity 
+                    style={styles.header}
+                    activeOpacity={0.7}
+                    onPress={() => handleNavigate('Profile')}
+                >
                     <View style={styles.avatarCircle}>
-                        {profilePhotoUri ? (
-                            <Image source={{ uri: profilePhotoUri }} style={styles.avatarImage} />
+                        {photoUri ? (
+                            <Image source={{ uri: photoUri }} style={styles.avatarImage} />
                         ) : (
                             <MaterialCommunityIcons name="account-tie" size={40} color="#FFF" />
                         )}
                     </View>
                     <View style={styles.headerInfo}>
-                        <Text style={styles.userName}>{user?.email.value.split('@')[0]}</Text>
+                        <Text style={styles.userName}>{user?.email?.value?.split('@')[0] || 'Monitor'}</Text>
                         <Text style={styles.userRole}>Monitor(a) Ativo</Text>
                     </View>
-                </View>
+                </TouchableOpacity>
 
                 <View style={styles.menu}>
                     <MenuItem 
@@ -111,6 +135,11 @@ export const MonitorSidebar: React.FC<MonitorSidebarProps> = ({ isOpen, onClose 
                     
                     <View style={styles.divider} />
                     
+                    <MenuItem 
+                        icon="account-circle-outline" 
+                        label="Meu Perfil" 
+                        onPress={() => handleNavigate('Profile')} 
+                    />
                     <MenuItem 
                         icon="cog-outline" 
                         label="Configurações" 

@@ -30,6 +30,7 @@ import { SupabaseChildRepository } from '../../../infrastructure/enrollment/repo
 import { SupabaseActivityRepository } from '../../../infrastructure/activity/repositories/SupabaseActivityRepository';
 import { GetActivityFeedUseCase } from '../../../application/activity/use-cases/GetActivityFeedUseCase';
 import { MockEnrollmentService } from '../../../application/activity/services/MockEnrollmentService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
 const GRID_SIZE = width / 3;
@@ -231,10 +232,32 @@ export const PhotoFeedScreen = () => {
         if (!userId) return;
         setLoading(true);
         try {
+            // Check local cache first for instant load & offline resilience
+            const cachedConsent = await AsyncStorage.getItem(`image_consent_${userId}`);
+            if (cachedConsent === 'true') {
+                setHasConsent(true);
+                setLoading(false);
+                
+                // Fetch in background to ensure database is in sync
+                getConsentUseCase.execute(userId)
+                    .then(consent => {
+                        if (consent) {
+                            AsyncStorage.setItem(`image_consent_${userId}`, 'true');
+                        }
+                    })
+                    .catch(err => console.log('Background consent sync skipped (possibly offline):', err));
+                return;
+            }
+
+            // If not cached, query database
             const consent = await getConsentUseCase.execute(userId);
             setHasConsent(consent);
+            if (consent) {
+                await AsyncStorage.setItem(`image_consent_${userId}`, 'true');
+            }
         } catch (error) {
             console.error('Failed to get guardian consent', error);
+            // Default to false if nothing is in local cache, but otherwise preserve
             setHasConsent(false);
         } finally {
             setLoading(false);
@@ -374,6 +397,7 @@ export const PhotoFeedScreen = () => {
         setUpdating(true);
         try {
             await updateConsentUseCase.execute(user.id, true);
+            await AsyncStorage.setItem(`image_consent_${user.id}`, 'true');
             setHasConsent(true);
             Alert.alert('Sucesso', 'Seu consentimento foi registrado. Galeria liberada!');
         } catch (error: any) {

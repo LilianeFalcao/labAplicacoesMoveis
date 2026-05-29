@@ -9,10 +9,11 @@ export class SupabaseAnnouncementRepository implements IAnnouncementRepository {
     private storage = SqliteStorageService.getInstance();
 
     async save(ann: Announcement): Promise<void> {
+        const id = ann.id || generateUUID();
         const { error } = await supabase
             .from('announcements')
             .upsert({
-                id: ann.id || generateUUID(),
+                id: id,
                 author_id: ann.authorId,
                 content: ann.content.value,
                 audience_type: ann.audience.type,
@@ -24,8 +25,8 @@ export class SupabaseAnnouncementRepository implements IAnnouncementRepository {
 
         // Update cache
         await this.storage.run(
-            'INSERT OR REPLACE INTO announcements (id, content, published_at, audience_type) VALUES (?, ?, ?, ?)',
-            [ann.id, ann.content.value, ann.publishedAt.toISOString(), ann.audience.type]
+            'INSERT OR REPLACE INTO announcements (id, content, published_at, audience_type, class_id) VALUES (?, ?, ?, ?, ?)',
+            [id, ann.content.value, ann.publishedAt.toISOString(), ann.audience.type, ann.audience.classId]
         );
     }
 
@@ -53,8 +54,8 @@ export class SupabaseAnnouncementRepository implements IAnnouncementRepository {
             // Populate cache
             for (const ann of results) {
                 await this.storage.run(
-                    'INSERT OR REPLACE INTO announcements (id, content, published_at, audience_type) VALUES (?, ?, ?, ?)',
-                    [ann.id, ann.content.value, ann.publishedAt.toISOString(), ann.audience.type]
+                    'INSERT OR REPLACE INTO announcements (id, content, published_at, audience_type, class_id) VALUES (?, ?, ?, ?, ?)',
+                    [ann.id, ann.content.value, ann.publishedAt.toISOString(), ann.audience.type, ann.audience.classId]
                 );
             }
 
@@ -83,7 +84,7 @@ export class SupabaseAnnouncementRepository implements IAnnouncementRepository {
             data.id,
             '',
             AnnouncementContent.create(data.content),
-            data.audience_type === 'class' ? Audience.forClass('') : Audience.forAll(), // Simplified
+            data.audience_type === 'class' ? Audience.forClass(data.class_id || '') : Audience.forAll(),
             new Date(data.published_at)
         );
     }

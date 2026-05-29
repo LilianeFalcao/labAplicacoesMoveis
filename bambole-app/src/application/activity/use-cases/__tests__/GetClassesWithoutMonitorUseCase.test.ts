@@ -11,7 +11,7 @@ describe('GetClassesWithoutMonitorUseCase', () => {
             findById: jest.fn(),
             findAllWithoutMonitor: jest.fn(),
             save: jest.fn()
-        };
+        } as any;
         useCase = new GetClassesWithoutMonitorUseCase(mockClassRepository);
     });
 

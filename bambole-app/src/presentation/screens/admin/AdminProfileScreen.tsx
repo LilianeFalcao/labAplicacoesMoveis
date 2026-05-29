@@ -102,7 +102,7 @@ export const AdminProfileScreen = () => {
                         </TouchableOpacity>
                     </View>
                     <Text style={styles.adminName}>{user?.fullName || 'Administrador'}</Text>
-                    <Text style={styles.adminEmail}>{user?.email.value}</Text>
+                    <Text style={styles.adminEmail}>{user?.email?.value || ''}</Text>
                 </View>
 
                 <View style={styles.optionsList}>

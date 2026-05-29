@@ -25,7 +25,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     rightAction,
     hideSync = false,
 }) => {
-    const { isSimulated, signOut } = useAuth();
+    const { signOut } = useAuth();
+    const isSimulated = false; // Simulated mode flag
     const insets = useSafeAreaInsets();
     const { colors, activeTheme } = useTheme();
 

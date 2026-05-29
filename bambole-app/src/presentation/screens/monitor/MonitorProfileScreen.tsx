@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemeType } from '../../styles/Theme';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -9,14 +9,45 @@ import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppCard } from '../../components/base/AppCard';
 import { ProfilePhotoCaptureModal } from '../../components/shared/ProfilePhotoCaptureModal';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const MonitorProfileScreen = () => {
-    const { user, signOut, profilePhotoUri, updateProfilePhoto } = useAuth();
+    const { user, signOut } = useAuth();
     const navigation = useNavigation<any>();
     const insets = useSafeAreaInsets();
     const { colors, activeTheme, isDark } = useTheme();
     const styles = createStyles(colors, activeTheme, isDark);
     const [isCaptureModalVisible, setCaptureModalVisible] = useState(false);
+    const [photoUri, setPhotoUri] = useState<string | null>(null);
+
+    useEffect(() => {
+        const loadSavedPhoto = async () => {
+            if (user?.id) {
+                try {
+                    const saved = await AsyncStorage.getItem(`profile_photo_${user.id}`);
+                    if (saved) {
+                        setPhotoUri(saved);
+                    }
+                } catch (err) {
+                    console.error('Failed to load profile photo', err);
+                }
+            }
+        };
+        loadSavedPhoto();
+    }, [user?.id]);
+
+    const handlePhotoCapture = async (uri: string) => {
+        setPhotoUri(uri);
+        if (user?.id) {
+            try {
+                await AsyncStorage.setItem(`profile_photo_${user.id}`, uri);
+                Alert.alert('Sucesso', 'Foto de perfil salva com sucesso!');
+            } catch (err) {
+                console.error('Failed to save profile photo', err);
+                Alert.alert('Erro', 'Não foi possível salvar sua foto de perfil.');
+            }
+        }
+    };
 
     const menuItems = [
         { 
@@ -48,8 +79,8 @@ export const MonitorProfileScreen = () => {
                 <View style={styles.profileHeader}>
                     <View style={styles.avatarWrapper}>
                         <View style={styles.avatarCircle}>
-                            {profilePhotoUri ? (
-                                <Image source={{ uri: profilePhotoUri }} style={styles.avatarImage} />
+                            {photoUri ? (
+                                <Image source={{ uri: photoUri }} style={styles.avatarImage} />
                             ) : (
                                 <MaterialCommunityIcons name="account-tie" size={56} color="#FFF" />
                             )}
@@ -61,11 +92,11 @@ export const MonitorProfileScreen = () => {
                             <MaterialCommunityIcons name="camera" size={16} color="#FFF" />
                         </TouchableOpacity>
                     </View>
-                    <Text style={styles.userName}>{user?.email.value.split('@')[0]}</Text>
+                    <Text style={styles.userName}>{user?.email?.value?.split('@')[0] || 'Monitor'}</Text>
                     <View style={styles.roleTag}>
                         <Text style={styles.roleText}>Monitor(a)</Text>
                     </View>
-                    <Text style={styles.userEmail}>{user?.email.value}</Text>
+                    <Text style={styles.userEmail}>{user?.email?.value || ''}</Text>
                 </View>
 
                 {/* Statistics Section */}
@@ -116,7 +147,7 @@ export const MonitorProfileScreen = () => {
             <ProfilePhotoCaptureModal
                 isVisible={isCaptureModalVisible}
                 onClose={() => setCaptureModalVisible(false)}
-                onCapture={(uri) => updateProfilePhoto(uri)}
+                onCapture={handlePhotoCapture}
             />
         </SafeAreaView>
     );

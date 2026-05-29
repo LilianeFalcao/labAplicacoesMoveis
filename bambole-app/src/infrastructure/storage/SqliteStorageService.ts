@@ -65,7 +65,8 @@ export class SqliteStorageService {
                         id TEXT PRIMARY KEY,
                         content TEXT,
                         published_at TEXT,
-                        audience_type TEXT
+                        audience_type TEXT,
+                        class_id TEXT
                     );
 
                     CREATE TABLE IF NOT EXISTS sync_queue (
@@ -113,6 +114,11 @@ export class SqliteStorageService {
                 }
                 try {
                     await this.db.execAsync('ALTER TABLE attendance ADD COLUMN synced INTEGER DEFAULT 1;');
+                } catch (e) {
+                    // Ignore if column already exists
+                }
+                try {
+                    await this.db.execAsync('ALTER TABLE announcements ADD COLUMN class_id TEXT;');
                 } catch (e) {
                     // Ignore if column already exists
                 }

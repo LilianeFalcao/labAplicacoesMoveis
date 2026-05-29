@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, ScrollView, RefreshControl, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ScrollView, RefreshControl, ActivityIndicator, TouchableOpacity, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { AppCard } from '../../components/base/AppCard';
@@ -96,7 +96,7 @@ export const ParentHomeScreen = () => {
             <View style={[styles.header, { paddingTop: Math.max(insets.top, Theme.spacing.md) }]}>
                 <View style={styles.headerLeft}>
                     <View style={styles.avatarMini}>
-                        <MaterialCommunityIcons name="emoticon-happy-outline" size={20} color={Theme.colors.primary} />
+                        <Image source={require('../../../../assets/icon-app.png')} style={styles.headerLogoImage} resizeMode="contain" />
                     </View>
                     <Text style={styles.headerBrand}>Bambolê</Text>
                     <OfflineBadge />
@@ -114,8 +114,8 @@ export const ParentHomeScreen = () => {
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />}
             >
                 <View style={styles.welcomeSection}>
-                    <Text style={styles.userName}>Olá!</Text>
-                    <Text style={styles.welcomeSub}>Acompanhe as atividades de hoje.</Text>
+                    <Text style={styles.userName}>Olá, {user?.fullName ? user.fullName.split(' ')[0] : 'Responsável'}!</Text>
+                    <Text style={styles.welcomeSub}>Que bom ter você por aqui. Acompanhe a rotina de hoje.</Text>
                 </View>
 
                 <View style={styles.section}>
@@ -142,14 +142,18 @@ export const ParentHomeScreen = () => {
                                 >
                                     <AppCard style={styles.childCard}>
                                         <View style={styles.childCardHeader}>
-                                            <View style={[styles.childAvatar, { backgroundColor: item.status === 'present' ? '#E0E7FF' : '#FEE2E2' }]}>
-                                                <Text style={styles.avatarText}>{item.name.split(' ').map((n: string) => n[0]).join('')}</Text>
-                                            </View>
-                                            <View style={styles.childInfo}>
-                                                <Text style={styles.childNameText}>{item.name}</Text>
-                                                <Text style={styles.childActivityText}>Turma: {item.classId ? 'Ativa' : 'Sem Turma'}</Text>
-                                            </View>
-                                        </View>
+                                             <View style={[styles.childAvatar, { backgroundColor: item.status === 'present' ? '#E0E7FF' : '#FEE2E2' }]}>
+                                                 {item.photoUrl ? (
+                                                     <Image source={{ uri: item.photoUrl }} style={styles.childAvatarImage} />
+                                                 ) : (
+                                                     <Text style={styles.avatarText}>{item.name.split(' ').map((n: string) => n[0]).join('')}</Text>
+                                                 )}
+                                             </View>
+                                             <View style={styles.childInfo}>
+                                                 <Text style={styles.childNameText}>{item.name}</Text>
+                                                 <Text style={styles.childActivityText}>Turma: {item.className || 'Sem Turma'}</Text>
+                                             </View>
+                                         </View>
                                         <View style={styles.childCardFooter}>
                                             <StatusBadge type={item.status as any} label={item.label} />
                                         </View>
@@ -219,10 +223,14 @@ const styles = StyleSheet.create({
         width: 36,
         height: 36,
         borderRadius: 18,
-        backgroundColor: '#DBEAFE',
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 10,
+        overflow: 'hidden',
+    },
+    headerLogoImage: {
+        width: '100%',
+        height: '100%',
     },
     headerBrand: {
         ...Theme.typography.h3,
@@ -338,6 +346,11 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 16,
+        overflow: 'hidden',
+    },
+    childAvatarImage: {
+        width: '100%',
+        height: '100%',
     },
     avatarText: {
         ...Theme.typography.h3,

@@ -19,7 +19,7 @@ export class MockIncidentRepository implements IIncidentRepository {
         console.log("Mock saved incident:", incident);
     }
 
-    async getAll(): Promise<Incident[]> {
+    async findAll(): Promise<Incident[]> {
         return [...this.incidents].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     }
 

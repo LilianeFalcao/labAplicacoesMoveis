@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme } from '../../styles/Theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -8,6 +8,9 @@ import { AppButton } from '../../components/base/AppButton';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppCard } from '../../components/base/AppCard';
 import { ProfilePhotoCaptureModal } from '../../components/shared/ProfilePhotoCaptureModal';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SupabaseGuardianRepository } from '../../../infrastructure/enrollment/repositories/SupabaseGuardianRepository';
+import { SupabaseChildRepository } from '../../../infrastructure/enrollment/repositories/SupabaseChildRepository';
 
 export const ParentProfileScreen = () => {
     const { user, signOut } = useAuth();
@@ -23,9 +26,91 @@ export const ParentProfileScreen = () => {
         { id: '5', title: 'Central de Ajuda', icon: 'help-circle-outline', color: '#6B7280' },
     ];
 
+    useEffect(() => {
+        const loadSavedPhoto = async () => {
+            if (user?.id) {
+                try {
+                    const saved = await AsyncStorage.getItem(`profile_photo_${user.id}`);
+                    if (saved) {
+                        setPhotoUri(saved);
+                    }
+                } catch (err) {
+                    console.error('Failed to load profile photo', err);
+                }
+            }
+        };
+        loadSavedPhoto();
+    }, [user?.id]);
+
+    const handlePhotoCapture = async (uri: string) => {
+        setPhotoUri(uri);
+        if (user?.id) {
+            try {
+                await AsyncStorage.setItem(`profile_photo_${user.id}`, uri);
+                Alert.alert('Sucesso', 'Foto de perfil salva com sucesso!');
+            } catch (err) {
+                console.error('Failed to save profile photo', err);
+                Alert.alert('Erro', 'Não foi possível salvar sua foto de perfil.');
+            }
+        }
+    };
+
+    const handleMenuPress = async (sectionId: string, sectionTitle: string) => {
+        if (!user) return;
+        
+        switch (sectionId) {
+            case '1': // Personal Data
+                Alert.alert(
+                    sectionTitle,
+                    `E-mail: ${user.email.value}\nCargo: Responsável (Pai/Mãe)\nID do Usuário: ${user.id}\nStatus da Conta: Ativa`
+                );
+                break;
+            case '2': // Linked Children
+                try {
+                    const guardianRepo = new SupabaseGuardianRepository();
+                    const guardian = await guardianRepo.findByUserId(user.id);
+                    if (guardian) {
+                        const childRepo = new SupabaseChildRepository();
+                        const childrenList = await childRepo.findByGuardianId(guardian.id);
+                        if (childrenList.length > 0) {
+                            const names = childrenList.map(c => `- ${c.name.value}`).join('\n');
+                            Alert.alert(sectionTitle, `Você possui os seguintes filhos vinculados:\n\n${names}`);
+                        } else {
+                            Alert.alert(sectionTitle, 'Nenhum filho foi vinculado a este perfil no momento. Entre em contato com a secretaria.');
+                        }
+                    } else {
+                        Alert.alert(sectionTitle, 'Perfil do responsável não encontrado.');
+                    }
+                } catch (e) {
+                    Alert.alert(sectionTitle, 'Não foi possível carregar a lista de filhos vinculados.');
+                }
+                break;
+            case '3': // Notifications
+                Alert.alert(
+                    sectionTitle,
+                    'Suas notificações push estão ativadas neste aparelho para atualizações de presença, fotos e comunicados escolares.'
+                );
+                break;
+            case '4': // Security
+                Alert.alert(
+                    sectionTitle,
+                    'Seu acesso está protegido por token de autenticação seguro. Para redefinir sua senha, utilize a tela de login.'
+                );
+                break;
+            case '5': // Help Center
+                Alert.alert(
+                    sectionTitle,
+                    'Dúvidas ou problemas? Entre em contato com o suporte do Colégio Bambolê:\n\n✉️ suporte@bambole.edu.br\n📞 (11) 4002-8922'
+                );
+                break;
+            default:
+                break;
+        }
+    };
+
     return (
-        <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
-            <View style={[styles.header, { paddingTop: Math.max(insets.top, Theme.spacing.md) }]}>
+        <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
+            <View style={styles.header}>
                 <Text style={styles.headerTitle}>Meu Perfil</Text>
                 <TouchableOpacity onPress={signOut} style={styles.logoutIconButton}>
                     <MaterialCommunityIcons name="logout" size={22} color={Theme.colors.error} />
@@ -50,20 +135,25 @@ export const ParentProfileScreen = () => {
                             <MaterialCommunityIcons name="camera" size={16} color="#FFFFFF" />
                         </TouchableOpacity>
                     </View>
-                    <Text style={styles.userName}>{user?.email.value.split('@')[0] || 'Maria Silva'}</Text>
-                    <Text style={styles.userEmail}>{user?.email.value}</Text>
+                    <Text style={styles.userName}>{user?.email?.value?.split('@')[0] || 'Responsável'}</Text>
+                    <Text style={styles.userEmail}>{user?.email?.value || ''}</Text>
                 </View>
 
                 <ProfilePhotoCaptureModal
                     isVisible={isModalVisible}
                     onClose={() => setModalVisible(false)}
-                    onCapture={(uri) => setPhotoUri(uri)}
+                    onCapture={handlePhotoCapture}
                 />
 
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>CONFIGURAÇÕES</Text>
                     {sections.map(section => (
-                        <TouchableOpacity key={section.id} activeOpacity={0.7} style={styles.menuItemContainer}>
+                        <TouchableOpacity 
+                            key={section.id} 
+                            activeOpacity={0.7} 
+                            style={styles.menuItemContainer}
+                            onPress={() => handleMenuPress(section.id, section.title)}
+                        >
                             <AppCard style={styles.menuItem}>
                                 <View style={styles.menuLeft}>
                                     <View style={[styles.iconContainer, { backgroundColor: `${section.color}15` }]}>

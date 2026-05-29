@@ -64,10 +64,11 @@ export class ActivityPhoto {
         return this.props.comments || [];
     }
 
-    static create(props: Omit<ActivityPhotoProps, "id" | "timestamp"> & { id?: string; timestamp?: Date; isPending?: boolean; monitorName?: string; monitorAvatar?: string; className?: string; likes?: string[]; comments?: any[] }): ActivityPhoto {
+    static create(props: Omit<ActivityPhotoProps, "id" | "timestamp" | "monitorId"> & { id?: string; monitorId?: string; timestamp?: Date; isPending?: boolean; monitorName?: string; monitorAvatar?: string; className?: string; likes?: string[]; comments?: any[] }): ActivityPhoto {
         return new ActivityPhoto({
             ...props,
             id: props.id ?? Math.random().toString(36).substring(2, 9),
+            monitorId: props.monitorId ?? 'mock-monitor-id',
             timestamp: props.timestamp ?? new Date(),
             isPending: props.isPending ?? false,
         });

@@ -258,15 +258,15 @@ export const MonitorHomeScreen = () => {
         try {
             if (!user) {
                 Alert.alert('Erro', 'Você precisa estar logado para enviar um comunicado.');
-                return;
+                throw new Error('User not logged in');
             }
             if (!content || !content.trim()) {
                 Alert.alert('Erro', 'O conteúdo do comunicado não pode ser vazio.');
-                return;
+                throw new Error('Announcement content is empty');
             }
             if (classIds.length === 0) {
                 Alert.alert('Erro', 'Selecione pelo menos uma turma.');
-                return;
+                throw new Error('No class selected');
             }
 
             const announceRepo = new SupabaseAnnouncementRepository();
@@ -275,11 +275,10 @@ export const MonitorHomeScreen = () => {
             const useCase = new SendAnnouncementUseCase(announceRepo, userRepo, pushService);
 
             await useCase.execute(user.id, content, 'class', classIds);
-            
-            Alert.alert('Sucesso', 'Comunicado enviado com sucesso!');
         } catch (error: any) {
             console.error('Failed to send announcement', error);
             Alert.alert('Erro', `Falha ao enviar o comunicado: ${error.message || error}`);
+            throw error;
         }
     };
 
@@ -471,7 +470,7 @@ export const MonitorHomeScreen = () => {
                     <View style={styles.titleRow}>
                         <View style={styles.titleGroup}>
                             <Text style={styles.overtitle}>BEM-VINDO</Text>
-                            <Text style={styles.mainTitle}>{user?.email.value.split('@')[0]}</Text>
+                            <Text style={styles.mainTitle}>{user?.email?.value?.split('@')[0] || 'Monitor'}</Text>
                         </View>
                         <TouchableOpacity style={styles.solicitarBtn} onPress={() => setIsModalVisible(true)}>
                             <MaterialCommunityIcons name="shield-lock-outline" size={16} color="#FFF" />
