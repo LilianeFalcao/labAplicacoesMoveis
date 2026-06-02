@@ -9,14 +9,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppCard } from '../../components/base/AppCard';
 import { ProfilePhotoCaptureModal } from '../../components/shared/ProfilePhotoCaptureModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SupabaseGuardianRepository } from '../../../infrastructure/enrollment/repositories/SupabaseGuardianRepository';
-import { SupabaseChildRepository } from '../../../infrastructure/enrollment/repositories/SupabaseChildRepository';
+import { ParentSettingsModal } from '../../components/parent/ParentSettingsModal';
 
 export const ParentProfileScreen = () => {
     const { user, signOut } = useAuth();
     const insets = useSafeAreaInsets();
     const [isModalVisible, setModalVisible] = useState(false);
     const [photoUri, setPhotoUri] = useState<string | null>(null);
+    const [selectedSectionId, setSelectedSectionId] = useState<string>('1');
+    const [selectedSectionTitle, setSelectedSectionTitle] = useState<string>('');
+    const [isSettingsModalVisible, setSettingsModalVisible] = useState(false);
 
     const sections = [
         { id: '1', title: 'Dados Pessoais', icon: 'account-outline', color: '#3182CE' },
@@ -55,57 +57,11 @@ export const ParentProfileScreen = () => {
         }
     };
 
-    const handleMenuPress = async (sectionId: string, sectionTitle: string) => {
+    const handleMenuPress = (sectionId: string, sectionTitle: string) => {
         if (!user) return;
-        
-        switch (sectionId) {
-            case '1': // Personal Data
-                Alert.alert(
-                    sectionTitle,
-                    `E-mail: ${user.email.value}\nCargo: Responsável (Pai/Mãe)\nID do Usuário: ${user.id}\nStatus da Conta: Ativa`
-                );
-                break;
-            case '2': // Linked Children
-                try {
-                    const guardianRepo = new SupabaseGuardianRepository();
-                    const guardian = await guardianRepo.findByUserId(user.id);
-                    if (guardian) {
-                        const childRepo = new SupabaseChildRepository();
-                        const childrenList = await childRepo.findByGuardianId(guardian.id);
-                        if (childrenList.length > 0) {
-                            const names = childrenList.map(c => `- ${c.name.value}`).join('\n');
-                            Alert.alert(sectionTitle, `Você possui os seguintes filhos vinculados:\n\n${names}`);
-                        } else {
-                            Alert.alert(sectionTitle, 'Nenhum filho foi vinculado a este perfil no momento. Entre em contato com a secretaria.');
-                        }
-                    } else {
-                        Alert.alert(sectionTitle, 'Perfil do responsável não encontrado.');
-                    }
-                } catch (e) {
-                    Alert.alert(sectionTitle, 'Não foi possível carregar a lista de filhos vinculados.');
-                }
-                break;
-            case '3': // Notifications
-                Alert.alert(
-                    sectionTitle,
-                    'Suas notificações push estão ativadas neste aparelho para atualizações de presença, fotos e comunicados escolares.'
-                );
-                break;
-            case '4': // Security
-                Alert.alert(
-                    sectionTitle,
-                    'Seu acesso está protegido por token de autenticação seguro. Para redefinir sua senha, utilize a tela de login.'
-                );
-                break;
-            case '5': // Help Center
-                Alert.alert(
-                    sectionTitle,
-                    'Dúvidas ou problemas? Entre em contato com o suporte do Colégio Bambolê:\n\n✉️ suporte@bambole.edu.br\n📞 (11) 4002-8922'
-                );
-                break;
-            default:
-                break;
-        }
+        setSelectedSectionId(sectionId);
+        setSelectedSectionTitle(sectionTitle);
+        setSettingsModalVisible(true);
     };
 
     return (
@@ -143,6 +99,14 @@ export const ParentProfileScreen = () => {
                     isVisible={isModalVisible}
                     onClose={() => setModalVisible(false)}
                     onCapture={handlePhotoCapture}
+                />
+
+                <ParentSettingsModal
+                    isVisible={isSettingsModalVisible}
+                    onClose={() => setSettingsModalVisible(false)}
+                    sectionId={selectedSectionId}
+                    sectionTitle={selectedSectionTitle}
+                    user={user}
                 />
 
                 <View style={styles.section}>
