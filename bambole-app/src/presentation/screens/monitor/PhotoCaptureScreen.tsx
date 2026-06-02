@@ -24,18 +24,21 @@ export const PhotoCaptureScreen = () => {
     const [image, setImage] = useState<string | null>(null);
     const [hasPermission, setHasPermission] = useState<boolean | null>(null);
     const [cameraVisible, setCameraVisible] = useState(false);
-    const [caption, setCaption] = useState("Atividade registrada pelo monitor");
+    const [caption, setCaption] = useState("");
     const [facing, setFacing] = useState<'front' | 'back'>('back');
-
+ 
     const cameraRef = useRef<CameraView>(null);
     const cameraService = new ExpoCameraService();
-
+ 
     useFocusEffect(
         useCallback(() => {
-            // Context is now provided by parent navigation
+            handleStartCapture();
+            return () => {
+                setCameraVisible(false);
+            };
         }, [])
     );
-
+ 
     const handleStartCapture = async () => {
         const { granted } = await cameraService.requestPermissions();
         setHasPermission(granted);
@@ -45,7 +48,7 @@ export const PhotoCaptureScreen = () => {
             Alert.alert("Permissão negada", "O app precisa de acesso à câmera.");
         }
     };
-
+ 
     const handleCapture = async () => {
         if (cameraRef.current) {
             const photo = await cameraRef.current.takePictureAsync();
@@ -55,33 +58,34 @@ export const PhotoCaptureScreen = () => {
             }
         }
     };
-
+ 
     const handleSave = async () => {
         if (!image) {
             Alert.alert("Erro", "Capture uma foto primeiro.");
             return;
         }
-
+ 
         if (!classId) {
             Alert.alert("Erro", "Turma não identificada.");
             return;
         }
-
+ 
         try {
             const repository = SupabaseActivityRepository.getInstance();
             const useCase = new UploadActivityPhotoUseCase(repository);
-
+ 
             await useCase.execute({
                 classId: classId,
                 photoUri: image,
                 caption: caption,
                 monitorId: user?.id || '',
             });
-
+ 
             // Reset state
             setImage(null);
-            setCaption("Atividade registrada pelo monitor");
-
+            setCaption("");
+            setCameraVisible(true);
+ 
             Alert.alert(
                 "Sucesso",
                 "O momento foi compartilhado com os pais!",
@@ -94,8 +98,9 @@ export const PhotoCaptureScreen = () => {
             if (error?.message === 'OFFLINE_ENQUEUED') {
                 // Reset state
                 setImage(null);
-                setCaption("Atividade registrada pelo monitor");
-
+                setCaption("");
+                setCameraVisible(true);
+ 
                 Alert.alert(
                     "Momento guardado offline",
                     "Momento guardado com segurança offline! Fique tranquilo, salvamos tudo localmente e enviaremos assim que você se conectar!",
@@ -187,6 +192,14 @@ export const PhotoCaptureScreen = () => {
                 )}
 
                 <AppButton title="Enviar para os Pais" onPress={handleSave} disabled={!image || !classId} style={styles.button} />
+                {image && (
+                    <AppButton
+                        title="Tirar outra foto"
+                        onPress={handleStartCapture}
+                        variant="outline"
+                        style={{ marginTop: Theme.spacing.sm, height: 56 }}
+                    />
+                )}
             </ScrollView>
         </SafeAreaView>
     );

@@ -1,12 +1,12 @@
 import { IAttendanceRepository } from '@/domain/attendance/repositories/IAttendanceRepository';
 import { IClassRepository } from '@/domain/activity/repositories/IClassRepository';
 import { AttendanceRecord } from '@/domain/attendance/entities/AttendanceRecord';
-import { GeolocationProof } from '@/domain/attendance/value-objects/AttendanceStatus';
+import { AttendanceStatus, GeolocationProof } from '@/domain/attendance/value-objects/AttendanceStatus';
 import { IAgendaRepository } from '@/domain/activity/repositories/IAgendaRepository';
 
 interface AttendanceInput {
     childId: string;
-    status: 'present' | 'absent';
+    status: 'present' | 'absent' | 'pre_justified' | 'justified';
     geolocation?: GeolocationProof;
 }
 
@@ -64,13 +64,52 @@ export class TakeAttendanceUseCase {
             }
         }
 
+        const dateString = date.toISOString().split('T')[0];
+
         for (const student of students) {
+            const existingRecord = await this.attendanceRepo.findByChildAndDate(student.childId, dateString);
             let record: AttendanceRecord;
+
             if (student.status === 'present') {
                 if (!student.geolocation) throw new Error(`Geolocation required for present student ${student.childId}`);
-                record = AttendanceRecord.createPresent(student.childId, classId, monitorId, date, student.geolocation, activityId);
+                record = new AttendanceRecord(
+                    existingRecord?.id,
+                    student.childId,
+                    classId,
+                    monitorId,
+                    date,
+                    AttendanceStatus.create('present'),
+                    student.geolocation,
+                    undefined,
+                    undefined,
+                    activityId
+                );
+            } else if (student.status === 'pre_justified' || student.status === 'justified') {
+                record = new AttendanceRecord(
+                    existingRecord?.id,
+                    student.childId,
+                    classId,
+                    monitorId,
+                    date,
+                    AttendanceStatus.create(student.status),
+                    undefined,
+                    existingRecord?.justificationNote,
+                    existingRecord?.justifiedAt || new Date(),
+                    activityId
+                );
             } else {
-                record = AttendanceRecord.createAbsent(student.childId, classId, monitorId, date, activityId);
+                record = new AttendanceRecord(
+                    existingRecord?.id,
+                    student.childId,
+                    classId,
+                    monitorId,
+                    date,
+                    AttendanceStatus.create('absent'),
+                    undefined,
+                    undefined,
+                    undefined,
+                    activityId
+                );
             }
             await this.attendanceRepo.save(record);
         }

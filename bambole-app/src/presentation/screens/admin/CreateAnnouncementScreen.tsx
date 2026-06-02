@@ -39,6 +39,10 @@ export const CreateAnnouncementScreen = ({ navigation }: any) => {
                 isGeneral ? undefined : [classId]
             );
 
+            setContent('');
+            setClassId('');
+            setIsGeneral(true);
+
             Alert.alert('Sucesso', 'Aviso enviado e pais notificados!', [
                 { text: 'OK', onPress: () => navigation.goBack() }
             ]);

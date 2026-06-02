@@ -44,6 +44,10 @@ export const MonitorObservationsScreen = () => {
 
             await useCase.execute(user?.id || 'monitor-mock-id', formattedContent, 'class', [classId]);
 
+            setTitle('');
+            setContent('');
+            setCategory('Geral');
+
             Alert.alert('Sucesso', 'Aviso enviado para a turma com sucesso!', [
                 { text: 'OK', onPress: () => navigation.goBack() }
             ]);

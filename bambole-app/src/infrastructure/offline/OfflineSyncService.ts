@@ -1,6 +1,6 @@
 import { supabase } from '../supabase/client';
 import { SqliteStorageService } from '../storage/SqliteStorageService';
-import { MockNotificationRepository } from '../notification/repositories/MockNotificationRepository';
+import { SupabaseNotificationRepository } from '../notification/repositories/SupabaseNotificationRepository';
 import { Notification } from '../../domain/notification/entities/Notification';
 import { NotificationService } from '../notification/services/NotificationService';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -151,6 +151,67 @@ export class OfflineSyncService {
                         .insert(dbPayload);
 
                     if (dbError) throw dbError;
+                    success = true;
+                } else if (item.action_type === 'REPORT_INCIDENT') {
+                    const uploadedUrls: string[] = [];
+
+                    if (payload.photoUrls && payload.photoUrls.length > 0) {
+                        for (const url of payload.photoUrls) {
+                            if (url.startsWith('http://') || url.startsWith('https://')) {
+                                uploadedUrls.push(url);
+                            } else {
+                                const base64 = await FileSystem.readAsStringAsync(url, { encoding: 'base64' });
+                                const fileName = `incident_${payload.id}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}.jpg`;
+                                const { error: uploadError } = await supabase.storage
+                                    .from('children-photos')
+                                    .upload(fileName, decode(base64), {
+                                        contentType: 'image/jpeg',
+                                        upsert: true
+                                    });
+
+                                if (uploadError) throw uploadError;
+
+                                const { data: { publicUrl } } = supabase.storage
+                                    .from('children-photos')
+                                    .getPublicUrl(fileName);
+
+                                uploadedUrls.push(publicUrl);
+                            }
+                        }
+                    }
+
+                    const { error: incidentError } = await supabase
+                        .from('incidents')
+                        .upsert({
+                            id: payload.id,
+                            description: payload.description,
+                            is_emergency: payload.isEmergency,
+                            class_id: payload.classId === 'global' ? null : payload.classId,
+                            child_id: payload.studentId || null,
+                            monitor_id: payload.monitorId,
+                            created_at: payload.createdAt
+                        });
+
+                    if (incidentError) throw incidentError;
+
+                    if (uploadedUrls.length > 0) {
+                        await supabase
+                            .from('incident_photos')
+                            .delete()
+                            .eq('incident_id', payload.id);
+
+                        const photosToInsert = uploadedUrls.map(url => ({
+                            incident_id: payload.id,
+                            url: url
+                        }));
+
+                        const { error: photosError } = await supabase
+                            .from('incident_photos')
+                            .insert(photosToInsert);
+
+                        if (photosError) throw photosError;
+                    }
+
                     success = true;
                 }
 

@@ -129,3 +129,123 @@ describe('SupabaseActivityRepository Offline Fallback', () => {
         expect(feed[1].photoUri).toBe('https://supabase.co/remote2.jpg');
     });
 });
+
+describe('SupabaseActivityRepository Likes and Comments', () => {
+    let repository: SupabaseActivityRepository;
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        repository = SupabaseActivityRepository.getInstance();
+    });
+
+    it('should successfully toggle (add) a like to a photo', async () => {
+        const photoId = 'photo-123';
+        const userId = 'user-abc';
+        
+        const mockSelect = jest.fn().mockReturnThis();
+        const mockEq = jest.fn().mockReturnThis();
+        const mockSingle = jest.fn().mockResolvedValue({ data: { likes: [] }, error: null });
+        const mockUpdate = jest.fn().mockReturnThis();
+        const mockUpdateEq = jest.fn().mockResolvedValue({ error: null });
+
+        jest.spyOn(supabase, 'from').mockImplementation((table: string) => {
+            if (table === 'activity_photos') {
+                return {
+                    select: mockSelect,
+                    eq: mockEq,
+                    single: mockSingle,
+                    update: mockUpdate,
+                } as any;
+            }
+            return {} as any;
+        });
+        
+        mockUpdate.mockReturnValue({
+            eq: mockUpdateEq
+        });
+
+        const result = await repository.toggleLike(photoId, userId);
+
+        expect(mockSelect).toHaveBeenCalledWith('likes');
+        expect(mockEq).toHaveBeenCalledWith('id', photoId);
+        expect(mockSingle).toHaveBeenCalled();
+        expect(mockUpdate).toHaveBeenCalledWith({ likes: [userId] });
+        expect(mockUpdateEq).toHaveBeenCalledWith('id', photoId);
+        expect(result).toEqual([userId]);
+    });
+
+    it('should successfully toggle (remove) a like from a photo', async () => {
+        const photoId = 'photo-123';
+        const userId = 'user-abc';
+        
+        const mockSelect = jest.fn().mockReturnThis();
+        const mockEq = jest.fn().mockReturnThis();
+        const mockSingle = jest.fn().mockResolvedValue({ data: { likes: [userId, 'user-def'] }, error: null });
+        const mockUpdate = jest.fn().mockReturnThis();
+        const mockUpdateEq = jest.fn().mockResolvedValue({ error: null });
+
+        jest.spyOn(supabase, 'from').mockImplementation((table: string) => {
+            if (table === 'activity_photos') {
+                return {
+                    select: mockSelect,
+                    eq: mockEq,
+                    single: mockSingle,
+                    update: mockUpdate,
+                } as any;
+            }
+            return {} as any;
+        });
+        
+        mockUpdate.mockReturnValue({
+            eq: mockUpdateEq
+        });
+
+        const result = await repository.toggleLike(photoId, userId);
+
+        expect(result).toEqual(['user-def']);
+        expect(mockUpdate).toHaveBeenCalledWith({ likes: ['user-def'] });
+    });
+
+    it('should successfully add a comment to a photo', async () => {
+        const photoId = 'photo-123';
+        const comment = {
+            id: 'comment-1',
+            userId: 'user-abc',
+            userName: 'Juan Carlos',
+            text: 'Muito bom!',
+            createdAt: new Date().toISOString()
+        };
+        
+        const mockSelect = jest.fn().mockReturnThis();
+        const mockEq = jest.fn().mockReturnThis();
+        const mockSingle = jest.fn().mockResolvedValue({ data: { comments: [] }, error: null });
+        const mockUpdate = jest.fn().mockReturnThis();
+        const mockUpdateEq = jest.fn().mockResolvedValue({ error: null });
+
+        jest.spyOn(supabase, 'from').mockImplementation((table: string) => {
+            if (table === 'activity_photos') {
+                return {
+                    select: mockSelect,
+                    eq: mockEq,
+                    single: mockSingle,
+                    update: mockUpdate,
+                } as any;
+            }
+            return {} as any;
+        });
+        
+        mockUpdate.mockReturnValue({
+            eq: mockUpdateEq
+        });
+
+        const result = await repository.addComment(photoId, comment);
+
+        expect(mockSelect).toHaveBeenCalledWith('comments');
+        expect(mockEq).toHaveBeenCalledWith('id', photoId);
+        expect(mockSingle).toHaveBeenCalled();
+        expect(mockUpdate).toHaveBeenCalledWith({ comments: [comment] });
+        expect(mockUpdateEq).toHaveBeenCalledWith('id', photoId);
+        expect(result).toEqual([comment]);
+    });
+});
+

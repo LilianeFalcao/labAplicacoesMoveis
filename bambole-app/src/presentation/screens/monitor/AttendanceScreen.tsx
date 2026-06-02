@@ -99,15 +99,28 @@ export const AttendanceScreen = () => {
     const loadStudents = async () => {
         try {
             const repo = new SupabaseChildRepository();
-            const list = await repo.findByClass(classId);
-            setStudents(list.map(s => ({ 
-                id: s.id, 
-                name: s.name, 
-                status: 'present',
-                medicalAlerts: (s as any).medicalAlerts,
-                hasImageConsent: s.hasImageConsent,
-                photoUrl: s.photoUrl
-            })));
+            const attendanceRepo = new SupabaseAttendanceRepository();
+            const todayStr = new Date().toISOString().split('T')[0];
+
+            const [list, attendanceRecords] = await Promise.all([
+                repo.findByClass(classId),
+                attendanceRepo.findByClassAndDate(classId, todayStr)
+            ]);
+
+            setStudents(list.map(s => {
+                const record = attendanceRecords.find(r => r.childId === s.id);
+                const status = record ? record.status.value : 'present';
+                return { 
+                    id: s.id, 
+                    name: s.name, 
+                    status: status,
+                    initialStatus: status,
+                    justificationNote: record?.justificationNote,
+                    medicalAlerts: (s as any).medicalAlerts,
+                    hasImageConsent: s.hasImageConsent,
+                    photoUrl: s.photoUrl
+                };
+            }));
         } catch (err) {
             console.error('Failed to load students', err);
         } finally {
@@ -116,13 +129,82 @@ export const AttendanceScreen = () => {
     };
 
     const toggleStatus = (id: string, status: 'present' | 'absent') => {
-        setStudents(prev => prev.map(s =>
-            s.id === id ? { ...s, status } : s
-        ));
+        const student = students.find(s => s.id === id);
+        if (!student) return;
+
+        const isOriginalJustified = student.initialStatus === 'pre_justified' || student.initialStatus === 'justified';
+
+        if (status === 'present') {
+            if (isOriginalJustified && student.status !== 'present') {
+                Alert.alert(
+                    'Alterar Status de Aluno Justificado',
+                    `Este aluno possui uma falta justificada pelos responsáveis: "${student.justificationNote || 'Sem justificativa detalhada'}". Deseja realmente marcar como PRESENTE?`,
+                    [
+                        {
+                            text: 'Cancelar',
+                            style: 'cancel',
+                        },
+                        {
+                            text: 'Confirmar',
+                            onPress: () => {
+                                setStudents(prev => prev.map(s =>
+                                    s.id === id ? { ...s, status: 'present' } : s
+                                ));
+                            },
+                        }
+                    ]
+                );
+            } else {
+                setStudents(prev => prev.map(s =>
+                    s.id === id ? { ...s, status: 'present' } : s
+                ));
+            }
+        } else {
+            // status === 'absent'
+            if (isOriginalJustified) {
+                setStudents(prev => prev.map(s =>
+                    s.id === id ? { ...s, status: s.initialStatus } : s
+                ));
+            } else {
+                setStudents(prev => prev.map(s =>
+                    s.id === id ? { ...s, status: 'absent' } : s
+                ));
+            }
+        }
     };
 
     const markAllPresent = () => {
-        setStudents(prev => prev.map(s => ({ ...s, status: 'present' })));
+        const hasJustified = students.some(s => (s.initialStatus === 'pre_justified' || s.initialStatus === 'justified') && s.status !== 'present');
+        if (hasJustified) {
+            Alert.alert(
+                'Marcar Todos Como Presentes',
+                'Existem alunos com faltas justificadas pelos responsáveis. Deseja marcar todos como presentes (sobrescrevendo as justificativas) ou manter suas justificativas?',
+                [
+                    {
+                        text: 'Manter Justificativas',
+                        onPress: () => {
+                            setStudents(prev => prev.map(s => {
+                                const isJustified = s.initialStatus === 'pre_justified' || s.initialStatus === 'justified';
+                                return isJustified ? s : { ...s, status: 'present' };
+                            }));
+                        }
+                    },
+                    {
+                        text: 'Sobrescrever Tudo',
+                        style: 'destructive',
+                        onPress: () => {
+                            setStudents(prev => prev.map(s => ({ ...s, status: 'present' })));
+                        }
+                    },
+                    {
+                        text: 'Cancelar',
+                        style: 'cancel'
+                    }
+                ]
+            );
+        } else {
+            setStudents(prev => prev.map(s => ({ ...s, status: 'present' })));
+        }
     };
 
     const showAlerts = (student: any) => {
@@ -397,8 +479,25 @@ export const AttendanceScreen = () => {
 
                                     </View>
                                     <Text style={styles.statusLabel}>
-                                        {item.status === 'present' ? 'Presente' : 'Ausente'}
+                                        {item.status === 'present' ? 'Presente' : 
+                                         (item.status === 'pre_justified' || item.status === 'justified') ? 'Ausente (Justificado)' : 'Ausente'}
                                     </Text>
+                                    {(item.status === 'pre_justified' || item.status === 'justified') && (
+                                        <TouchableOpacity 
+                                            onPress={() => {
+                                                Alert.alert(
+                                                    'Justificativa de Ausência',
+                                                    item.justificationNote || 'Nenhuma justificativa detalhada fornecida pelos responsáveis.',
+                                                    [{ text: 'Fechar', style: 'default' }]
+                                                );
+                                            }}
+                                            style={styles.justifiedBadge}
+                                            activeOpacity={0.7}
+                                        >
+                                            <MaterialCommunityIcons name="file-document-outline" size={12} color="#D97706" />
+                                            <Text style={styles.justifiedBadgeText}>Justificativa</Text>
+                                        </TouchableOpacity>
+                                    )}
                                 </View>
 
                                 <View style={styles.toggleContainer}>
@@ -416,13 +515,16 @@ export const AttendanceScreen = () => {
 
                                     <TouchableOpacity
                                         onPress={() => toggleStatus(item.id, 'absent')}
-                                        style={[styles.toggleBtn, item.status === 'absent' && styles.absentActive]}
+                                        style={[
+                                            styles.toggleBtn, 
+                                            (item.status === 'absent' || item.status === 'pre_justified' || item.status === 'justified') && styles.absentActive
+                                        ]}
                                         activeOpacity={0.7}
                                     >
                                         <MaterialCommunityIcons
                                             name="close"
                                             size={20}
-                                            color={item.status === 'absent' ? '#FFF' : Theme.colors.gray[300]}
+                                            color={(item.status === 'absent' || item.status === 'pre_justified' || item.status === 'justified') ? '#FFF' : Theme.colors.gray[300]}
                                         />
                                     </TouchableOpacity>
                                 </View>
@@ -933,6 +1035,24 @@ const styles = StyleSheet.create({
         color: '#6B7280',
         fontWeight: '500',
         flex: 1,
+    },
+    justifiedBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FEF3C7',
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 8,
+        gap: 4,
+        marginTop: 4,
+        alignSelf: 'flex-start',
+        borderWidth: 1,
+        borderColor: '#FDE68A',
+    },
+    justifiedBadgeText: {
+        fontSize: 10,
+        fontWeight: '700',
+        color: '#D97706',
     },
 });
 

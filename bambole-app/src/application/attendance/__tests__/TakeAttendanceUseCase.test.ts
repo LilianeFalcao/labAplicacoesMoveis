@@ -4,6 +4,7 @@ import { IClassRepository } from '@/domain/activity/repositories/IClassRepositor
 import { AttendanceRecord } from '@/domain/attendance/entities/AttendanceRecord';
 import { Class, WeeklySchedule } from '@/domain/activity/entities/Class';
 import { IAgendaRepository } from '@/domain/activity/repositories/IAgendaRepository';
+import { AttendanceStatus } from '@/domain/attendance/value-objects/AttendanceStatus';
 
 describe('TakeAttendanceUseCase', () => {
     let mockAttendanceRepo: jest.Mocked<IAttendanceRepository>;
@@ -125,5 +126,82 @@ describe('TakeAttendanceUseCase', () => {
         mockAgendaRepo.findByClass.mockResolvedValue([mockActivity]);
 
         await expect(useCase.execute(classId, monitorId, date, students, 'act1')).rejects.toThrow('Attendance outside schedule');
+    });
+
+    it('should preserve pre_justified status and justification fields if not changed', async () => {
+        const classId = 'cl1';
+        const monitorId = 'm1';
+        const date = new Date('2026-03-23T15:00:00');
+        const students = [
+            { childId: 'c1', status: 'pre_justified' as const }
+        ];
+
+        const mockClass = new Class(classId, 'Turma A', new WeeklySchedule(['MON'], '14:00', '17:00'));
+        mockClassRepo.findById.mockResolvedValue(mockClass);
+
+        const existingRecord = new AttendanceRecord(
+            'record-id',
+            'c1',
+            classId,
+            '',
+            date,
+            AttendanceStatus.create('pre_justified'),
+            undefined,
+            'Medical appointment',
+            new Date('2026-03-23T10:00:00')
+        );
+        mockAttendanceRepo.findByChildAndDate.mockResolvedValue(existingRecord);
+
+        await useCase.execute(classId, monitorId, date, students);
+
+        expect(mockAttendanceRepo.save).toHaveBeenCalledWith(
+            expect.objectContaining({
+                id: 'record-id',
+                childId: 'c1',
+                classId: 'cl1',
+                monitorId: 'm1',
+                status: expect.objectContaining({ value: 'pre_justified' }),
+                justificationNote: 'Medical appointment'
+            })
+        );
+    });
+
+    it('should clean justification note and justified date when student status is changed to present', async () => {
+        const classId = 'cl1';
+        const monitorId = 'm1';
+        const date = new Date('2026-03-23T15:00:00');
+        const students = [
+            { childId: 'c1', status: 'present' as const, geolocation: { lat: 1, lng: 2 } }
+        ];
+
+        const mockClass = new Class(classId, 'Turma A', new WeeklySchedule(['MON'], '14:00', '17:00'));
+        mockClassRepo.findById.mockResolvedValue(mockClass);
+
+        const existingRecord = new AttendanceRecord(
+            'record-id',
+            'c1',
+            classId,
+            '',
+            date,
+            AttendanceStatus.create('pre_justified'),
+            undefined,
+            'Medical appointment',
+            new Date('2026-03-23T10:00:00')
+        );
+        mockAttendanceRepo.findByChildAndDate.mockResolvedValue(existingRecord);
+
+        await useCase.execute(classId, monitorId, date, students);
+
+        expect(mockAttendanceRepo.save).toHaveBeenCalledWith(
+            expect.objectContaining({
+                id: 'record-id',
+                childId: 'c1',
+                classId: 'cl1',
+                monitorId: 'm1',
+                status: expect.objectContaining({ value: 'present' }),
+                justificationNote: undefined,
+                justifiedAt: undefined
+            })
+        );
     });
 });

@@ -145,4 +145,85 @@ describe('OfflineSyncService', () => {
         const notificationService = NotificationService.getInstance();
         expect(notificationService.sendPushNotification).not.toHaveBeenCalled();
     });
+
+    it('should successfully sync a pending REPORT_INCIDENT action from sync_queue to Supabase Storage and DB', async () => {
+        const incidentPayload = {
+            id: 'incident-uuid-111',
+            description: 'Child fell and got a scrape',
+            isEmergency: false,
+            photoUrls: ['file://local/scratch.jpg'],
+            classId: 'class-B',
+            studentId: 'student-777',
+            monitorId: 'monitor-99',
+            createdAt: '2026-05-28T22:00:00.000Z'
+        };
+
+        const mockQueue = [
+            {
+                id: 43,
+                action_type: 'REPORT_INCIDENT',
+                payload: JSON.stringify(incidentPayload),
+                timestamp: Date.now(),
+                retry_count: 0,
+                status: 'pending'
+            }
+        ];
+
+        // Mock count before sync
+        mockStorage.query
+            .mockResolvedValueOnce([{ count: 1 }]) // pendingQueueBefore
+            .mockResolvedValueOnce([{ count: 0 }]) // pendingAttendanceBefore
+            .mockResolvedValueOnce([{ count: 0 }]) // pendingActivitiesBefore
+            .mockResolvedValueOnce(mockQueue)      // queue retrieval
+            .mockResolvedValueOnce([])             // legacy unsynced attendance
+            .mockResolvedValueOnce([])             // legacy unsynced activities
+            .mockResolvedValueOnce([{ count: 0 }]) // pendingQueueAfter
+            .mockResolvedValueOnce([{ count: 0 }]) // pendingAttendanceAfter
+            .mockResolvedValueOnce([{ count: 0 }]);// pendingActivitiesAfter
+
+        // Mock supabase calls
+        const upsertSpy = jest.spyOn(supabase as any, 'upsert').mockResolvedValue({ error: null } as any);
+        const insertSpy = jest.spyOn(supabase as any, 'insert').mockResolvedValue({ error: null } as any);
+        const deleteSpy = jest.fn().mockReturnThis();
+        (supabase as any).delete = deleteSpy;
+
+        await service.syncUp();
+
+        // Should read local file
+        expect(FileSystem.readAsStringAsync).toHaveBeenCalledWith('file://local/scratch.jpg', { encoding: 'base64' });
+
+        // Should upload to bucket 'children-photos'
+        const mockUpload = (supabase.storage.from as jest.Mock)().upload;
+        expect(mockUpload).toHaveBeenCalledWith(
+            expect.stringContaining('incident_'),
+            expect.any(ArrayBuffer),
+            expect.objectContaining({ contentType: 'image/jpeg' })
+        );
+
+        // Should upsert incident
+        expect(supabase.from).toHaveBeenCalledWith('incidents');
+        expect(upsertSpy).toHaveBeenCalledWith(expect.objectContaining({
+            id: 'incident-uuid-111',
+            description: 'Child fell and got a scrape',
+            is_emergency: false,
+            class_id: 'class-B',
+            child_id: 'student-777',
+            monitor_id: 'monitor-99',
+        }));
+
+        // Should insert incident photos
+        expect(supabase.from).toHaveBeenCalledWith('incident_photos');
+        expect(insertSpy).toHaveBeenCalledWith([
+            {
+                incident_id: 'incident-uuid-111',
+                url: 'https://supabase.co/photo.jpg'
+            }
+        ]);
+
+        // Should update local sync_queue status to completed
+        expect(mockStorage.run).toHaveBeenCalledWith(
+            "UPDATE sync_queue SET status = 'completed' WHERE id = ?",
+            [43]
+        );
+    });
 });

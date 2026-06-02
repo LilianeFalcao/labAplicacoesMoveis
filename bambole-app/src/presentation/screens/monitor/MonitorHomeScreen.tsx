@@ -19,7 +19,7 @@ import { GetClassesWithoutMonitorUseCase } from '../../../application/activity/u
 import { RequestTemporaryAccessUseCase } from '../../../application/activity/use-cases/RequestTemporaryAccessUseCase';
 import { GetMonitorClassesUseCase } from '../../../application/activity/use-cases/GetMonitorClassesUseCase';
 import { GetMonitorAverageAttendanceUseCase } from '../../../application/attendance/use-cases/GetMonitorAverageAttendanceUseCase';
-import { MockNotificationRepository } from '../../../infrastructure/notification/repositories/MockNotificationRepository';
+import { SupabaseNotificationRepository } from '../../../infrastructure/notification/repositories/SupabaseNotificationRepository';
 import { SupabaseAttendanceRepository } from '../../../infrastructure/attendance/repositories/SupabaseAttendanceRepository';
 import { NotificationService } from '../../../infrastructure/notification/services/NotificationService';
 import { SpeedDial, SpeedDialAction } from '../../components/base/SpeedDial';
@@ -93,7 +93,7 @@ export const MonitorHomeScreen = () => {
     };
 
     // Initialize repositories and use cases
-    const notificationRepo = MockNotificationRepository.getInstance();
+    const notificationRepo = SupabaseNotificationRepository.getInstance();
     const notificationService = NotificationService.getInstance();
     const classRepo = new SupabaseClassRepository();
     const accessRequestRepo = new SupabaseAccessRequestRepository();

@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import { ThemeType, ThemeColors } from '../../styles/Theme';
 import { Notification } from '../../../domain/notification/entities/Notification';
-import { MockNotificationRepository } from '../../../infrastructure/notification/repositories/MockNotificationRepository';
+import { SupabaseNotificationRepository } from '../../../infrastructure/notification/repositories/SupabaseNotificationRepository';
 import { useAuth } from '../../contexts/AuthContext';
 import { AppCard } from '../../components/base/AppCard';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -19,7 +19,7 @@ export const NotificationsScreen = () => {
     const styles = createStyles(colors, activeTheme, isDark);
     const [notifications, setNotifications] = useState<Notification[]>([]);
     
-    const notificationRepo = MockNotificationRepository.getInstance();
+    const notificationRepo = SupabaseNotificationRepository.getInstance();
 
     const loadNotifications = async () => {
         if (!user?.id) return;

@@ -7,7 +7,7 @@ import { ClassAccessRequest } from '../../../domain/activity/entities/ClassAcces
 import { GetPendingAccessRequestsUseCase } from '../../../application/activity/use-cases/GetPendingAccessRequestsUseCase';
 import { ApproveAccessRequestUseCase } from '../../../application/activity/use-cases/ApproveAccessRequestUseCase';
 import { RejectAccessRequestUseCase } from '../../../application/activity/use-cases/RejectAccessRequestUseCase';
-import { MockNotificationRepository } from '../../../infrastructure/notification/repositories/MockNotificationRepository';
+import { SupabaseNotificationRepository } from '../../../infrastructure/notification/repositories/SupabaseNotificationRepository';
 import { NotificationService } from '../../../infrastructure/notification/services/NotificationService';
 
 interface PendingRequestsModalProps {
@@ -27,7 +27,7 @@ export const PendingRequestsModal: React.FC<PendingRequestsModalProps> = ({
     const [loading, setLoading] = useState(true);
     const [processing, setProcessing] = useState<string | null>(null);
 
-    const notificationRepo = MockNotificationRepository.getInstance();
+    const notificationRepo = SupabaseNotificationRepository.getInstance();
     const notificationService = NotificationService.getInstance();
 
     const getPendingUseCase = new GetPendingAccessRequestsUseCase(accessRepo);

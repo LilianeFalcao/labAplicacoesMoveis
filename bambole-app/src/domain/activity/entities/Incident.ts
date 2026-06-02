@@ -1,3 +1,5 @@
+import { generateUUID } from '../../../infrastructure/utils/uuid';
+
 export interface IncidentProps {
     id: string;
     description: string;
@@ -24,7 +26,7 @@ export class Incident {
     static create(props: Omit<IncidentProps, 'id' | 'createdAt'>): Incident {
         return new Incident({
             ...props,
-            id: Math.random().toString(36).substring(2, 9),
+            id: generateUUID(),
             createdAt: new Date(),
         });
     }

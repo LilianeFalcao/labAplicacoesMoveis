@@ -3,72 +3,101 @@ import { IIncidentRepository } from '@/domain/activity/repositories/IIncidentRep
 import { Incident } from '@/domain/activity/entities/Incident';
 import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from '@/infrastructure/utils/base64';
+import { SqliteStorageService } from '@/infrastructure/storage/SqliteStorageService';
 
 export class SupabaseIncidentRepository implements IIncidentRepository {
     async save(incident: Incident): Promise<void> {
-        const { error: incidentError } = await supabase
-            .from('incidents')
-            .upsert({
-                id: incident.id,
-                description: incident.description,
-                is_emergency: incident.isEmergency,
-                class_id: incident.classId === 'global' ? null : incident.classId,
-                child_id: incident.studentId || null,
-                monitor_id: incident.monitorId,
-                created_at: incident.createdAt.toISOString()
-            });
-
-        if (incidentError) throw incidentError;
-
-        const uploadedUrls: string[] = [];
-
-        if (incident.photoUrls && incident.photoUrls.length > 0) {
-            for (const url of incident.photoUrls) {
-                if (url.startsWith('http://') || url.startsWith('https://')) {
-                    uploadedUrls.push(url);
-                } else {
-                    try {
-                        const base64 = await FileSystem.readAsStringAsync(url, { encoding: 'base64' });
-                        const fileName = `incident_${incident.id}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}.jpg`;
-                        const { error: uploadError } = await supabase.storage
-                            .from('children-photos')
-                            .upload(fileName, decode(base64), {
-                                contentType: 'image/jpeg',
-                                upsert: true
-                            });
-
-                        if (uploadError) throw uploadError;
-
-                        const { data: { publicUrl } } = supabase.storage
-                            .from('children-photos')
-                            .getPublicUrl(fileName);
-
-                        uploadedUrls.push(publicUrl);
-                    } catch (uploadErr) {
-                        console.error('Failed to upload incident photo:', url, uploadErr);
-                        uploadedUrls.push(url); // fallback
-                    }
-                }
+        let monitorId = incident.monitorId;
+        if (!monitorId || monitorId === 'monitor-mock-id') {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user?.id) {
+                monitorId = session.user.id;
             }
         }
 
-        if (uploadedUrls.length > 0) {
-            // Delete existing photos for this incident (if doing upsert)
-            await supabase
-                .from('incident_photos')
-                .delete()
-                .eq('incident_id', incident.id);
+        try {
+            const { error: incidentError } = await supabase
+                .from('incidents')
+                .insert({
+                    id: incident.id,
+                    description: incident.description,
+                    is_emergency: incident.isEmergency,
+                    class_id: incident.classId === 'global' ? null : incident.classId,
+                    child_id: incident.studentId || null,
+                    monitor_id: monitorId,
+                    created_at: incident.createdAt.toISOString()
+                });
 
-            const photosToInsert = uploadedUrls.map(url => ({
-                incident_id: incident.id,
-                url: url
-            }));
+            if (incidentError) throw incidentError;
 
-            const { error: photosError } = await supabase
-                .from('incident_photos')
-                .insert(photosToInsert);
+            const uploadedUrls: string[] = [];
 
-            if (photosError) throw photosError;
+            if (incident.photoUrls && incident.photoUrls.length > 0) {
+                for (const url of incident.photoUrls) {
+                    if (url.startsWith('http://') || url.startsWith('https://')) {
+                        uploadedUrls.push(url);
+                    } else {
+                        try {
+                            const base64 = await FileSystem.readAsStringAsync(url, { encoding: 'base64' });
+                            const fileName = `incident_${incident.id}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}.jpg`;
+                            const { error: uploadError } = await supabase.storage
+                                .from('children-photos')
+                                .upload(fileName, decode(base64), {
+                                    contentType: 'image/jpeg',
+                                    upsert: true
+                                });
+
+                            if (uploadError) throw uploadError;
+
+                            const { data: { publicUrl } } = supabase.storage
+                                .from('children-photos')
+                                .getPublicUrl(fileName);
+
+                            uploadedUrls.push(publicUrl);
+                        } catch (uploadErr) {
+                            console.error('Failed to upload incident photo:', url, uploadErr);
+                            uploadedUrls.push(url); // fallback
+                        }
+                    }
+                }
+            }
+
+            if (uploadedUrls.length > 0) {
+                // Delete existing photos for this incident (if doing upsert)
+                await supabase
+                    .from('incident_photos')
+                    .delete()
+                    .eq('incident_id', incident.id);
+
+                const photosToInsert = uploadedUrls.map(url => ({
+                    incident_id: incident.id,
+                    url: url
+                }));
+
+                const { error: photosError } = await supabase
+                    .from('incident_photos')
+                    .insert(photosToInsert);
+
+                if (photosError) throw photosError;
+            }
+        } catch (error) {
+            console.warn('Online save incident failed, falling back to offline storage', error);
+
+            const payload = {
+                id: incident.id,
+                description: incident.description,
+                isEmergency: incident.isEmergency,
+                classId: incident.classId,
+                studentId: incident.studentId || null,
+                monitorId: monitorId,
+                createdAt: incident.createdAt.toISOString(),
+                photoUrls: incident.photoUrls
+            };
+
+            await SqliteStorageService.getInstance().run(
+                "INSERT INTO sync_queue (action_type, payload, timestamp, status) VALUES (?, ?, ?, 'pending')",
+                ['REPORT_INCIDENT', JSON.stringify(payload), Date.now()]
+            );
         }
     }
 

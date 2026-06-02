@@ -18,6 +18,7 @@ import { Theme } from '../../styles/Theme';
 import { AppButton } from '../base/AppButton';
 import { Incident } from '../../../domain/activity/entities/Incident';
 import { SupabaseIncidentRepository } from '../../../infrastructure/activity/repositories/SupabaseIncidentRepository';
+import { ConnectivityService } from '../../../infrastructure/network/ConnectivityService';
 
 interface IncidentReportModalProps {
     visible: boolean;
@@ -90,11 +91,21 @@ export const IncidentReportModal: React.FC<IncidentReportModalProps> = ({ visibl
                 monitorId,
             });
 
+            const isOnline = ConnectivityService.getInstance().getStatus() === 'online';
+
             await new SupabaseIncidentRepository().save(incident);
 
-            Alert.alert('Sucesso', 'Relatório enviado com sucesso!');
+            if (isOnline) {
+                Alert.alert('Sucesso', 'Relatório enviado com sucesso!');
+            } else {
+                Alert.alert(
+                    'Salvo Offline',
+                    'O relatório foi salvo localmente de forma segura e será sincronizado quando a conexão for reestabelecida.'
+                );
+            }
             resetAndClose();
         } catch (error) {
+            console.error('Failed to save incident report:', error);
             Alert.alert('Erro', 'Não foi possível salvar o relatório.');
         }
     };
