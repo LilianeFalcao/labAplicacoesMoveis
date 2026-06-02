@@ -247,5 +247,80 @@ describe('SupabaseActivityRepository Likes and Comments', () => {
         expect(mockUpdateEq).toHaveBeenCalledWith('id', photoId);
         expect(result).toEqual([comment]);
     });
-});
 
+    it('should successfully save a photo online', async () => {
+        const photo = ActivityPhoto.create({
+            id: 'a1b2c3d4-e5f6-7a8b-9c0d-1234567890ab', // valid hex UUID
+            classId: 'class-X',
+            monitorId: 'monitor-77',
+            photoUri: 'file://some/image.jpg',
+            caption: 'Aula de futebol',
+        });
+
+        const mockInsert = jest.fn().mockResolvedValue({ error: null });
+        const mockUpload = jest.fn().mockResolvedValue({ error: null });
+        const mockGetPublicUrl = jest.fn().mockReturnValue({ data: { publicUrl: 'https://supabase.co/uploaded_photo.jpg' } });
+
+        jest.spyOn(supabase, 'from').mockImplementation((table: string) => {
+            if (table === 'activity_photos') {
+                return { insert: mockInsert } as any;
+            }
+            return {} as any;
+        });
+
+        jest.spyOn(supabase.storage, 'from').mockImplementation(() => {
+            return {
+                upload: mockUpload,
+                getPublicUrl: mockGetPublicUrl,
+            } as any;
+        });
+
+        await repository.savePhoto(photo);
+
+        expect(mockUpload).toHaveBeenCalled();
+        expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
+            id: 'a1b2c3d4-e5f6-7a8b-9c0d-1234567890ab',
+            class_id: 'class-X',
+            url: 'https://supabase.co/uploaded_photo.jpg',
+            uploaded_by: 'monitor-77',
+            caption: 'Aula de futebol'
+        }));
+    });
+
+    it('should query feed by monitor id', async () => {
+        const mockRemotePhotos = [
+            {
+                id: 'photo-remote-2',
+                class_id: 'class-X',
+                uploaded_by: 'monitor-77',
+                url: 'https://supabase.co/remote2.jpg',
+                caption: 'Foto remota no ar',
+                uploaded_at: '2026-05-28T22:00:00.000Z'
+            }
+        ];
+
+        const mockStorageInstance = SqliteStorageService.getInstance();
+        mockStorageInstance.query = jest.fn().mockResolvedValueOnce([]); // no pending
+
+        const mockSelect = jest.fn().mockReturnThis();
+        const mockEq = jest.fn().mockReturnThis();
+        const mockOrder = jest.fn().mockResolvedValue({ data: mockRemotePhotos, error: null });
+
+        jest.spyOn(supabase, 'from').mockImplementation((table: string) => {
+            if (table === 'activity_photos') {
+                return {
+                    select: mockSelect,
+                    eq: mockEq,
+                    order: mockOrder,
+                } as any;
+            }
+            return {} as any;
+        });
+
+        const feed = await repository.getFeedByMonitor('monitor-77');
+
+        expect(feed).toHaveLength(1);
+        expect(feed[0].id).toBe('photo-remote-2');
+        expect(mockEq).toHaveBeenCalledWith('uploaded_by', 'monitor-77');
+    });
+});
