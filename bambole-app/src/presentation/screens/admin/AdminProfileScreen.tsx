@@ -123,7 +123,7 @@ export const AdminProfileScreen = () => {
 
                 <View style={styles.systemBox}>
                     <Text style={styles.systemTitle}>PLATAFORMA BAMBOLÊ</Text>
-                    <Text style={styles.systemVersion}>Build 2024.04.14 • Produção</Text>
+                    <Text style={styles.systemVersion}>Build 2026.06.16 • Produção</Text>
                 </View>
             </ScrollView>
 

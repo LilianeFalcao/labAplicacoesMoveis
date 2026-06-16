@@ -20,7 +20,7 @@ const THEME_STORAGE_KEY = '@bambole:theme_preference';
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const systemColorScheme = useColorScheme();
-    const [themeMode, setThemeModeState] = useState<ThemePreference>('system');
+    const [themeMode, setThemeModeState] = useState<ThemePreference>('light');
 
     useEffect(() => {
         const loadSavedTheme = async () => {
@@ -45,14 +45,11 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
     };
 
-    // Resolve 'system' to light/dark based on the OS settings
-    const resolvedTheme: 'light' | 'dark' = 
-        themeMode === 'system' 
-            ? (systemColorScheme === 'dark' ? 'dark' : 'light')
-            : themeMode;
+    // Forçamos sempre para 'light' pois o modo escuro ainda apresenta problemas
+    const resolvedTheme: 'light' | 'dark' = 'light';
 
-    const activeTheme = resolvedTheme === 'dark' ? DarkTheme : LightTheme;
-    const isDark = resolvedTheme === 'dark';
+    const activeTheme = LightTheme;
+    const isDark = false;
 
     return (
         <ThemeContext.Provider

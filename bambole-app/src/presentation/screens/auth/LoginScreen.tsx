@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, SafeAreaView, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, SafeAreaView, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useAuth } from '@/presentation/contexts/AuthContext';
 import { AppInput } from '../../components/base/AppInput';
 import { AppButton } from '../../components/base/AppButton';
@@ -88,8 +88,12 @@ export const LoginScreen = () => {
                 <Text style={styles.logo}>Bambolê</Text>
                 <View style={styles.headerIconButton} />
             </View>
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                <View style={styles.content}>
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            >
+                <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+                    <View style={styles.content}>
                     <Text style={styles.welcomeTitle}>Bem-vindo de Volta !</Text>
                     <Text style={styles.welcomeSubtitle}>
                         Acesse o portal para gerenciar atividades e acompanhar o progresso dos seus filhos.
@@ -175,6 +179,7 @@ export const LoginScreen = () => {
                     <RoleFooter />
                 </View>
             </ScrollView>
+            </KeyboardAvoidingView>
         </SafeAreaView>
     );
 };

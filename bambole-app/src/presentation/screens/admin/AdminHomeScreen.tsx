@@ -87,7 +87,7 @@ export const AdminHomeScreen = ({ navigation }: any) => {
     }
 
     return (
-        <SafeAreaView style={styles.mainContainer} edges={['left', 'right', 'bottom']}>
+        <SafeAreaView style={styles.mainContainer} edges={['left', 'right']}>
             <AppHeader
                 title="Painel Administrativo"
                 rightAction={{
@@ -108,7 +108,7 @@ export const AdminHomeScreen = ({ navigation }: any) => {
 
             <ScrollView
                 style={styles.container}
-                contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 80 }]}
+                contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
                 showsVerticalScrollIndicator={false}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />}
             >

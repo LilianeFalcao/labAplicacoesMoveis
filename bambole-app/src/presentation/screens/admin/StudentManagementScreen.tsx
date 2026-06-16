@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Image, Modal, Alert, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Image, Modal, Alert, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../../components/base/AppHeader';
 import { AppCard } from '../../components/base/AppCard';
@@ -413,8 +413,12 @@ export const StudentManagementScreen = () => {
 
             {/* Registration & Edit Form Modal */}
             <Modal visible={formModalVisible} animationType="slide" transparent>
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
+                <KeyboardAvoidingView
+                    style={{ flex: 1 }}
+                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                >
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>
                                 {editingChild ? 'Editar Aluno' : 'Matricular Criança'}
@@ -520,7 +524,8 @@ export const StudentManagementScreen = () => {
                         </View>
                     </View>
                 </View>
-            </Modal>
+            </KeyboardAvoidingView>
+        </Modal>
 
             {/* Seletor de Data de Nascimento (Custom Calendar Modal) */}
             <Modal

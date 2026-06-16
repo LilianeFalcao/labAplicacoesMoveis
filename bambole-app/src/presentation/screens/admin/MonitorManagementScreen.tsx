@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Modal, TextInput, Alert, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Modal, TextInput, Alert, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../../components/base/AppHeader';
 import { AppCard } from '../../components/base/AppCard';
@@ -432,8 +432,12 @@ export const MonitorManagementScreen = () => {
 
             {/* Register Monitor Modal */}
             <Modal visible={registerModalVisible} animationType="slide" transparent>
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
+                <KeyboardAvoidingView
+                    style={{ flex: 1 }}
+                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                >
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>Cadastrar Novo Monitor</Text>
                             <TouchableOpacity onPress={() => setRegisterModalVisible(false)}>
@@ -497,7 +501,8 @@ export const MonitorManagementScreen = () => {
                         </View>
                     </View>
                 </View>
-            </Modal>
+            </KeyboardAvoidingView>
+        </Modal>
 
             {/* Associate Classes Modal */}
             <Modal visible={linkClassesModalVisible} animationType="slide" transparent>

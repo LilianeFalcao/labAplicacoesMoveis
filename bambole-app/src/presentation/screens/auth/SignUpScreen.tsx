@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Alert, ScrollView, SafeAreaView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Alert, ScrollView, SafeAreaView, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import { AppInput } from '../../components/base/AppInput';
 import { AppButton } from '../../components/base/AppButton';
 import { Theme } from '../../styles/Theme';
@@ -64,7 +64,11 @@ export const SignUpScreen = () => {
                 <Text style={styles.headerLogo}>Bambolê</Text>
                 <View style={styles.placeholder} />
             </View>
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            >
+                <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                 <View style={styles.intro}>
                     <View style={styles.familyBadge}>
                         <MaterialCommunityIcons name="account-group" size={16} color={Theme.colors.primary} />
@@ -140,6 +144,7 @@ export const SignUpScreen = () => {
                     <Text style={styles.securityText}>AMBIENTE SEGURO & CRIPTOGRAFADO</Text>
                 </View>
             </ScrollView>
+            </KeyboardAvoidingView>
         </SafeAreaView>
     );
 };

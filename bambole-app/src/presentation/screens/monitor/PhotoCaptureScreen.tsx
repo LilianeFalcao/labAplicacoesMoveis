@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, TextInput, Alert, FlatList } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, TextInput, Alert, FlatList, KeyboardAvoidingView, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppHeader } from "../../components/base/AppHeader";
 import { AppButton } from "../../components/base/AppButton";
@@ -153,54 +153,58 @@ export const PhotoCaptureScreen = () => {
         <SafeAreaView style={styles.mainContainer} edges={["left", "right", "bottom"]}>
             <AppHeader title={`Capturar Momento: ${groupName}`} showBack onBack={() => navigation.canGoBack() ? navigation.goBack() : (navigation as any).navigate('Attendance')} />
 
-            <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-
-                <View style={[styles.section, styles.captureSection]}>
-                    <Text style={styles.sectionTitle}>1. Registre a Atividade</Text>
-                    <TouchableOpacity style={[styles.photoCard, !image && styles.photoCardEmpty]} onPress={handleStartCapture} activeOpacity={0.9}>
-                        {image ? (
-                            <>
-                                <Image source={{ uri: image }} style={styles.preview} />
-                                <View style={styles.retakeBadge}>
-                                    <MaterialCommunityIcons name="refresh" size={16} color="#FFF" />
-                                    <Text style={styles.retakeText}>Trocar foto</Text>
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            >
+                <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+                    <View style={[styles.section, styles.captureSection]}>
+                        <Text style={styles.sectionTitle}>1. Registre a Atividade</Text>
+                        <TouchableOpacity style={[styles.photoCard, !image && styles.photoCardEmpty]} onPress={handleStartCapture} activeOpacity={0.9}>
+                            {image ? (
+                                <>
+                                    <Image source={{ uri: image }} style={styles.preview} />
+                                    <View style={styles.retakeBadge}>
+                                        <MaterialCommunityIcons name="refresh" size={16} color="#FFF" />
+                                        <Text style={styles.retakeText}>Trocar foto</Text>
+                                    </View>
+                                </>
+                            ) : (
+                                <View style={styles.uploadPlaceholder}>
+                                    <View style={styles.iconCircle}>
+                                        <MaterialCommunityIcons name="camera-plus" size={40} color={Theme.colors.primary} />
+                                    </View>
+                                    <Text style={styles.placeholderTitle}>Toque para fotografar</Text>
+                                    <Text style={styles.placeholderSubtitle}>Compartilhe o progresso da turma</Text>
                                 </View>
-                            </>
-                        ) : (
-                            <View style={styles.uploadPlaceholder}>
-                                <View style={styles.iconCircle}>
-                                    <MaterialCommunityIcons name="camera-plus" size={40} color={Theme.colors.primary} />
-                                </View>
-                                <Text style={styles.placeholderTitle}>Toque para fotografar</Text>
-                                <Text style={styles.placeholderSubtitle}>Compartilhe o progresso da turma</Text>
-                            </View>
-                        )}
-                    </TouchableOpacity>
-                </View>
-
-                {image && (
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>2. Legenda (Opcional)</Text>
-                        <TextInput
-                            style={styles.captionInput}
-                            placeholder="Escreva algo sobre este momento..."
-                            value={caption}
-                            onChangeText={setCaption}
-                            multiline
-                        />
+                            )}
+                        </TouchableOpacity>
                     </View>
-                )}
 
-                <AppButton title="Enviar para os Pais" onPress={handleSave} disabled={!image || !classId} style={styles.button} />
-                {image && (
-                    <AppButton
-                        title="Tirar outra foto"
-                        onPress={handleStartCapture}
-                        variant="outline"
-                        style={{ marginTop: Theme.spacing.sm, height: 56 }}
-                    />
-                )}
-            </ScrollView>
+                    {image && (
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>2. Legenda (Opcional)</Text>
+                            <TextInput
+                                style={styles.captionInput}
+                                placeholder="Escreva algo sobre este momento..."
+                                value={caption}
+                                onChangeText={setCaption}
+                                multiline
+                            />
+                        </View>
+                    )}
+
+                    <AppButton title="Enviar para os Pais" onPress={handleSave} disabled={!image || !classId} style={styles.button} />
+                    {image && (
+                        <AppButton
+                            title="Tirar outra foto"
+                            onPress={handleStartCapture}
+                            variant="outline"
+                            style={{ marginTop: Theme.spacing.sm, height: 56 }}
+                        />
+                    )}
+                </ScrollView>
+            </KeyboardAvoidingView>
         </SafeAreaView>
     );
 };
